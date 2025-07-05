@@ -247,15 +247,15 @@ exports.manageReceiptTemplates = async (req, res) => {
     }
     
     switch (action) {
-      case 'add':
+      case 'add': {
         if (template.isDefault) {
           // حذف قالب پیش‌فرض قبلی
           settings.receipt.templates.forEach(t => t.isDefault = false);
         }
         settings.receipt.templates.push(template);
         break;
-        
-      case 'update':
+      }
+      case 'update': {
         const templateIndex = settings.receipt.templates.findIndex(t => t.name === template.name);
         if (templateIndex === -1) {
           return res.status(404).json({
@@ -268,8 +268,8 @@ exports.manageReceiptTemplates = async (req, res) => {
         }
         settings.receipt.templates[templateIndex] = template;
         break;
-        
-      case 'delete':
+      }
+      case 'delete': {
         const deleteIndex = settings.receipt.templates.findIndex(t => t.name === template.name);
         if (deleteIndex === -1) {
           return res.status(404).json({
@@ -279,7 +279,7 @@ exports.manageReceiptTemplates = async (req, res) => {
         }
         settings.receipt.templates.splice(deleteIndex, 1);
         break;
-        
+      }
       default:
         return res.status(400).json({
           success: false,
@@ -320,18 +320,18 @@ exports.testDeliverySettings = async (req, res) => {
     let result;
     
     switch (channel) {
-      case 'email':
+      case 'email': {
         result = await testEmailDelivery(settings.receipt.delivery.email, testData);
         break;
-        
-      case 'sms':
+      }
+      case 'sms': {
         result = await testSMSDelivery(settings.receipt.delivery.sms, testData);
         break;
-        
-      case 'whatsapp':
+      }
+      case 'whatsapp': {
         result = await testWhatsAppDelivery(settings.receipt.delivery.whatsapp, testData);
         break;
-        
+      }
       default:
         return res.status(400).json({
           success: false,
