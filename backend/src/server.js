@@ -972,7 +972,9 @@ class ExchangePlatformServer {
 }
 
 // Start the server
-const server = new ExchangePlatformServer();
-server.start();
+const serverInstance = new ExchangePlatformServer();
+serverInstance.server.listen(serverInstance.port, () => {
+  console.log(`🚀 Server running on port ${serverInstance.port}`);
+});
 
-module.exports = server;
+module.exports = serverInstance;
