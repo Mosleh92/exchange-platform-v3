@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Receipt = require('../models/Receipt');
 const ReceiptService = require('../services/ReceiptService');
 const CustomerTransaction = require('../models/CustomerTransaction');
@@ -446,7 +447,7 @@ exports.generateReceiptsForExistingTransactions = async (req, res) => {
       message: i18n.t(req.language, 'receipt.bulkGenerated'),
       data: {
         generated: results.length,
-        errors: errors.length,
+        errorCount: errors.length, // Changed key name
         results,
         errors
       }
