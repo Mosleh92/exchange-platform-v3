@@ -2,7 +2,6 @@
   "name": "exchange-platform-v3",
   "version": "1.0.0",
   "description": "پلتفرم صرافی چند‌مستأجری - Multi-Tenant Exchange Platform",
-  "main": "index.js",
   "scripts": {
     "setup": "node scripts/setup.js",
     "setup:quick": "npm run install:all && npm run setup:env && npm run seed",
