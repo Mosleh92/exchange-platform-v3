@@ -4,7 +4,7 @@ const Discrepancy = require('../models/Discrepancy');
 const ExcelJS = require('exceljs');
 const Account = require('../models/Account');
 
-exports.dailyVolume = async (req, res) => {
+async function dailyVolume(req, res) {
   const { companyId, days = 30 } = req.query;
   const since = new Date();
   since.setDate(since.getDate() - days);
@@ -20,9 +20,9 @@ exports.dailyVolume = async (req, res) => {
     { $sort: { _id: 1 } }
   ]);
   res.json({ dailyVolume: result });
-};
+}
 
-exports.profitAndLoss = async (req, res) => {
+async function profitAndLoss(req, res) {
   try {
     const tenantId = req.user.tenantId;
     const { from, to } = req.query;
@@ -63,18 +63,18 @@ exports.profitAndLoss = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
+}
 
-exports.getReconciliationReport = async (req, res) => {
+async function getReconciliationReport(req, res) {
   try {
     const report = await reconcileTransactions();
     res.json({ success: true, data: report });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
+}
 
-exports.financialReport = async (req, res) => {
+async function financialReport(req, res) {
   try {
     const { from, to, type, branchId, currency, customerId, status } = req.query;
     const match = {
@@ -95,9 +95,9 @@ exports.financialReport = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'خطا در گزارش مالی.' });
   }
-};
+}
 
-exports.financialReportExcel = async (req, res) => {
+async function financialReportExcel(req, res) {
   try {
     const { from, to, type, branchId, currency, customerId, status } = req.query;
     const match = {
@@ -131,18 +131,18 @@ exports.financialReportExcel = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'خطا در خروجی اکسل گزارش مالی.' });
   }
-};
+}
 
-exports.discrepancyReport = async (req, res) => {
+async function discrepancyReport(req, res) {
   try {
     const discrepancies = await Discrepancy.find({ tenantId: req.user.tenantId });
     res.json({ discrepancies });
   } catch (err) {
     res.status(500).json({ error: 'خطا در گزارش مغایرت‌ها.' });
   }
-};
+}
 
-exports.discrepancyReportExcel = async (req, res) => {
+async function discrepancyReportExcel(req, res) {
   try {
     const discrepancies = await Discrepancy.find({ tenantId: req.user.tenantId });
     const workbook = new ExcelJS.Workbook();
@@ -170,10 +170,19 @@ exports.discrepancyReportExcel = async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'خطا در خروجی اکسل مغایرت‌ها.' });
   }
-};
+}
 
 // گزارش مجموع تراکنش‌ها بر اساس بازه زمانی و نوع تراکنش
-async function transactionSummary(req, res) {
+// This function was already defined correctly, no change needed for its definition style.
+// It was: async function transactionSummary(req, res) { ... }
+// It will remain: async function transactionSummary(req, res) { ... }
+// The issue was that it was not included in module.exports, which has been fixed in a previous step.
+// For clarity and consistency, I will ensure its structure matches the others if it was using exports.transactionSummary
+// However, reading the file again shows it's already an async function.
+// The only change here is to ensure the 'exports.' prefix is removed if it was there,
+// but the file content shows it's already defined as `async function transactionSummary...`
+
+async function transactionSummary(req, res) { // No change to definition, already correct style
   try {
     const tenantId = req.user.tenantId;
     const { from, to, type } = req.query;
@@ -200,7 +209,7 @@ async function transactionSummary(req, res) {
   }
 }
 
-exports.accountBalanceSummary = async (req, res) => {
+async function accountBalanceSummary(req, res) {
   try {
     const tenantId = req.user.tenantId;
     const result = await Account.aggregate([
@@ -217,9 +226,9 @@ exports.accountBalanceSummary = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
+}
 
-exports.transactionTrend = async (req, res) => {
+async function transactionTrend(req, res) {
   try {
     const tenantId = req.user.tenantId;
     const { from, to, type, interval = 'daily' } = req.query;
@@ -254,7 +263,7 @@ exports.transactionTrend = async (req, res) => {
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
-};
+}
 
 module.exports = {
   dailyVolume,
