@@ -1,0 +1,41 @@
+services:
+  # Backend API Service
+  - type: web
+    name: exchange-platform-backend
+    env: node
+    plan: free
+    buildCommand: cd backend && npm install
+    startCommand: cd backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # Frontend Static Site
+  - type: web
+    name: exchange-platform-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://exchange-platform-backend.onrender.com
+      - key: VITE_WS_URL
+        value: wss://exchange-platform-backend.onrender.com
+      - key: VITE_APP_NAME
+        value: Exchange Platform
+    autoDeploy: true 
