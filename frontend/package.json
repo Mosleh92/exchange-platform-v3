@@ -67,7 +67,8 @@
     "react-table": "^7.8.0",
     "recharts": "^2.15.4",
     "socket.io-client": "^4.8.1",
-    "tailwind-merge": "^1.14.0"
+    "tailwind-merge": "^1.14.0",
+    "@supabase/supabase-js": "^2.39.7"
   },
   "devDependencies": {
     "@tailwindcss/aspect-ratio": "^0.4.2",
