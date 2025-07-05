@@ -1,5 +1,6 @@
 const logger = require('../utils/logger'); // Assuming logger exists
 const cache = require('../utils/cache');
+const ExchangeRate = require('../models/ExchangeRate'); // Added ExchangeRate model
 
 class ExchangeRateService {
     constructor() {
