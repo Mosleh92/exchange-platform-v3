@@ -52,19 +52,23 @@ async function seedDatabase() {
 
         // ایجاد کاربر مدیر سیستم
         console.log('👤 ایجاد مدیر سیستم...');
+        const superuserEmail = process.env.SUPERUSER_EMAIL || 'admin@exchangeplatform.com';
+        const superuserPassword = process.env.SUPERUSER_PASSWORD || 'admin123';
+
         const systemAdmin = new User({
             tenantId: 'system',
-            username: 'sysadmin',
-            password: await authConfig.hashPassword('admin123'),
+            username: 'sysadmin', // نام کاربری sysadmin ثابت می‌ماند
+            password: await authConfig.hashPassword(superuserPassword),
             role: 'system',
             name: 'مدیر سیستم',
-            email: 'admin@exchangeplatform.com',
+            email: superuserEmail,
             permissions: ['all'],
             isActive: true,
             createdAt: new Date(),
             updatedAt: new Date()
         });
         await systemAdmin.save();
+        console.log(`✅ مدیر سیستم با ایمیل ${superuserEmail} ایجاد شد.`);
 
         // ایجاد صرافی نمونه
         console.log('🏢 ایجاد صرافی نمونه...');
