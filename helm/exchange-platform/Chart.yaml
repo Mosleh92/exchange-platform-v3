@@ -1,0 +1,4 @@
+apiVersion: v2
+name: exchange-platform
+description: Exchange Platform SaaS
+version: 0.1.0 

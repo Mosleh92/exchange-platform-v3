@@ -1,0 +1,46 @@
+{
+  "name": "Exchange Platform",
+  "description": "Multi-tenant Exchange Platform with Crypto Support",
+  "repository": "https://github.com/your-username/exchange-platform",
+  "logo": "https://node-js-sample.herokuapp.com/node.png",
+  "keywords": ["node", "express", "mongodb", "crypto", "exchange"],
+  "env": {
+    "NODE_ENV": {
+      "description": "Environment setting",
+      "value": "production"
+    },
+    "JWT_SECRET": {
+      "description": "JWT Secret Key",
+      "generator": "secret"
+    },
+    "JWT_REFRESH_SECRET": {
+      "description": "JWT Refresh Secret Key",
+      "generator": "secret"
+    },
+    "SESSION_SECRET": {
+      "description": "Session Secret Key",
+      "generator": "secret"
+    }
+  },
+  "addons": [
+    {
+      "plan": "mongolab:sandbox",
+      "as": "MONGODB"
+    },
+    {
+      "plan": "rediscloud:30",
+      "as": "REDIS"
+    }
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  }
+} 

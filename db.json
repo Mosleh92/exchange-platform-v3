@@ -1,0 +1,21 @@
+{
+  "users": [
+    { "id": 1, "name": "علی رضایی", "email": "ali@example.com", "role": "tenant_admin", "status": "فعال" },
+    { "id": 2, "name": "مریم محمدی", "email": "maryam@example.com", "role": "staff", "status": "فعال" },
+    { "id": 3, "name": "حسین کریمی", "email": "hossein@example.com", "role": "branch_manager", "status": "تعلیق" }
+  ],
+  "plans": [
+    { "id": 1, "name": "پایه", "price": 500000, "duration": "ماهانه", "features": "تا 5 کاربر، 1 شعبه", "status": "فعال" },
+    { "id": 2, "name": "طلایی", "price": 2000000, "duration": "سالانه", "features": "تا 20 کاربر، 5 شعبه، گزارش پیشرفته", "status": "فعال" },
+    { "id": 3, "name": "VIP", "price": 5000000, "duration": "سالانه", "features": "نامحدود، پشتیبانی ویژه", "status": "تعلیق" }
+  ],
+  "branches": [
+    { "id": 1, "name": "شعبه مرکزی", "code": "BR001", "manager": "مدیر الف", "staffCount": 8, "status": "فعال" },
+    { "id": 2, "name": "شعبه غرب", "code": "BR002", "manager": "مدیر ب", "staffCount": 5, "status": "فعال" },
+    { "id": 3, "name": "شعبه شرق", "code": "BR003", "manager": "مدیر ج", "staffCount": 3, "status": "تعلیق" }
+  ],
+  "tenants": [
+    { "id": 1, "name": "صرافی الف", "code": "EX001", "owner": "علی رضایی", "plan": "طلایی", "status": "فعال", "expire": "1403/12/29", "created": "1402/01/01" },
+    { "id": 2, "name": "صرافی ب", "code": "EX002", "owner": "مریم محمدی", "plan": "پایه", "status": "تعلیق", "expire": "1403/06/15", "created": "1401/11/10" }
+  ]
+} 

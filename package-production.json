@@ -1,0 +1,143 @@
+{
+  "name": "exchange-platform-v3",
+  "version": "1.0.0",
+  "description": "پلتفرم صرافی چند‌مستأجری - Multi-Tenant Exchange Platform",
+  "main": "index.js",
+  "scripts": {
+    "setup": "node scripts/setup.js",
+    "setup:production": "./scripts/setup-production.sh",
+    "setup:quick": "npm run install:all && npm run setup:env && npm run seed",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "setup:env": "node scripts/setup-env.js",
+    
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd backend && npm run dev",
+    "dev:frontend": "cd frontend && npm run dev",
+    
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build",
+    
+    "start": "npm run start:production",
+    "start:production": "./scripts/deploy.sh start",
+    "start:backend": "cd backend && npm start",
+    "start:frontend": "cd frontend && npm run preview",
+    
+    "deploy": "./scripts/deploy.sh deploy",
+    "deploy:backup": "./scripts/deploy.sh backup",
+    "deploy:stop": "./scripts/deploy.sh stop",
+    "deploy:restart": "./scripts/deploy.sh restart",
+    "deploy:logs": "./scripts/deploy.sh logs",
+    "deploy:health": "./scripts/deploy.sh health",
+    "deploy:cleanup": "./scripts/deploy.sh cleanup",
+    
+    "docker:build": "docker-compose -f docker-compose.production.yml build",
+    "docker:up": "docker-compose -f docker-compose.production.yml up -d",
+    "docker:down": "docker-compose -f docker-compose.production.yml down",
+    "docker:logs": "docker-compose -f docker-compose.production.yml logs -f",
+    "docker:restart": "docker-compose -f docker-compose.production.yml restart",
+    "docker:pull": "docker-compose -f docker-compose.production.yml pull",
+    
+    "seed": "cd backend && npm run seed",
+    "seed:production": "cd backend && NODE_ENV=production npm run seed",
+    
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm test",
+    "test:frontend": "cd frontend && npm test",
+    "test:coverage": "npm run test:coverage:backend && npm run test:coverage:frontend",
+    "test:coverage:backend": "cd backend && npm run test:coverage",
+    "test:coverage:frontend": "cd frontend && npm run test:coverage",
+    "test:e2e": "cd frontend && npm run test:e2e",
+    
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && npm run lint",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:fix": "npm run lint:fix:backend && npm run lint:fix:frontend",
+    "lint:fix:backend": "cd backend && npm run lint:fix",
+    "lint:fix:frontend": "cd frontend && npm run lint:fix",
+    
+    "security": "npm run security:backend && npm run security:frontend",
+    "security:backend": "cd backend && npm audit --audit-level=moderate",
+    "security:frontend": "cd frontend && npm audit --audit-level=moderate",
+    "security:fix": "npm run security:fix:backend && npm run security:fix:frontend",
+    "security:fix:backend": "cd backend && npm audit fix",
+    "security:fix:frontend": "cd frontend && npm audit fix",
+    
+    "backup": "./scripts/deploy.sh backup",
+    "backup:db": "cd backend && npm run backup:db",
+    "backup:files": "cd backend && npm run backup:files",
+    "restore": "cd backend && npm run restore",
+    
+    "migrate": "cd backend && npm run migrate",
+    "migrate:rollback": "cd backend && npm run migrate:rollback",
+    "migrate:status": "cd backend && npm run migrate:status",
+    
+    "logs": "./scripts/deploy.sh logs",
+    "logs:backend": "docker-compose -f docker-compose.production.yml logs backend",
+    "logs:frontend": "docker-compose -f docker-compose.production.yml logs frontend",
+    "logs:nginx": "docker-compose -f docker-compose.production.yml logs nginx",
+    "logs:mongodb": "docker-compose -f docker-compose.production.yml logs mongodb",
+    
+    "monitor": "docker-compose -f docker-compose.production.yml logs -f prometheus grafana",
+    "health": "./scripts/deploy.sh health",
+    "status": "docker-compose -f docker-compose.production.yml ps",
+    
+    "clean": "npm run clean:node_modules && npm run clean:build && npm run clean:docker",
+    "clean:node_modules": "rm -rf node_modules backend/node_modules frontend/node_modules",
+    "clean:build": "rm -rf frontend/dist backend/dist",
+    "clean:docker": "docker system prune -f",
+    "clean:all": "npm run clean && docker system prune -af",
+    
+    "reset": "npm run clean && npm run setup",
+    "reset:production": "npm run clean && npm run setup:production",
+    
+    "update": "npm run update:deps && npm run security:fix",
+    "update:deps": "npm update && cd backend && npm update && cd ../frontend && npm update",
+    
+    "ssl:renew": "sudo certbot renew --nginx",
+    "ssl:check": "openssl x509 -in ssl/fullchain.pem -text -noout",
+    
+    "performance:test": "cd frontend && npm run performance",
+    "performance:backend": "cd backend && npm run performance",
+    
+    "docs:generate": "cd backend && npm run docs:generate",
+    "docs:serve": "cd backend && npm run docs:serve"
+  },
+  "keywords": [
+    "exchange",
+    "currency",
+    "multi-tenant",
+    "saas",
+    "banking",
+    "remittance",
+    "react",
+    "nodejs",
+    "mongodb",
+    "typescript",
+    "tailwindcss",
+    "production",
+    "docker"
+  ],
+  "author": "Exchange Platform Team",
+  "license": "MIT",
+  "dependencies": {
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "prettier": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/exchange-platform-v3.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/exchange-platform-v3/issues"
+  },
+  "homepage": "https://github.com/your-username/exchange-platform-v3#readme"
+}

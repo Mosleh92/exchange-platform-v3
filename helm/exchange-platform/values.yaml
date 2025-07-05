@@ -1,0 +1,14 @@
+replicaCount:
+  backend: 3
+  frontend: 2
+
+image:
+  backend: your-registry/backend:latest
+  frontend: your-registry/frontend:latest
+
+mongo:
+  image: mongo:6
+  storage: 10Gi
+
+service:
+  type: LoadBalancer 

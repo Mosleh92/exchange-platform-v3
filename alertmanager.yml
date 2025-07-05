@@ -1,0 +1,26 @@
+global:
+  smtp_smarthost: 'smtp.gmail.com:587'
+  smtp_from: 'your-email@gmail.com'
+  smtp_auth_username: 'your-email@gmail.com'
+  smtp_auth_password: 'your-app-password'
+
+route:
+  group_by: ['alertname']
+  group_wait: 10s
+  group_interval: 5m
+  repeat_interval: 3h
+  receiver: 'email-notifications'
+  routes:
+    - receiver: 'slack-notifications'
+      matchers:
+        - severity="critical"
+
+receivers:
+  - name: 'email-notifications'
+    email_configs:
+      - to: 'destination-email@gmail.com'
+  - name: 'slack-notifications'
+    slack_configs:
+      - api_url: 'YOUR_SLACK_WEBHOOK_URL'
+        channel: '#your-channel'
+        send_resolved: true 
