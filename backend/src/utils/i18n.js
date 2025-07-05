@@ -276,7 +276,8 @@ const translations = {
       payment_method: 'روش پرداخت',
       reference_number: 'شماره مرجع',
       days_overdue: 'روز تأخیر',
-      status: {
+      // status: { // This was the duplicate key, will be renamed or handled
+      statusTypes: { // Renamed to avoid conflict with the string 'status'
         active: 'فعال',
         overdue: 'معوق',
         settled: 'تسویه شده',
@@ -653,7 +654,8 @@ const translations = {
       payment_method: 'Payment Method',
       reference_number: 'Reference Number',
       days_overdue: 'Days Overdue',
-      status: {
+      // status: { // This was the duplicate key, will be renamed or handled
+      statusTypes: { // Renamed to avoid conflict with the string 'status'
         active: 'Active',
         overdue: 'Overdue',
         settled: 'Settled',
