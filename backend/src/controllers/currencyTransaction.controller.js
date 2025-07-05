@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const CurrencyTransaction = require('../models/CurrencyTransaction');
 const VIPCustomer = require('../models/VIPCustomer');
 const ExchangeRate = require('../models/ExchangeRate');
