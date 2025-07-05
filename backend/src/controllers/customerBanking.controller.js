@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const CustomerBankAccount = require('../models/CustomerBankAccount');
 const CustomerTransaction = require('../models/CustomerTransaction');
 const TransferRequest = require('../models/TransferRequest');
