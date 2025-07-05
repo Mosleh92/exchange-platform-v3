@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const AccountService = require('./AccountService'); // Import AccountService
 const logger = require('../utils/logger');
