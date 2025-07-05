@@ -183,7 +183,7 @@ const receiptSchema = new mongoose.Schema({
   file: String,
   submittedAt: { type: Date, default: Date.now },
   sentAt: Date,
-  status: { type: String, enum: ['pending', 'under_review', 'verified', 'rejected'], default: 'pending' },
+  // status: { type: String, enum: ['pending', 'under_review', 'verified', 'rejected'], default: 'pending' }, // Removed duplicate status
 }, {
   timestamps: {
     createdAt: 'created_at',
