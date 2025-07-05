@@ -10,17 +10,18 @@ const { authLimiter, apiLimiter, tenantLimiter } = require('./middleware/rate-li
 const { validate } = require('./middleware/validation');
 const { csrfProtection, csrfErrorHandler, generateToken } = require('./middleware/csrf');
 const { sessionMiddleware, sessionErrorHandler, cleanupSession } = require('./middleware/session');
+const xssClean = require('xss-clean'); // Added xss-clean
 const swaggerUi = require('swagger-ui-express');
 const swaggerJSDoc = require('swagger-jsdoc');
 require('dotenv').config();
 
 // Import configurations and middleware
 const databaseConfig = require('./config/database');
-const { auth } = require('./middleware/auth');
+const authMiddleware = require('./middleware/auth'); // Changed import
 
 // Import controllers
 const authController = require('./controllers/auth.controller');
-// const partnerController = require('./controllers/partner.controller');
+const partnerController = require('./controllers/partner.controller');
 const transactionController = require('./controllers/transaction.controller');
 const rateController = require('./controllers/rate.controller');
 const customerController = require('./controllers/customer.controller');
@@ -145,6 +146,9 @@ class ExchangePlatformServer {
         // Body parsing
         this.app.use(express.json({ limit: '10mb' }));
         this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+        // XSS Protection
+        this.app.use(xssClean());
 
         // Static files
         this.app.use('/uploads', express.static('uploads'));
@@ -282,13 +286,13 @@ class ExchangePlatformServer {
 
         // Logout
         authRouter.post('/logout',
-            authMiddleware.authenticate,
+            authMiddleware.auth, // Corrected
             authController.logout
         );
 
         // Validate token
         authRouter.post('/validate',
-            authMiddleware.authenticate,
+            authMiddleware.auth, // Corrected
             authController.validateToken
         );
 
@@ -299,7 +303,7 @@ class ExchangePlatformServer {
 
         // Change password
         authRouter.put('/change-password',
-            authMiddleware.authenticate,
+            authMiddleware.auth, // Corrected
             ValidationRules.changePasswordValidation(),
             authController.changePassword
         );
@@ -318,13 +322,13 @@ class ExchangePlatformServer {
 
         // Get profile
         authRouter.get('/profile',
-            authMiddleware.authenticate,
+            authMiddleware.auth, // Corrected
             authController.getProfile
         );
 
         // Update profile
         authRouter.put('/profile',
-            authMiddleware.authenticate,
+            authMiddleware.auth, // Corrected
             ValidationRules.updateProfileValidation(),
             authController.updateProfile
         );
@@ -336,8 +340,8 @@ class ExchangePlatformServer {
         const tenantRouter = express.Router();
 
         // Apply authentication to all tenant routes
-        tenantRouter.use(authMiddleware.authenticate);
-        tenantRouter.use(authMiddleware.tenantIsolation);
+        tenantRouter.use(authMiddleware.auth); // Corrected
+        tenantRouter.use(authMiddleware.tenantAccess); // Corrected, assuming tenantIsolation was tenantAccess
 
         // Get all tenants (super admin only)
         tenantRouter.get('/',
@@ -409,8 +413,8 @@ class ExchangePlatformServer {
         const rateRouter = express.Router();
 
         // Apply authentication to all rate routes
-        rateRouter.use(authMiddleware.authenticate);
-        rateRouter.use(authMiddleware.tenantIsolation);
+        rateRouter.use(authMiddleware.auth); // Corrected
+        rateRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all rates
         rateRouter.get('/',
@@ -466,8 +470,8 @@ class ExchangePlatformServer {
         const transactionRouter = express.Router();
 
         // Apply authentication to all transaction routes
-        transactionRouter.use(authMiddleware.authenticate);
-        transactionRouter.use(authMiddleware.tenantIsolation);
+        transactionRouter.use(authMiddleware.auth); // Corrected
+        transactionRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all transactions
         transactionRouter.get('/',
@@ -528,8 +532,8 @@ class ExchangePlatformServer {
         const customerRouter = express.Router();
 
         // Apply authentication to all customer routes
-        customerRouter.use(authMiddleware.authenticate);
-        customerRouter.use(authMiddleware.tenantIsolation);
+        customerRouter.use(authMiddleware.auth); // Corrected
+        customerRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all customers
         customerRouter.get('/',
@@ -576,8 +580,8 @@ class ExchangePlatformServer {
         const dashboardRouter = express.Router();
 
         // Apply authentication to all dashboard routes
-        dashboardRouter.use(authMiddleware.authenticate);
-        dashboardRouter.use(authMiddleware.tenantIsolation);
+        dashboardRouter.use(authMiddleware.auth); // Corrected
+        dashboardRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get dashboard stats
         dashboardRouter.get('/stats',
@@ -606,8 +610,8 @@ class ExchangePlatformServer {
         const paymentRouter = express.Router();
 
         // Apply authentication to all payment routes
-        paymentRouter.use(authMiddleware.authenticate);
-        paymentRouter.use(authMiddleware.tenantIsolation);
+        paymentRouter.use(authMiddleware.auth); // Corrected
+        paymentRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all payments
         paymentRouter.get('/',
@@ -659,8 +663,8 @@ class ExchangePlatformServer {
         const debtRouter = express.Router();
 
         // Apply authentication to all debt routes
-        debtRouter.use(authMiddleware.authenticate);
-        debtRouter.use(authMiddleware.tenantIsolation);
+        debtRouter.use(authMiddleware.auth); // Corrected
+        debtRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all debts
         debtRouter.get('/',
@@ -724,8 +728,8 @@ class ExchangePlatformServer {
         const accountRouter = express.Router();
 
         // Apply authentication to all account routes
-        accountRouter.use(authMiddleware.authenticate);
-        accountRouter.use(authMiddleware.tenantIsolation);
+        accountRouter.use(authMiddleware.auth); // Corrected
+        accountRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all accounts
         accountRouter.get('/',
@@ -793,8 +797,8 @@ class ExchangePlatformServer {
         const transferRouter = express.Router();
 
         // Apply authentication to all transfer routes
-        transferRouter.use(authMiddleware.authenticate);
-        transferRouter.use(authMiddleware.tenantIsolation);
+        transferRouter.use(authMiddleware.auth); // Corrected
+        transferRouter.use(authMiddleware.tenantAccess); // Corrected
 
         // Get all transfers
         transferRouter.get('/',
