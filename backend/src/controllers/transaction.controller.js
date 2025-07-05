@@ -1,22 +1,22 @@
 // backend/src/controllers/transaction.controller.js
 // کد قبلی شما + اصلاحات فارسی:
 
-const { getTenantConnection } = require('../config/database');
-const logger = require('../utils/logger');
-const { generateTransactionCode, calculateCommission } = require('../utils/helpers');
-const { broadcastToTenant } = require('../config/socket');
-const PersianUtils = require('../utils/persian');
-const mongoose = require('mongoose');
+// const { getTenantConnection } = require('../config/database'); // Unused
+// const logger = require('../utils/logger'); // Unused
+// const { generateTransactionCode, calculateCommission } = require('../utils/helpers'); // Unused
+// const { broadcastToTenant } = require('../config/socket'); // Unused
+// const PersianUtils = require('../utils/persian'); // Unused
+// const mongoose = require('mongoose'); // Unused
 const Transaction = require('../models/Transaction');
 const Account = require('../models/Account');
 const ExchangeRate = require('../models/ExchangeRate');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused
 const { on } = require('../services/eventDispatcher');
 const CustomerTransaction = require('../models/CustomerTransaction');
 const TransactionService = require('../services/TransactionService');
 const RemittanceService = require('../services/RemittanceService');
 const HoldingService = require('../services/HoldingService');
-const validator = require('validator');
+// const validator = require('validator'); // Unused
 
 class TransactionController {
   async createTransaction(req, res) {

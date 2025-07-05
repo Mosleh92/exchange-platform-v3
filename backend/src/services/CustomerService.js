@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const AccountService = require('./AccountService'); // Import AccountService
 const logger = require('../utils/logger');
@@ -64,7 +65,7 @@ class CustomerService {
      */
     static async findOrCreateCustomerAndAccount(tenantId, userId, customerData) {
         try {
-            const { phone, national_id, name } = customerData;
+            const { phone, national_id } = customerData; // Removed 'name' as it's not directly used before passing customerData
             let customer = null;
             let account = null;
 

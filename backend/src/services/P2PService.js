@@ -1,5 +1,5 @@
 const P2POrder = require('../models/P2POrder');
-const NotificationService = require('./notificationService');
+// const NotificationService = require('./notificationService'); // Unused
 
 const P2PService = {
   /**

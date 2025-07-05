@@ -242,7 +242,7 @@ p2pChatSchema.methods.addOffer = function(fromTenantId, fromUserId, amount, rate
 };
 
 // Method to respond to offer
-p2pChatSchema.methods.respondToOffer = function(offerId, response, responderTenantId, responderUserId) {
+p2pChatSchema.methods.respondToOffer = function(offerId, response, _responderTenantId, responderUserId) { // responderTenantId marked as unused
   const offer = this.offers.find(o => o.offerId === offerId);
   if (offer && offer.status === 'pending') {
     offer.status = response === 'accept' ? 'accepted' : 'rejected';
@@ -259,7 +259,7 @@ p2pChatSchema.methods.respondToOffer = function(offerId, response, responderTena
 };
 
 // Method to mark message as read
-p2pChatSchema.methods.markMessageAsRead = function(messageIndex, readerTenantId) {
+p2pChatSchema.methods.markMessageAsRead = function(messageIndex, _readerTenantId) { // readerTenantId marked as unused
   if (this.messages[messageIndex] && !this.messages[messageIndex].isRead) {
     this.messages[messageIndex].isRead = true;
     this.messages[messageIndex].readAt = new Date();

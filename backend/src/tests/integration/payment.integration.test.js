@@ -1,8 +1,8 @@
 const request = require('supertest');
 const app = require('../../server');
-const User = require('../../models/User');
-const Tenant = require('../../models/Tenant');
-const Transaction = require('../../models/Transaction');
+// const User = require('../../models/User'); // Unused
+// const Tenant = require('../../models/Tenant'); // Unused
+// const Transaction = require('../../models/Transaction'); // Unused
 const Payment = require('../../models/Payment');
 const Account = require('../../models/Account');
 

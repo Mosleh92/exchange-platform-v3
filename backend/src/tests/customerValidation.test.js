@@ -7,10 +7,10 @@ const User = require('../models/User');
 // فرض: توکن JWT و setup دیتابیس تستی موجود است
 
 describe('Customer Email & Phone Validation', () => {
-  let token, user;
+  let token, _user; // user marked as unused
 
   beforeAll(async () => {
-    user = await User.create({
+    _user = await User.create({
       username: 'testadmin',
       email: 'testadmin@example.com',
       password: 'Test@1234',

@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const Tenant = require('../models/Tenant');
+// const Tenant = require('../models/Tenant'); // Unused
 
 // **اصلاح شده**: Socket.IO Authentication Middleware
 const socketAuth = async (socket, next) => {

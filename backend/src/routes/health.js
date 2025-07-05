@@ -142,7 +142,8 @@ router.get('/health', async (req, res) => {
         // Disk space check (if possible)
         try {
             const fs = require('fs');
-            const stats = fs.statSync('.');
+            // const stats = fs.statSync('.'); // Unused variable
+            fs.statSync('.'); // Call statSync to check disk access without assigning to unused variable
             healthCheck.components.disk = {
                 status: 'healthy',
                 message: 'Disk access functional'

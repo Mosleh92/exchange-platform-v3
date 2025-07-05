@@ -1,5 +1,5 @@
 const Subscription = require('../models/Subscription');
-const Plan = require('../models/Plan');
+// const Plan = require('../models/Plan'); // Unused
 
 const SubscriptionService = {
   async createSubscription({ tenantId, planId, startDate, endDate, autoRenew = false }) {

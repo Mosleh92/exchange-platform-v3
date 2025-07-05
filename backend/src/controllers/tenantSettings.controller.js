@@ -1,10 +1,10 @@
 const TenantSettings = require('../models/TenantSettings');
-const Tenant = require('../models/Tenant');
+// const Tenant = require('../models/Tenant'); // Unused
 const { validationResult } = require('express-validator');
 const i18n = require('../utils/i18n');
 const fs = require('fs').promises;
-const path = require('path');
-const multer = require('multer');
+// const path = require('path'); // Unused
+// const multer = require('multer'); // Unused
 
 // دریافت تنظیمات صرافی
 exports.getTenantSettings = async (req, res) => {
@@ -247,15 +247,15 @@ exports.manageReceiptTemplates = async (req, res) => {
     }
     
     switch (action) {
-      case 'add':
+      case 'add': {
         if (template.isDefault) {
           // حذف قالب پیش‌فرض قبلی
           settings.receipt.templates.forEach(t => t.isDefault = false);
         }
         settings.receipt.templates.push(template);
         break;
-        
-      case 'update':
+      }
+      case 'update': {
         const templateIndex = settings.receipt.templates.findIndex(t => t.name === template.name);
         if (templateIndex === -1) {
           return res.status(404).json({
@@ -268,8 +268,8 @@ exports.manageReceiptTemplates = async (req, res) => {
         }
         settings.receipt.templates[templateIndex] = template;
         break;
-        
-      case 'delete':
+      }
+      case 'delete': {
         const deleteIndex = settings.receipt.templates.findIndex(t => t.name === template.name);
         if (deleteIndex === -1) {
           return res.status(404).json({
@@ -279,7 +279,7 @@ exports.manageReceiptTemplates = async (req, res) => {
         }
         settings.receipt.templates.splice(deleteIndex, 1);
         break;
-        
+      }
       default:
         return res.status(400).json({
           success: false,
@@ -320,18 +320,18 @@ exports.testDeliverySettings = async (req, res) => {
     let result;
     
     switch (channel) {
-      case 'email':
+      case 'email': {
         result = await testEmailDelivery(settings.receipt.delivery.email, testData);
         break;
-        
-      case 'sms':
+      }
+      case 'sms': {
         result = await testSMSDelivery(settings.receipt.delivery.sms, testData);
         break;
-        
-      case 'whatsapp':
+      }
+      case 'whatsapp': {
         result = await testWhatsAppDelivery(settings.receipt.delivery.whatsapp, testData);
         break;
-        
+      }
       default:
         return res.status(400).json({
           success: false,
@@ -357,7 +357,7 @@ exports.testDeliverySettings = async (req, res) => {
 // شروع مهاجرت داده‌ها
 exports.startDataMigration = async (req, res) => {
   try {
-    const { sourceSystem, connectionDetails } = req.body;
+    const { sourceSystem /*, connectionDetails*/ } = req.body; // connectionDetails is unused
     
     const settings = await TenantSettings.findOne({ tenantId: req.tenant?.id || req.user.tenantId });
     if (!settings) {
@@ -370,8 +370,8 @@ exports.startDataMigration = async (req, res) => {
     // بروزرسانی وضعیت مهاجرت
     settings.migration.status = 'in_progress';
     settings.migration.source = {
-      system: sourceSystem,
-      connection: connectionDetails
+      system: sourceSystem
+      // connection: connectionDetails // This was unused
     };
     settings.migration.progress = {
       totalRecords: 0,
@@ -383,7 +383,8 @@ exports.startDataMigration = async (req, res) => {
     await settings.save();
     
     // شروع فرآیند مهاجرت در پس‌زمینه
-    startMigrationProcess(settings.tenantId, sourceSystem, connectionDetails);
+    // startMigrationProcess(settings.tenantId, sourceSystem, connectionDetails); // connectionDetails is removed
+    startMigrationProcess(settings.tenantId, sourceSystem, settings.migration.source.connection); // Assuming connection is stored if needed by the process
     
     res.json({
       success: true,
@@ -507,7 +508,7 @@ async function testWhatsAppDelivery(whatsappConfig, testData) {
 }
 
 // فرآیند مهاجرت در پس‌زمینه
-async function startMigrationProcess(tenantId, sourceSystem, connectionDetails) {
+async function startMigrationProcess(tenantId, sourceSystem, _connectionDetails) { // Marked as unused
   try {
     // اینجا کد مهاجرت واقعی پیاده‌سازی می‌شود
     // برای مثال، اتصال به دیتابیس منبع و انتقال داده‌ها

@@ -1,6 +1,6 @@
 const InterBranchTransfer = require('../models/InterBranchTransfer');
 const Branch = require('../models/Branch');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused
 const { validationResult } = require('express-validator');
 const i18n = require('../utils/i18n');
 

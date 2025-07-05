@@ -1,9 +1,9 @@
 const Remittance = require('../models/Remittance');
 const Account = require('../models/Account');
 const ExchangeRate = require('../models/ExchangeRate');
-const User = require('../models/User');
-const { generateSecretCode, generateQRCode, verifyQRCode } = require('../utils/remittanceUtils');
-const NotificationService = require('../services/notificationService');
+// const User = require('../models/User'); // Unused
+// const { generateSecretCode, generateQRCode, verifyQRCode } = require('../utils/remittanceUtils'); // Unused
+// const NotificationService = require('./notificationService'); // Unused
 const logger = require('../utils/logger');
 
 // Create new remittance
@@ -20,7 +20,7 @@ exports.createRemittance = async (req, res) => {
       notes
     } = req.body;
 
-    const userId = req.user.userId;
+    // const userId = req.user.userId; // Unused, req.user.userId is used directly
     const tenantId = req.user.tenantId;
 
     // Validate exchange rate
@@ -75,7 +75,7 @@ exports.createRemittance = async (req, res) => {
       deliveryInfo,
       security,
       notes: { sender: notes },
-      audit: { createdBy: userId }
+      audit: { createdBy: req.user.userId } // Corrected: Use req.user.userId
     });
 
     // Add initial approval requirement
@@ -212,7 +212,7 @@ exports.approveRemittance = async (req, res) => {
   try {
     const { remittanceId } = req.params;
     const { level, notes } = req.body;
-    const userId = req.user.userId;
+    // const userId = req.user.userId; // Removed
     const tenantId = req.user.tenantId;
 
     const remittance = await Remittance.findOne({
@@ -227,7 +227,7 @@ exports.approveRemittance = async (req, res) => {
       });
     }
 
-    await remittance.addApproval(level, userId, notes);
+    await remittance.addApproval(level, req.user.userId, notes); // Used req.user.userId
 
     res.json({
       success: true,
@@ -254,7 +254,7 @@ exports.approveRemittance = async (req, res) => {
 exports.processRemittance = async (req, res) => {
   try {
     const { remittanceId } = req.params;
-    const userId = req.user.userId;
+    // const userId = req.user.userId; // Will use req.user.userId directly
     const tenantId = req.user.tenantId;
 
     const remittance = await Remittance.findOne({
@@ -269,7 +269,7 @@ exports.processRemittance = async (req, res) => {
       });
     }
 
-    await remittance.process(userId);
+    await remittance.process(req.user.userId); // Used req.user.userId
 
     res.json({
       success: true,
@@ -296,7 +296,7 @@ exports.processRemittance = async (req, res) => {
 exports.completeRemittance = async (req, res) => {
   try {
     const { remittanceId } = req.params;
-    const userId = req.user.userId;
+    // const userId = req.user.userId; // Removed
     const tenantId = req.user.tenantId;
 
     const remittance = await Remittance.findOne({
@@ -361,7 +361,7 @@ exports.cancelRemittance = async (req, res) => {
   try {
     const { remittanceId } = req.params;
     const { reason } = req.body;
-    const userId = req.user.userId;
+    // const userId = req.user.userId; // Will use req.user.userId directly
     const tenantId = req.user.tenantId;
 
     const remittance = await Remittance.findOne({
@@ -425,7 +425,7 @@ exports.addPayment = async (req, res) => {
   try {
     const { remittanceId } = req.params;
     const { amount, method, reference, receipt } = req.body;
-    const userId = req.user.userId;
+    // const userId = req.user.userId; // Removed
     const tenantId = req.user.tenantId;
 
     const remittance = await Remittance.findOne({

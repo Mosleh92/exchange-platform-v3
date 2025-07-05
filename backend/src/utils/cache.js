@@ -22,6 +22,9 @@ module.exports = {
     if (!client) return;
     try {
       await client.set(key, JSON.stringify(value), { EX: ttl });
-    } catch (err) {}
+    } catch (err) {
+      // Errors in caching should not break the application flow. Log them if necessary.
+      // console.error('Cache set error:', err); // Optional: log the error
+    }
   }
 }; 

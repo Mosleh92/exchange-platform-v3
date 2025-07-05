@@ -1,5 +1,5 @@
 const TenantPlan = require('../models/TenantPlan');
-const Plan = require('../models/Plan');
+// const Plan = require('../models/Plan'); // Unused in current logic
 const User = require('../models/User');
 const Branch = require('../models/Branch');
 // سایر مدل‌ها در صورت نیاز

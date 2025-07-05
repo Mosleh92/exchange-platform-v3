@@ -4,7 +4,7 @@ const AccountingService = require('../services/accounting');
 const TransactionService = require('../services/TransactionService');
 const AccountService = require('../services/AccountService');
 const { validate } = require('../middleware/validation');
-const { auth, authorize } = require('../middleware/auth');
+const { auth, tenantAccess } = require('../middleware/auth'); // Removed unused authorize
 const logger = require('../utils/logger');
 const { body, param } = require('express-validator');
 

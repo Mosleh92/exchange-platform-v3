@@ -263,7 +263,7 @@ class TransactionWorkflowService {
      * @param {string} currency - Currency
      * @returns {Promise<Object>} Updated account
      */
-    static async updateExchangeAccountBalance(accountId, amount, currency) {
+    static async updateExchangeAccountBalance(_accountId, _amount, _currency) { // Parameters marked as unused
         // Implementation depends on your exchange account service
         // This is a placeholder for the actual implementation
         return Promise.resolve({ success: true });

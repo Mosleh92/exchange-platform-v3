@@ -190,7 +190,7 @@ const applyTenantFilter = (req, res, next) => {
     // Add tenant filter to MongoDB queries
     const originalFind = req.Model?.find;
     const originalFindOne = req.Model?.findOne;
-    const originalFindById = req.Model?.findById;
+    // const originalFindById = req.Model?.findById; // Unused
     
     if (originalFind) {
         req.Model.find = function(query = {}) {

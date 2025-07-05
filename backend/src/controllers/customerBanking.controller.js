@@ -1,7 +1,8 @@
+const mongoose = require('mongoose');
 const CustomerBankAccount = require('../models/CustomerBankAccount');
 const CustomerTransaction = require('../models/CustomerTransaction');
 const TransferRequest = require('../models/TransferRequest');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused
 const { validationResult } = require('express-validator');
 const i18n = require('../utils/i18n');
 

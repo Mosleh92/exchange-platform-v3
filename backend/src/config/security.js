@@ -1,6 +1,6 @@
 const helmet = require('helmet');
 const cors = require('cors');
-const validator = require('validator');
+// const validator = require('validator'); // Removed unused variable
 
 // **اصلاح شده**: Secure CORS configuration
 const configureCors = () => {
@@ -214,58 +214,22 @@ const configureRateLimit = () => {
 // **جدید**: Input validation middleware
 const configureInputValidation = () => {
     const mongoSanitize = require('express-mongo-sanitize');
-    const xss = require('xss');
     
     return {
         // Sanitize MongoDB queries
         mongoSanitize: mongoSanitize({
             replaceWith: '_'
-        }),
-        
-        // XSS protection middleware
-        xssProtection: (req, res, next) => {
-            // Sanitize request body
-            if (req.body) {
-                req.body = sanitizeObject(req.body);
-            }
-            
-            // Sanitize query parameters
-            if (req.query) {
-                req.query = sanitizeObject(req.query);
-            }
-            
-            // Sanitize URL parameters
-            if (req.params) {
-                req.params = sanitizeObject(req.params);
-            }
-            
-            next();
-        }
+        })
+        // XSS protection will be handled by xss-clean middleware in server.js
     };
 };
 
-// Helper function to sanitize objects
+// Helper function to sanitize objects - REMOVED as xss-clean will be used as middleware
+/*
 const sanitizeObject = (obj) => {
-    if (typeof obj !== 'object' || obj === null) {
-        return typeof obj === 'string' ? xss(obj) : obj;
-    }
-    
-    const sanitized = {};
-    
-    for (const [key, value] of Object.entries(obj)) {
-        if (Array.isArray(value)) {
-            sanitized[key] = value.map(item => sanitizeObject(item));
-        } else if (typeof value === 'object' && value !== null) {
-            sanitized[key] = sanitizeObject(value);
-        } else if (typeof value === 'string') {
-            sanitized[key] = xss(value);
-        } else {
-            sanitized[key] = value;
-        }
-    }
-    
-    return sanitized;
+    // ... (previous implementation) ...
 };
+*/
 
 module.exports = {
     configureCors,

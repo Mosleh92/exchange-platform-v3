@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const redis = require('redis');
+// const redis = require('redis'); // Unused as mockRedisClient is used
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 // Set test environment

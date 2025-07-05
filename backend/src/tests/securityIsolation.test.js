@@ -59,7 +59,7 @@ describe('Security: Tenant Isolation & RBAC', () => {
   });
 
   it('should NOT allow staff to delete a plan (RBAC)', async () => {
-    const staff = await User.create({
+    /*const staff =*/ await User.create({ // staff variable is unused
       username: 'staff1',
       email: 'staff1@example.com',
       password: 'Test@1234',

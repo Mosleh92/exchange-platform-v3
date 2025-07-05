@@ -6,10 +6,10 @@ const User = require('../models/User');
 const Customer = require('../models/Customer');
 
 describe('Advanced Security Tests: NoSQL Injection & XSS', () => {
-  let token, admin, customer;
+  let token, _admin /*, customer*/; // customer unused, admin only used for tenantId
 
   beforeAll(async () => {
-    admin = await User.create({
+    _admin = await User.create({
       username: 'adminx',
       email: 'adminx@example.com',
       password: 'Test@1234',
@@ -18,7 +18,7 @@ describe('Advanced Security Tests: NoSQL Injection & XSS', () => {
       status: 'active',
       tenantId: new mongoose.Types.ObjectId()
     });
-    customer = await Customer.create({ name: 'Safe User', phone: '+989111111111', tenant_id: admin.tenantId });
+    /*customer =*/ await Customer.create({ name: 'Safe User', phone: '+989111111111', tenant_id: _admin.tenantId }); // customer unused
     token = 'JWT_TOKEN_ADMINX'; // مقدار واقعی جایگزین شود
   });
 

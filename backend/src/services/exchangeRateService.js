@@ -1,5 +1,6 @@
 const logger = require('../utils/logger'); // Assuming logger exists
 const cache = require('../utils/cache');
+const ExchangeRate = require('../models/ExchangeRate'); // Added ExchangeRate model
 
 class ExchangeRateService {
     constructor() {
@@ -87,15 +88,15 @@ class ExchangeRateService {
     }
 }
 
-// نمونه تابع کش نرخ ارز
-async function getCachedRate(currencyPair) {
-    const cacheKey = `rate:${currencyPair}`;
-    let rate = await cache.get(cacheKey);
-    if (rate) return rate;
-    // اگر نبود، از دیتابیس بخوان
-    rate = await ExchangeRate.findOne({ pair: currencyPair });
-    if (rate) await cache.set(cacheKey, rate, 60); // کش ۶۰ ثانیه
-    return rate;
-}
+// نمونه تابع کش نرخ ارز - Unused
+// async function getCachedRate(currencyPair) {
+//     const cacheKey = `rate:${currencyPair}`;
+//     let rate = await cache.get(cacheKey);
+//     if (rate) return rate;
+//     // اگر نبود، از دیتابیس بخوان
+//     rate = await ExchangeRate.findOne({ pair: currencyPair });
+//     if (rate) await cache.set(cacheKey, rate, 60); // کش ۶۰ ثانیه
+//     return rate;
+// }
 
 module.exports = new ExchangeRateService(); 

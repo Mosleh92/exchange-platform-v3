@@ -1,6 +1,6 @@
 const { body, param, query, validationResult } = require('express-validator');
 const logger = require('../utils/logger');
-const i18n = require('../utils/i18n');
+// const i18n = require('../utils/i18n'); // Unused
 
 // Common validation rules
 const commonRules = {

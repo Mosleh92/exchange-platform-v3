@@ -3,7 +3,7 @@ const router = express.Router();
 const customerBankingController = require('../controllers/customerBanking.controller');
 const auth = require('../middleware/auth');
 const { body } = require('express-validator');
-const i18n = require('../utils/i18n');
+// const i18n = require('../utils/i18n'); // Unused
 
 // Validation rules
 const transferRequestValidation = [

@@ -1,8 +1,8 @@
 const P2POrder = require('../models/P2POrder');
 const P2PChat = require('../models/P2PChat');
 const P2PSubscription = require('../models/P2PSubscription');
-const User = require('../models/User');
-const { validationResult } = require('express-validator');
+// const User = require('../models/User'); // Unused
+// const { validationResult } = require('express-validator'); // Unused
 const i18n = require('../utils/i18n');
 const { matchOrder } = require('../services/P2PMatchingService');
 const { logAction } = require('../services/auditLogService');

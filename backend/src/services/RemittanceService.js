@@ -1,8 +1,8 @@
 const Remittance = require('../models/Remittance');
 const Account = require('../models/Account');
 const ExchangeRate = require('../models/ExchangeRate');
-const { generateSecretCode, generateQRCode, verifyQRCode } = require('../utils/remittanceUtils');
-const NotificationService = require('./notificationService');
+// const { generateSecretCode, generateQRCode, verifyQRCode } = require('../utils/remittanceUtils'); // Unused
+// const NotificationService = require('./notificationService'); // Unused
 const { recordTransaction } = require('./accountingService');
 
 const RemittanceService = {

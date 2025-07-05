@@ -1,7 +1,7 @@
 const Receipt = require('../models/Receipt');
 const TenantSettings = require('../models/TenantSettings');
 const CustomerTransaction = require('../models/CustomerTransaction');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused
 const fs = require('fs').promises;
 const path = require('path');
 const PDFDocument = require('pdfkit');

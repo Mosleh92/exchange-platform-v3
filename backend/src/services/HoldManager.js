@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const AccountService = require('./AccountService');
 const Transaction = require('../models/Transaction'); // Assuming Hold is a type of Transaction
 const logger = require('../utils/logger');

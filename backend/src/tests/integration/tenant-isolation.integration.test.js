@@ -1,8 +1,8 @@
 const request = require('supertest');
 const app = require('../../server');
-const User = require('../../models/User');
-const Tenant = require('../../models/Tenant');
-const Transaction = require('../../models/Transaction');
+// const User = require('../../models/User'); // Unused
+// const Tenant = require('../../models/Tenant'); // Unused
+// const Transaction = require('../../models/Transaction'); // Unused
 const Customer = require('../../models/Customer');
 const Account = require('../../models/Account');
 const Branch = require('../../models/Branch');
@@ -11,7 +11,7 @@ describe('Tenant Isolation Integration Tests', () => {
   let tenant1, tenant2;
   let admin1, admin2, customer1, customer2;
   let branch1, branch2;
-  let token1, token2, customerToken1, customerToken2;
+  let token1, token2, customerToken1 /*, customerToken2*/; // customerToken2 unused
   let superAdminToken;
 
   beforeEach(async () => {
@@ -98,11 +98,11 @@ describe('Tenant Isolation Integration Tests', () => {
       role: 'customer'
     });
 
-    customerToken2 = global.testUtils.generateTestToken({
-      userId: customer2._id,
-      tenantId: tenant2._id,
-      role: 'customer'
-    });
+    // customerToken2 = global.testUtils.generateTestToken({ // Unused
+    //   userId: customer2._id,
+    //   tenantId: tenant2._id,
+    //   role: 'customer'
+    // });
 
     superAdminToken = global.testUtils.generateTestToken({
       userId: superAdmin._id,

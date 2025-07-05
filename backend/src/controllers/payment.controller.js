@@ -1,6 +1,6 @@
 const Payment = require('../models/Payment');
 const Transaction = require('../models/Transaction');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused
 const { validationResult } = require('express-validator');
 const i18n = require('../utils/i18n');
 const multer = require('multer');

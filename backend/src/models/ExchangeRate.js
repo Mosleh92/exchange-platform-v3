@@ -173,8 +173,8 @@ exchangeRateSchema.methods.addToHistory = function(changedBy, reason = '') {
 
 // Method to update rate
 exchangeRateSchema.methods.updateRate = function(buy, sell, changedBy, reason = '') {
-  const oldBuy = this.rates.buy;
-  const oldSell = this.rates.sell;
+  // const oldBuy = this.rates.buy; // Unused
+  // const oldSell = this.rates.sell; // Unused
   
   this.rates.buy = buy;
   this.rates.sell = sell;

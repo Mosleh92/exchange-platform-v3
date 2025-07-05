@@ -139,7 +139,7 @@ accountSchema.virtual('isOverdraft').get(function() {
 });
 
 // Static method to generate account number
-accountSchema.statics.generateAccountNumber = function(currency, tenantId) {
+accountSchema.statics.generateAccountNumber = function(currency, _tenantId) { // tenantId marked as unused
   const prefix = currency === 'IRR' ? 'IR' : currency;
   const timestamp = Date.now().toString().slice(-8);
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');

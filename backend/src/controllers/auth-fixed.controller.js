@@ -1,12 +1,12 @@
 const User = require('../models/User');
-const Tenant = require('../models/Tenant');
+// const Tenant = require('../models/Tenant'); // Unused
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
+// const bcrypt = require('bcryptjs'); // Unused
 const { validationResult } = require('express-validator');
 const i18n = require('../utils/i18n');
 const { checkPlanLimit } = require('../services/planLimitService');
 const RefreshToken = require('../models/RefreshToken');
-const crypto = require('crypto');
+// const crypto = require('crypto'); // Unused
 const validator = require('validator');
 
 // **اصلاح شده**: استفاده از JWT_SECRET به جای ACCESS_TOKEN_SECRET

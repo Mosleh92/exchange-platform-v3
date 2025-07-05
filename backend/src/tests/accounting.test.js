@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const Customer = require('../models/Customer');
 const Transaction = require('../models/Transaction');
 const JournalEntry = require('../models/JournalEntry');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused in active tests
 const jwt = require('jsonwebtoken');
 
 test('محاسبه سود معامله', () => {
@@ -13,7 +13,7 @@ test('محاسبه سود معامله', () => {
 });
 
 describe('Data Isolation Security Test', () => {
-  let tenant1, tenant2, customer1, customer2;
+  let tenant1, tenant2; // Removed customer1, customer2 as they are unused
 
   beforeAll(async () => {
     // اتصال به دیتابیس تست
@@ -22,8 +22,8 @@ describe('Data Isolation Security Test', () => {
     tenant1 = new mongoose.Types.ObjectId();
     tenant2 = new mongoose.Types.ObjectId();
     // ایجاد مشتری برای هر tenant
-    customer1 = await Customer.create({ name: 'Ali', phone: '09120000001', national_id: '001', tenantId: tenant1, branchId: new mongoose.Types.ObjectId() });
-    customer2 = await Customer.create({ name: 'Reza', phone: '09120000002', national_id: '002', tenantId: tenant2, branchId: new mongoose.Types.ObjectId() });
+    /*customer1 =*/ await Customer.create({ name: 'Ali', phone: '09120000001', national_id: '001', tenantId: tenant1, branchId: new mongoose.Types.ObjectId() }); // Assigned to nothing
+    /*customer2 =*/ await Customer.create({ name: 'Reza', phone: '09120000002', national_id: '002', tenantId: tenant2, branchId: new mongoose.Types.ObjectId() }); // Assigned to nothing
   });
 
   afterAll(async () => {
@@ -48,13 +48,13 @@ describe('Data Isolation Security Test', () => {
 });
 
 describe('Transaction Data Isolation Security Test', () => {
-  let tenant1, tenant2, tx1, tx2;
+  let tenant1, tenant2; // Removed tx1, tx2 as they are unused
 
   beforeAll(async () => {
     tenant1 = new mongoose.Types.ObjectId();
     tenant2 = new mongoose.Types.ObjectId();
-    tx1 = await Transaction.create({ tenantId: tenant1, amount: 1000, type: 'deposit' });
-    tx2 = await Transaction.create({ tenantId: tenant2, amount: 2000, type: 'withdraw' });
+    /*tx1 =*/ await Transaction.create({ tenantId: tenant1, amount: 1000, type: 'deposit' }); // Assigned to nothing
+    /*tx2 =*/ await Transaction.create({ tenantId: tenant2, amount: 2000, type: 'withdraw' }); // Assigned to nothing
   });
 
   afterAll(async () => {
@@ -79,7 +79,7 @@ describe('Transaction Data Isolation Security Test', () => {
 const tenantId = new mongoose.Types.ObjectId();
 const branchId = new mongoose.Types.ObjectId();
 const userId = new mongoose.Types.ObjectId();
-const token = jwt.sign({ _id: userId, tenantId, branchId, role: 'tenant_admin' }, 'testsecret');
+// const token = jwt.sign({ _id: userId, tenantId, branchId, role: 'tenant_admin' }, 'testsecret'); // Unused
 
 describe('صحت ثبت اسناد حسابداری', () => {
   let tx;

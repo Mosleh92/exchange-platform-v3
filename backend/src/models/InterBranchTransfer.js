@@ -178,7 +178,7 @@ interBranchTransferSchema.index({ tenantId: 1, status: 1 });
 interBranchTransferSchema.index({ tenantId: 1, 'approval.requestedAt': 1 });
 
 // Static method to generate transfer number
-interBranchTransferSchema.statics.generateTransferNumber = function(tenantId) {
+interBranchTransferSchema.statics.generateTransferId = function(_tenantId) { // tenantId marked as unused
   const timestamp = Date.now().toString().slice(-8);
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `TFR${timestamp}${random}`;

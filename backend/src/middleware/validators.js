@@ -1,4 +1,4 @@
-const { body, param, query, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator'); // Removed unused 'query'
 
 // اعتبارسنجی کاربر
 const userValidation = {

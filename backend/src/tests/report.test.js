@@ -4,7 +4,7 @@ const app = require('../server');
 const mongoose = require('mongoose');
 const Transaction = require('../models/Transaction');
 const Discrepancy = require('../models/Discrepancy');
-const User = require('../models/User');
+// const User = require('../models/User'); // Unused
 const jwt = require('jsonwebtoken');
 
 // توکن تستی برای tenant1 و tenant2

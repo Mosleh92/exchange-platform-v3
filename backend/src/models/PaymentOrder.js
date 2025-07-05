@@ -225,7 +225,7 @@ paymentOrderSchema.virtual('isUrgent').get(function() {
 });
 
 // Static method to generate order number
-paymentOrderSchema.statics.generateOrderNumber = function(tenantId) {
+paymentOrderSchema.statics.generateOrderNumber = function(_tenantId) { // tenantId marked as unused
   const timestamp = Date.now().toString().slice(-8);
   const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `PO${timestamp}${random}`;
