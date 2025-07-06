@@ -8,7 +8,7 @@ channel = "stable-24_05"
 run = ["sh", "-c", "npm run dev"]
 
 [workflows]
-runButton = "Development Server"
+runButton = "Development Server Clean"
 
 [[workflows.workflow]]
 name = "Development Server"
@@ -18,6 +18,19 @@ mode = "parallel"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd backend && npm install && npm run dev"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm install && npm run dev"
+
+[[workflows.workflow]]
+name = "Development Server Clean"
+author = 43010351
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && npm install --legacy-peer-deps && npm run dev"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"

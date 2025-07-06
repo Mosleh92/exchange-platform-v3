@@ -108,8 +108,7 @@
     "express-cache-controller": "^1.0.0",
     "express-compression": "^1.0.0",
     "express-minify": "^1.0.0",
-    "express-minify-html": "^0.12.0",
-    
+    "express-minify-html": "^0.12.0"
   },
   "devDependencies": {
     "jest": "^29.6.2",
