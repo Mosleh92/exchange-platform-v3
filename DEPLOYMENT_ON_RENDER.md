@@ -35,7 +35,7 @@ This document outlines the settings required to deploy the frontend and backend 
 *   **Publish Directory**: `dist` (This is the default for Vite projects and is configured in `frontend/vite.config.js`)
 *   **Environment Variables (Optional - can also be in `.env.production`)**:
     *   `VITE_API_BASE_URL`: The public URL of your backend service on Render (e.g., `https://your-backend-service-name.onrender.com`). This is defined in `frontend/.env.production` but can be overridden/set in Render's UI if preferred for different environments.
-*   **Dependency Management**: Ensure all necessary frontend libraries (e.g., `jspdf`) are listed in `frontend/package.json` to be installed during the build process.
+*   **Dependency Management**: Ensure all necessary frontend libraries (e.g., `jspdf`, `xlsx`) are listed in `frontend/package.json` to be installed during the build process.
 
 ## Workflow Summary
 
