@@ -93,7 +93,7 @@
     "dayjs": "^1.11.9",
     "luxon": "^3.4.4",
     "moment-timezone": "^0.5.43",
-    "timezone-support": "^2.2.2",
+    "timezone-support": "^2.2.1",
     "node-cache": "^5.1.2",
     "memory-cache": "^0.2.0",
     "lru-cache": "^10.0.1"
