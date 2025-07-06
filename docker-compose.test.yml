@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  # MongoDB for testing
+  mongodb-test:
+    image: mongo:6.0
+    container_name: exchange_mongodb_test
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: test
+      MONGO_INITDB_ROOT_PASSWORD: test
+      MONGO_INITDB_DATABASE: exchange_test
+    ports:
+      - "27017:27017"
+    tmpfs:
+      - /data/db
+    networks:
+      - test_network
+
+  # Redis for testing
+  redis-test:
+    image: redis:7-alpine
+    container_name: exchange_redis_test
+    ports:
+      - "6379:6379"
+    tmpfs:
+      - /data
+    networks:
+      - test_network
+    command: redis-server --save ""
+
+  # Backend for testing
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: exchange_backend_test
+    environment:
+      NODE_ENV: test
+      PORT: 5000
+      MONGODB_URI: mongodb://test:test@mongodb-test:27017/exchange_test?authSource=admin
+      REDIS_URL: redis://redis-test:6379
+      JWT_SECRET: test-jwt-secret-for-testing-purposes-only
+      JWT_REFRESH_SECRET: test-jwt-refresh-secret-for-testing-purposes-only
+      SESSION_SECRET: test-session-secret-for-testing-purposes-only
+      BCRYPT_ROUNDS: 4
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb-test
+      - redis-test
+    networks:
+      - test_network
+    command: ["npm", "run", "dev"]
+
+  # Frontend for testing
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.test
+    container_name: exchange_frontend_test
+    environment:
+      VITE_API_BASE_URL: http://backend-test:5000
+      VITE_SOCKET_URL: http://backend-test:5000
+      NODE_ENV: test
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend-test
+    networks:
+      - test_network
+
+networks:
+  test_network:
+    driver: bridge

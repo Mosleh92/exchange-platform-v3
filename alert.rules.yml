@@ -1,0 +1,29 @@
+groups:
+  - name: nodejs-alerts
+    rules:
+      - alert: HighCPUUsage
+        expr: process_cpu_user_seconds_total > 0.8
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CPU usage is high"
+          description: "CPU usage is above 80% for more than 2 minutes."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes > 500000000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory usage is high"
+          description: "Memory usage is above 500MB for more than 2 minutes."
+
+      - alert: HighHTTPErrorRate
+        expr: sum(rate(http_requests_total{status=~"5.."}[5m])) by (instance) > 1
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High HTTP 5xx error rate"
+          description: "More than 1 HTTP 5xx error per second in the last 5 minutes." 
