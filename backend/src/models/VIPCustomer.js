@@ -257,10 +257,10 @@ vipCustomerSchema.methods.getSpecialRate = function(currency) {
 };
 
 // Method to check if transaction is within limits
-vipCustomerSchema.methods.checkTransactionLimit = function(amount) {
-  const today = new Date();
-  const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+vipCustomerSchema.methods.checkTransactionLimit = function(_amount) { // amount marked as unused
+  // const today = new Date(); // Not used if startOfDay/startOfMonth are not used
+  // const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()); // Unused
+  // const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1); // Unused
   
   // This would need to be implemented with actual transaction data
   // For now, returning true
