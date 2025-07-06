@@ -1,8 +1,8 @@
 const User = require('../models/User');
-const Tenant = require('../models/Tenant');
+// const Tenant = require('../models/Tenant'); // Unused
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const { validationResult } = require('express-validator');
+// const bcrypt = require('bcryptjs'); // Unused
+// const { validationResult } = require('express-validator'); // Unused in this file
 const i18n = require('../utils/i18n');
 const { checkPlanLimit } = require('../services/planLimitService');
 const RefreshToken = require('../models/RefreshToken');
@@ -11,14 +11,14 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refreshsecret'
 const crypto = require('crypto');
 const validator = require('validator');
 
-// Generate JWT Token
-const generateToken = (userId, role, tenantId) => {
-  return jwt.sign(
-    { userId, role, tenantId },
-    process.env.JWT_SECRET,
-    { expiresIn: '24h' }
-  );
-};
+// Generate JWT Token - This function is defined but not used in this file.
+// const generateToken = (userId, role, tenantId) => {
+//   return jwt.sign(
+//     { userId, role, tenantId },
+//     process.env.JWT_SECRET,
+//     { expiresIn: '24h' }
+//   );
+// };
 
 class AuthController {
     async register(req, res) {
