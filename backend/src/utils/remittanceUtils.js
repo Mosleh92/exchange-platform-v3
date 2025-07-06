@@ -1,4 +1,4 @@
-const crypto = require('crypto');
+// const crypto = require('crypto'); // Unused
 const QRCode = require('qrcode');
 const jwt = require('jsonwebtoken');
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
