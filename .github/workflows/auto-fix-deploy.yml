@@ -1,0 +1,40 @@
+name: Auto Fix and Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20' # تغییر بده به نسخه‌ای که پروژه‌ت می‌خواد
+
+    - name: Install dependencies
+      run: npm install
+
+    - name: Format with Prettier
+      run: |
+        npm install --save-dev prettier
+        npx prettier --write .
+
+    - name: Lint with ESLint
+      run: |
+        npm install --save-dev eslint
+        npx eslint . || true
+
+    - name: Commit changes if modified
+      run: |
+        git config --global user.name 'AutoFix Bot'
+        git config --global user.email 'bot@example.com'
+        git diff --quiet || (git add . && git commit -m "fix: auto format/lint by bot" && git push)
+
+    - name: Deploy to Render
+      run: curl ${{ secrets.RENDER_DEPLOY_HOOK }}
