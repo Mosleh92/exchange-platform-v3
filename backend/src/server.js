@@ -963,10 +963,10 @@ class ExchangePlatformServer {
 
     async start() {
         try {
-            this.server.listen(this.port, () => {
+            this.server.listen(this.port, '0.0.0.0', () => {
                 console.log(`🚀 Exchange Platform Server running on port ${this.port}`);
-                console.log(`📊 Health check: http://localhost:${this.port}/health`);
-                console.log(`🔗 API Documentation: http://localhost:${this.port}/api`);
+                console.log(`📊 Health check: http://0.0.0.0:${this.port}/health`);
+                console.log(`🔗 API Documentation: http://0.0.0.0:${this.port}/api`);
             });
         } catch (error) {
             console.error('Failed to start server:', error);
@@ -977,8 +977,6 @@ class ExchangePlatformServer {
 
 // Start the server
 const serverInstance = new ExchangePlatformServer();
-serverInstance.server.listen(serverInstance.port, () => {
-  console.log(`🚀 Server running on port ${serverInstance.port}`);
-});
+serverInstance.start();
 
 module.exports = serverInstance;
