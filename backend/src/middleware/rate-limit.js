@@ -6,20 +6,24 @@ const logger = require('../utils/logger');
 const isTest = process.env.NODE_ENV === 'test';
 
 if (!isTest) {
-  RedisStore = require('rate-limit-redis');
-  redis = require('redis');
-  redisClient = redis.createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-    legacyMode: true
-  });
-  redisClient.connect().catch(console.error);
+  try {
+    RedisStore = require('rate-limit-redis');
+    redis = require('redis');
+    redisClient = redis.createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      legacyMode: true
+    });
+    redisClient.connect().catch(console.error);
+  } catch (error) {
+    console.warn('Redis not available, using memory store for rate limiting:', error.message);
+  }
 }
 
 // Create rate limiters with Redis store
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 5, // 5 attempts
-    store: isTest ? undefined : new RedisStore({
+    store: (isTest || !RedisStore || !redisClient) ? undefined : new RedisStore({
         sendCommand: (...args) => redisClient.sendCommand(args)
     }),
     message: {
@@ -44,7 +48,7 @@ const authLimiter = rateLimit({
 const apiLimiter = rateLimit({
     windowMs: 60 * 1000, // 1 minute
     max: 60, // 60 requests per minute
-    store: isTest ? undefined : new RedisStore({
+    store: (isTest || !RedisStore || !redisClient) ? undefined : new RedisStore({
         sendCommand: (...args) => redisClient.sendCommand(args)
     }),
     message: {
@@ -78,7 +82,7 @@ const tenantLimiter = rateLimit({
         // Use tenant ID as part of the key
         return `${req.tenant?.id || 'unknown'}:${req.ip}`;
     },
-    store: isTest ? undefined : new RedisStore({
+    store: (isTest || !RedisStore || !redisClient) ? undefined : new RedisStore({
         sendCommand: (...args) => redisClient.sendCommand(args)
     }),
     message: {
