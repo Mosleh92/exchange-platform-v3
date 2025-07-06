@@ -8,7 +8,7 @@ channel = "stable-24_05"
 run = ["sh", "-c", "npm run dev"]
 
 [workflows]
-runButton = "Start Development"
+runButton = "Fixed Development"
 
 [[workflows.workflow]]
 name = "Development Server"
@@ -38,6 +38,19 @@ args = "cd frontend && npm install && npm run dev"
 
 [[workflows.workflow]]
 name = "Start Development"
+author = 43010351
+mode = "parallel"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && npm run dev"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend && npm run dev"
+
+[[workflows.workflow]]
+name = "Fixed Development"
 author = 43010351
 mode = "parallel"
 
