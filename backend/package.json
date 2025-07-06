@@ -12,7 +12,8 @@
     "seed": "node scripts/seed.js",
     "migrate": "node scripts/migrate.js",
     "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "lint:fix": "eslint src/ --fix",
+    "start:prod": "node src/server.js"
   },
   "engines": {
     "node": ">=18.0.0",
