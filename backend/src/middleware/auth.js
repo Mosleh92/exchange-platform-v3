@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
+const User = require('../models/User-fixed');
 const Tenant = require('../models/Tenant');
 const SubscriptionService = require('../services/SubscriptionService');
 
