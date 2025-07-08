@@ -18,6 +18,7 @@ require('dotenv').config();
 // Import configurations and middleware
 const databaseConfig = require('./config/database');
 const authMiddleware = require('./middleware/auth'); // Changed import
+const QueryEnforcementMiddleware = require('./middleware/queryEnforcement');
 
 // Import controllers
 const authController = require('./controllers/auth.controller');
@@ -233,6 +234,10 @@ class ExchangePlatformServer {
 
         // Holding routes
         this.app.use('/api/holding', holdingRoutes);
+
+        // Query enforcement middleware for tenant isolation
+        this.app.use('/api', QueryEnforcementMiddleware.enforceTenantIsolation());
+        this.app.use('/api', QueryEnforcementMiddleware.validateTenantAccess());
 
         // Routes
         this.app.use('/api/auth', authRoutes);
@@ -894,6 +899,9 @@ class ExchangePlatformServer {
     }
 
     setupErrorHandling() {
+        // Query enforcement cleanup
+        this.app.use(QueryEnforcementMiddleware.cleanup);
+        
         // Error handling middleware
         this.app.use((error, req, res, next) => {
             errorLogger(error, req, res, next);
