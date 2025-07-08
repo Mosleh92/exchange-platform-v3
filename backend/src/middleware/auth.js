@@ -1,82 +1,58 @@
 const jwt = require('jsonwebtoken');
+const config = require('../config');
+const { UnauthorizedError } = require('../utils/errors');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 
-const auth = async (req, res, next) => {
-    try {
-        // Get token from header
-        const authHeader = req.header('Authorization');
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({
-                success: false,
-                message: 'توکن احراز هویت ارائه نشده است'
-            });
-        }
-
-        const token = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-        // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-        // Check if user still exists
-        const user = await User.findById(decoded.userId);
-        if (!user) {
-            return res.status(401).json({
-                success: false,
-                message: 'کاربر یافت نشد'
-            });
-        }
-
-        // Check if user is active (status === 'active')
-        if (user.status !== 'active') {
-            return res.status(401).json({
-                success: false,
-                message: 'حساب کاربری غیرفعال شده است'
-            });
-        }
-
-        // بررسی وضعیت Tenant
-        const tenant = await Tenant.findById(user.tenantId);
-        if (!tenant || tenant.status !== 'active') {
-            return res.status(403).json({
-                success: false,
-                message: 'سازمان شما غیرفعال شده است'
-            });
-        }
-
-        // تنظیم اطلاعات کاربر در request (فقط یک بار)
-        req.user = {
-            userId: user._id,
-            tenantId: user.tenantId,
-            role: user.role,
-            permissions: user.permissions,
-            branchId: user.branchId,
-            status: user.status
-        };
-        req.userData = user;
-
-        next();
-    } catch (error) {
-        if (error.name === 'JsonWebTokenError') {
-            return res.status(401).json({
-                success: false,
-                message: 'توکن نامعتبر است'
-            });
-        }
-        
-        if (error.name === 'TokenExpiredError') {
-            return res.status(401).json({
-                success: false,
-                message: 'توکن منقضی شده است'
-            });
-        }
-
-        console.error('Auth middleware error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'خطا در احراز هویت'
-        });
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      throw new UnauthorizedError('توکن ارائه نشده است');
     }
+    
+    const decoded = jwt.verify(token, config.app.jwtSecret);
+    
+    // Check if user still exists
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      throw new UnauthorizedError('کاربر یافت نشد');
+    }
+
+    // Check if user is active (status === 'active')
+    if (user.status !== 'active') {
+      throw new UnauthorizedError('حساب کاربری غیرفعال شده است');
+    }
+
+    // بررسی وضعیت Tenant
+    const tenant = await Tenant.findById(user.tenantId);
+    if (!tenant || tenant.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: 'سازمان شما غیرفعال شده است'
+      });
+    }
+
+    req.user = decoded;
+    
+    // اضافه کردن tenant_id به تمام درخواستها
+    req.tenantId = decoded.tenantId;
+    
+    // تنظیم اطلاعات کاربر در request (فقط یک بار)
+    req.user = {
+      userId: user._id,
+      tenantId: user.tenantId,
+      role: user.role,
+      permissions: user.permissions,
+      branchId: user.branchId,
+      status: user.status
+    };
+    req.userData = user;
+    
+    next();
+  } catch (error) {
+    next(new UnauthorizedError('توکن نامعتبر است'));
+  }
 };
 
 // Role-based and permission-based authorization middleware
@@ -144,7 +120,7 @@ const tenantAccess = async (req, res, next) => {
 };
 
 module.exports = {
-    auth,
+    auth: authMiddleware,
     authorize,
     tenantAccess
 };
