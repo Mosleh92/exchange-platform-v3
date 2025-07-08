@@ -36,8 +36,32 @@ const logger = winston.createLogger({
             maxsize: 5242880, // 5MB
             maxFiles: 5
         })
+    ],
+    exceptionHandlers: [
+        new winston.transports.File({ 
+            filename: path.join(__dirname, '../../logs/exceptions.log'),
+            maxsize: 5242880, // 5MB
+            maxFiles: 5
+        })
+    ],
+    rejectionHandlers: [
+        new winston.transports.File({ 
+            filename: path.join(__dirname, '../../logs/rejections.log'),
+            maxsize: 5242880, // 5MB
+            maxFiles: 5
+        })
     ]
 });
+
+// Add console transport for non-production environments
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple()
+        )
+    }));
+}
 
 // Add request logging middleware
 const requestLogger = (req, res, next) => {
