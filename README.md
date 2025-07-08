@@ -119,19 +119,23 @@ npm run preview      # Preview production build
 npm run test         # Run tests
 ```
 
-## 🔐 Default Login Credentials
+## 🔐 Initial Setup & Security
 
-### Super Admin
-- **Email**: admin@exchange.com
-- **Password**: admin123
+### First Time Setup
+After installation, please:
 
-### Tenant Admin
-- **Email**: tenant@exchange.com
-- **Password**: tenant123
+1. **Change Default Credentials**: Use the admin panel to update all default passwords
+2. **Configure Environment Variables**: Set strong, unique secrets in your `.env` files
+3. **Review Security Settings**: Check `SECURITY.md` for detailed security configuration
 
-### Customer
-- **Email**: customer@exchange.com
-- **Password**: customer123
+### Default Test Accounts
+The system creates demo accounts for testing. **Change these credentials immediately in production:**
+
+- **Super Admin**: admin@exchange.com (change password via admin panel)
+- **Tenant Admin**: tenant@exchange.com (change password via admin panel)  
+- **Customer**: customer@exchange.com (change password via admin panel)
+
+⚠️ **Security Warning**: Default credentials are for development only. Always change them in production environments.
 
 ## 🌐 Deployment
 
@@ -194,9 +198,15 @@ NODE_ENV=development
 PORT=3000
 MONGODB_URI=mongodb://localhost:27017/exchange
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-secret-key
-SESSION_SECRET=your-session-secret
+JWT_SECRET=generate-strong-random-secret-key-here
+SESSION_SECRET=generate-strong-random-session-secret-here
+BCRYPT_ROUNDS=12
 ```
+
+**Security Note**: 
+- Generate strong, unique secrets for JWT_SECRET and SESSION_SECRET
+- Use environment-specific values for each deployment
+- Never commit real secrets to version control
 
 #### Frontend (.env)
 ```env

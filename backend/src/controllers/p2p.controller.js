@@ -1,5 +1,6 @@
 const P2PAnnouncement = require('../models/P2PAnnouncement');
 const P2PTransaction = require('../models/P2PTransaction');
+const { AuditLog } = require('../models/User');
 const { validationResult } = require('express-validator');
 
 class P2PController {
