@@ -1,10 +1,12 @@
-const redis = require('redis');
+const redis = require("redis");
 
 let client;
 
 // Only create Redis client if not in test environment
-if (process.env.NODE_ENV !== 'test') {
-  client = redis.createClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
+if (process.env.NODE_ENV !== "test") {
+  client = redis.createClient({
+    url: process.env.REDIS_URL || "redis://localhost:6379",
+  });
   client.connect().catch(console.error);
 }
 
@@ -26,5 +28,5 @@ module.exports = {
       // Errors in caching should not break the application flow. Log them if necessary.
       // console.error('Cache set error:', err); // Optional: log the error
     }
-  }
-}; 
+  },
+};

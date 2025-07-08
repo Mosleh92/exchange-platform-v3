@@ -1,4 +1,4 @@
-const DashboardService = require('../services/DashboardService');
+const DashboardService = require("../services/DashboardService");
 
 const DashboardController = {
   // داشبورد سوپرادمین
@@ -27,7 +27,10 @@ const DashboardController = {
     try {
       const tenantId = req.user.tenantId;
       const branchId = req.user.branchId;
-      const data = await DashboardService.getBranchManagerDashboard(tenantId, branchId);
+      const data = await DashboardService.getBranchManagerDashboard(
+        tenantId,
+        branchId,
+      );
       res.json({ success: true, data });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });
@@ -51,7 +54,10 @@ const DashboardController = {
     try {
       const tenantId = req.user.tenantId;
       const customerId = req.user._id;
-      const data = await DashboardService.getCustomerDashboard(tenantId, customerId);
+      const data = await DashboardService.getCustomerDashboard(
+        tenantId,
+        customerId,
+      );
       res.json({ success: true, data });
     } catch (err) {
       res.status(500).json({ success: false, message: err.message });

@@ -12,7 +12,10 @@
 function broadcastToTenant(tenantId, event, data) {
   // In a real implementation, you would use your socket.io instance here.
   // For example: io.to(`tenant_${tenantId}`).emit(event, data);
-  console.log(`Socket broadcast to tenant ${tenantId} for event ${event}:`, data);
+  console.log(
+    `Socket broadcast to tenant ${tenantId} for event ${event}:`,
+    data,
+  );
 }
 
 // In a real implementation, you would also export your io instance.
@@ -21,4 +24,4 @@ function broadcastToTenant(tenantId, event, data) {
 
 module.exports = {
   broadcastToTenant,
-}; 
+};

@@ -1,14 +1,19 @@
-const Invoice = require('../models/Invoice');
+const Invoice = require("../models/Invoice");
 
 const InvoiceService = {
-  async createInvoice({ tenantId, subscriptionId, amount, transactionInfo = null }) {
+  async createInvoice({
+    tenantId,
+    subscriptionId,
+    amount,
+    transactionInfo = null,
+  }) {
     const invoice = new Invoice({
       tenantId,
       subscriptionId,
       amount,
-      status: 'unpaid',
+      status: "unpaid",
       issueDate: new Date(),
-      transactionInfo
+      transactionInfo,
     });
     await invoice.save();
     return invoice;
@@ -17,10 +22,10 @@ const InvoiceService = {
   async markAsPaid(invoiceId, paidDate = new Date(), transactionInfo = null) {
     const invoice = await Invoice.findByIdAndUpdate(
       invoiceId,
-      { status: 'paid', paidDate, transactionInfo },
-      { new: true }
+      { status: "paid", paidDate, transactionInfo },
+      { new: true },
     );
-    if (!invoice) throw new Error('فاکتور یافت نشد');
+    if (!invoice) throw new Error("فاکتور یافت نشد");
     return invoice;
   },
 
@@ -30,7 +35,7 @@ const InvoiceService = {
 
   async getInvoiceById(invoiceId) {
     return Invoice.findById(invoiceId);
-  }
+  },
 };
 
-module.exports = InvoiceService; 
+module.exports = InvoiceService;

@@ -1,48 +1,51 @@
-const Receipt = require('../models/Receipt');
-const TenantSettings = require('../models/TenantSettings');
-const CustomerTransaction = require('../models/CustomerTransaction');
-const User = require('../models/User');
-const fs = require('fs').promises;
-const path = require('path');
-const PDFDocument = require('pdfkit');
-const nodemailer = require('nodemailer');
-const axios = require('axios');
+const Receipt = require("../models/Receipt");
+const TenantSettings = require("../models/TenantSettings");
+const CustomerTransaction = require("../models/CustomerTransaction");
+const User = require("../models/User");
+const fs = require("fs").promises;
+const path = require("path");
+const PDFDocument = require("pdfkit");
+const nodemailer = require("nodemailer");
+const axios = require("axios");
 
 class ReceiptService {
   // تولید رسید جدید
-  static async generateReceipt(transactionId, tenantId, channels = ['email']) {
+  static async generateReceipt(transactionId, tenantId, channels = ["email"]) {
     try {
       // دریافت اطلاعات تراکنش
       const transaction = await CustomerTransaction.findById(transactionId)
-        .populate('customerId', 'name email phone')
-        .populate('createdBy', 'name');
-      
+        .populate("customerId", "name email phone")
+        .populate("createdBy", "name");
+
       if (!transaction) {
-        throw new Error('Transaction not found');
+        throw new Error("Transaction not found");
       }
-      
+
       // دریافت تنظیمات صرافی
       const tenantSettings = await TenantSettings.findOne({ tenantId });
       if (!tenantSettings) {
-        throw new Error('Tenant settings not found');
+        throw new Error("Tenant settings not found");
       }
-      
+
       // بررسی وجود رسید قبلی
       const existingReceipt = await Receipt.findOne({
         tenantId,
-        transactionId
+        transactionId,
       });
-      
+
       if (existingReceipt) {
         return existingReceipt;
       }
-      
+
       // تولید محتوای رسید
-      const receiptContent = await this.generateReceiptContent(transaction, tenantSettings);
-      
+      const receiptContent = await this.generateReceiptContent(
+        transaction,
+        tenantSettings,
+      );
+
       // تولید PDF
       const pdfPath = await this.generatePDF(receiptContent, tenantSettings);
-      
+
       // ایجاد رسید در دیتابیس
       const receipt = new Receipt({
         tenantId,
@@ -50,87 +53,94 @@ class ReceiptService {
         customerId: transaction.customerId._id,
         type: transaction.type,
         channels: {
-          email: { enabled: channels.includes('email') },
-          sms: { enabled: channels.includes('sms') },
-          whatsapp: { enabled: channels.includes('whatsapp') }
+          email: { enabled: channels.includes("email") },
+          sms: { enabled: channels.includes("sms") },
+          whatsapp: { enabled: channels.includes("whatsapp") },
         },
         content: receiptContent,
         template: {
-          name: 'default',
+          name: "default",
           html: receiptContent.html,
-          css: receiptContent.css
+          css: receiptContent.css,
         },
         pdfFile: {
           path: pdfPath,
           fileName: `receipt_${transaction.transactionId}.pdf`,
           size: (await fs.stat(pdfPath)).size,
-          generatedAt: new Date()
+          generatedAt: new Date(),
         },
-        createdBy: transaction.createdBy._id
+        createdBy: transaction.createdBy._id,
       });
-      
+
       await receipt.save();
-      
+
       // ارسال رسید
       await this.sendReceipt(receipt, tenantSettings);
-      
+
       return receipt;
     } catch (error) {
-      console.error('Error generating receipt:', error);
+      console.error("Error generating receipt:", error);
       throw error;
     }
   }
-  
+
   // تولید محتوای رسید
   static async generateReceiptContent(transaction, tenantSettings) {
-    const template = tenantSettings.receipt.templates.find(t => t.isDefault) || 
-                    tenantSettings.receipt.templates[0];
-    
+    const template =
+      tenantSettings.receipt.templates.find((t) => t.isDefault) ||
+      tenantSettings.receipt.templates[0];
+
     let html = template ? template.html : this.getDefaultTemplate();
     let css = template ? template.css : this.getDefaultCSS();
-    
+
     // جایگزینی متغیرها
     const variables = {
-      '{{TENANT_NAME}}': tenantSettings.contact?.address?.city || 'صرافی',
-      '{{TENANT_ADDRESS}}': this.formatAddress(tenantSettings.contact.address),
-      '{{TENANT_PHONE}}': tenantSettings.contact.phone.primary || '',
-      '{{TENANT_EMAIL}}': tenantSettings.contact.email.primary || '',
-      '{{TENANT_WEBSITE}}': tenantSettings.contact.social.website || '',
-      '{{TENANT_LOGO}}': tenantSettings.branding.logo.path || '',
-      '{{RECEIPT_ID}}': transaction.transactionId,
-      '{{TRANSACTION_DATE}}': new Date(transaction.created_at).toLocaleDateString('fa-IR'),
-      '{{TRANSACTION_TIME}}': new Date(transaction.created_at).toLocaleTimeString('fa-IR'),
-      '{{CUSTOMER_NAME}}': transaction.customerId.name,
-      '{{CUSTOMER_PHONE}}': transaction.customerId.phone,
-      '{{CUSTOMER_EMAIL}}': transaction.customerId.email,
-      '{{TRANSACTION_TYPE}}': this.getTransactionTypeText(transaction.type),
-      '{{AMOUNT}}': transaction.amount.toLocaleString(),
-      '{{CURRENCY}}': transaction.currency,
-      '{{BALANCE_BEFORE}}': transaction.balanceBefore.toLocaleString(),
-      '{{BALANCE_AFTER}}': transaction.balanceAfter.toLocaleString(),
-      '{{DESCRIPTION}}': transaction.description,
-      '{{EXCHANGE_RATE}}': transaction.metadata.exchangeRate || '',
-      '{{FEES}}': transaction.metadata.fees || 0,
-      '{{TOTAL_AMOUNT}}': (transaction.amount + (transaction.metadata.fees || 0)).toLocaleString(),
-      '{{FOOTER_TEXT}}': tenantSettings.receipt.content.footer || '',
-      '{{TERMS}}': tenantSettings.receipt.content.terms || '',
-      '{{DISCLAIMER}}': tenantSettings.receipt.content.disclaimer || ''
+      "{{TENANT_NAME}}": tenantSettings.contact?.address?.city || "صرافی",
+      "{{TENANT_ADDRESS}}": this.formatAddress(tenantSettings.contact.address),
+      "{{TENANT_PHONE}}": tenantSettings.contact.phone.primary || "",
+      "{{TENANT_EMAIL}}": tenantSettings.contact.email.primary || "",
+      "{{TENANT_WEBSITE}}": tenantSettings.contact.social.website || "",
+      "{{TENANT_LOGO}}": tenantSettings.branding.logo.path || "",
+      "{{RECEIPT_ID}}": transaction.transactionId,
+      "{{TRANSACTION_DATE}}": new Date(
+        transaction.created_at,
+      ).toLocaleDateString("fa-IR"),
+      "{{TRANSACTION_TIME}}": new Date(
+        transaction.created_at,
+      ).toLocaleTimeString("fa-IR"),
+      "{{CUSTOMER_NAME}}": transaction.customerId.name,
+      "{{CUSTOMER_PHONE}}": transaction.customerId.phone,
+      "{{CUSTOMER_EMAIL}}": transaction.customerId.email,
+      "{{TRANSACTION_TYPE}}": this.getTransactionTypeText(transaction.type),
+      "{{AMOUNT}}": transaction.amount.toLocaleString(),
+      "{{CURRENCY}}": transaction.currency,
+      "{{BALANCE_BEFORE}}": transaction.balanceBefore.toLocaleString(),
+      "{{BALANCE_AFTER}}": transaction.balanceAfter.toLocaleString(),
+      "{{DESCRIPTION}}": transaction.description,
+      "{{EXCHANGE_RATE}}": transaction.metadata.exchangeRate || "",
+      "{{FEES}}": transaction.metadata.fees || 0,
+      "{{TOTAL_AMOUNT}}": (
+        transaction.amount + (transaction.metadata.fees || 0)
+      ).toLocaleString(),
+      "{{FOOTER_TEXT}}": tenantSettings.receipt.content.footer || "",
+      "{{TERMS}}": tenantSettings.receipt.content.terms || "",
+      "{{DISCLAIMER}}": tenantSettings.receipt.content.disclaimer || "",
     };
-    
+
     // اعمال متغیرها
-    Object.keys(variables).forEach(key => {
-      html = html.replace(new RegExp(key, 'g'), variables[key]);
-      css = css.replace(new RegExp(key, 'g'), variables[key]);
+    Object.keys(variables).forEach((key) => {
+      html = html.replace(new RegExp(key, "g"), variables[key]);
+      css = css.replace(new RegExp(key, "g"), variables[key]);
     });
-    
+
     return {
       tenant: {
-        name: variables['{{TENANT_NAME}}'],
-        logo: variables['{{TENANT_LOGO}}'],
-        address: variables['{{TENANT_ADDRESS}}'],
-        phone: variables['{{TENANT_PHONE}}'],
-        email: variables['{{TENANT_EMAIL}}'],
-        website: variables['{{TENANT_WEBSITE}}']
+        name: variables["{{TENANT_NAME}}"],
+        logo: variables["{{TENANT_LOGO}}"],
+        address: variables["{{TENANT_ADDRESS}}"],
+        phone: variables["{{TENANT_PHONE}}"],
+        email: variables["{{TENANT_EMAIL}}"],
+        website: variables["{{TENANT_WEBSITE}}"],
       },
       transaction: {
         id: transaction.transactionId,
@@ -139,141 +149,183 @@ class ReceiptService {
         currency: transaction.currency,
         date: transaction.created_at,
         description: transaction.description,
-        reference: transaction.transactionId
+        reference: transaction.transactionId,
       },
       customer: {
         name: transaction.customerId.name,
         phone: transaction.customerId.phone,
         email: transaction.customerId.email,
-        accountNumber: transaction.accountNumber
+        accountNumber: transaction.accountNumber,
       },
       details: {
         exchangeRate: transaction.metadata.exchangeRate,
         fees: transaction.metadata.fees || 0,
         totalAmount: transaction.amount + (transaction.metadata.fees || 0),
-        notes: transaction.notes?.customer || ''
+        notes: transaction.notes?.customer || "",
       },
       html,
-      css
+      css,
     };
   }
-  
+
   // تولید PDF
   static async generatePDF(content, tenantSettings) {
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({
-          size: 'A4',
-          margin: 50
+          size: "A4",
+          margin: 50,
         });
-        
+
         const fileName = `receipt_${content.transaction.id}_${Date.now()}.pdf`;
-        const filePath = path.join(__dirname, '../uploads/receipts', fileName);
-        
+        const filePath = path.join(__dirname, "../uploads/receipts", fileName);
+
         const stream = fs.createWriteStream(filePath);
         doc.pipe(stream);
-        
+
         // تنظیم فونت فارسی
-        doc.font('Helvetica');
-        
+        doc.font("Helvetica");
+
         // هدر
         if (tenantSettings.branding.logo.path) {
           doc.image(tenantSettings.branding.logo.path, 50, 50, { width: 100 });
         }
-        
-        doc.fontSize(20)
-           .text(content.tenant.name, 200, 70)
-           .fontSize(12)
-           .text(content.tenant.address, 200, 100)
-           .text(`تلفن: ${content.tenant.phone}`, 200, 120)
-           .text(`ایمیل: ${content.tenant.email}`, 200, 140);
-        
+
+        doc
+          .fontSize(20)
+          .text(content.tenant.name, 200, 70)
+          .fontSize(12)
+          .text(content.tenant.address, 200, 100)
+          .text(`تلفن: ${content.tenant.phone}`, 200, 120)
+          .text(`ایمیل: ${content.tenant.email}`, 200, 140);
+
         // خط جداکننده
-        doc.moveTo(50, 180)
-           .lineTo(550, 180)
-           .stroke();
-        
+        doc.moveTo(50, 180).lineTo(550, 180).stroke();
+
         // اطلاعات رسید
-        doc.fontSize(16)
-           .text('رسید تراکنش', 50, 200)
-           .fontSize(12)
-           .text(`شماره رسید: ${content.transaction.id}`, 50, 230)
-           .text(`تاریخ: ${new Date(content.transaction.date).toLocaleDateString('fa-IR')}`, 50, 250)
-           .text(`ساعت: ${new Date(content.transaction.date).toLocaleTimeString('fa-IR')}`, 50, 270);
-        
+        doc
+          .fontSize(16)
+          .text("رسید تراکنش", 50, 200)
+          .fontSize(12)
+          .text(`شماره رسید: ${content.transaction.id}`, 50, 230)
+          .text(
+            `تاریخ: ${new Date(content.transaction.date).toLocaleDateString("fa-IR")}`,
+            50,
+            250,
+          )
+          .text(
+            `ساعت: ${new Date(content.transaction.date).toLocaleTimeString("fa-IR")}`,
+            50,
+            270,
+          );
+
         // اطلاعات مشتری
-        doc.text('اطلاعات مشتری:', 50, 300)
-           .text(`نام: ${content.customer.name}`, 50, 320)
-           .text(`تلفن: ${content.customer.phone}`, 50, 340)
-           .text(`ایمیل: ${content.customer.email}`, 50, 360);
-        
+        doc
+          .text("اطلاعات مشتری:", 50, 300)
+          .text(`نام: ${content.customer.name}`, 50, 320)
+          .text(`تلفن: ${content.customer.phone}`, 50, 340)
+          .text(`ایمیل: ${content.customer.email}`, 50, 360);
+
         // اطلاعات تراکنش
-        doc.text('جزئیات تراکنش:', 50, 390)
-           .text(`نوع: ${this.getTransactionTypeText(content.transaction.type)}`, 50, 410)
-           .text(`مبلغ: ${content.transaction.amount.toLocaleString()} ${content.transaction.currency}`, 50, 430)
-           .text(`موجودی قبل: ${content.transaction.balanceBefore.toLocaleString()} ${content.transaction.currency}`, 50, 450)
-           .text(`موجودی بعد: ${content.transaction.balanceAfter.toLocaleString()} ${content.transaction.currency}`, 50, 470);
-        
+        doc
+          .text("جزئیات تراکنش:", 50, 390)
+          .text(
+            `نوع: ${this.getTransactionTypeText(content.transaction.type)}`,
+            50,
+            410,
+          )
+          .text(
+            `مبلغ: ${content.transaction.amount.toLocaleString()} ${content.transaction.currency}`,
+            50,
+            430,
+          )
+          .text(
+            `موجودی قبل: ${content.transaction.balanceBefore.toLocaleString()} ${content.transaction.currency}`,
+            50,
+            450,
+          )
+          .text(
+            `موجودی بعد: ${content.transaction.balanceAfter.toLocaleString()} ${content.transaction.currency}`,
+            50,
+            470,
+          );
+
         if (content.details.exchangeRate) {
           doc.text(`نرخ تبدیل: ${content.details.exchangeRate}`, 50, 490);
         }
-        
+
         if (content.details.fees > 0) {
-          doc.text(`کارمزد: ${content.details.fees.toLocaleString()} ${content.transaction.currency}`, 50, 510);
+          doc.text(
+            `کارمزد: ${content.details.fees.toLocaleString()} ${content.transaction.currency}`,
+            50,
+            510,
+          );
         }
-        
+
         doc.text(`توضیحات: ${content.transaction.description}`, 50, 530);
-        
+
         // فوتر
-        doc.moveTo(50, 650)
-           .lineTo(550, 650)
-           .stroke()
-           .fontSize(10)
-           .text(content.tenant.footer || 'با تشکر از اعتماد شما', 50, 670, { align: 'center' });
-        
+        doc
+          .moveTo(50, 650)
+          .lineTo(550, 650)
+          .stroke()
+          .fontSize(10)
+          .text(content.tenant.footer || "با تشکر از اعتماد شما", 50, 670, {
+            align: "center",
+          });
+
         doc.end();
-        
-        stream.on('finish', () => {
+
+        stream.on("finish", () => {
           resolve(filePath);
         });
-        
-        stream.on('error', reject);
+
+        stream.on("error", reject);
       } catch (error) {
         reject(error);
       }
     });
   }
-  
+
   // ارسال رسید
   static async sendReceipt(receipt, tenantSettings) {
     const promises = [];
-    
+
     // ارسال ایمیل
-    if (receipt.channels.email.enabled && tenantSettings.receipt.delivery.email.enabled) {
+    if (
+      receipt.channels.email.enabled &&
+      tenantSettings.receipt.delivery.email.enabled
+    ) {
       promises.push(this.sendEmail(receipt, tenantSettings));
     }
-    
+
     // ارسال SMS
-    if (receipt.channels.sms.enabled && tenantSettings.receipt.delivery.sms.enabled) {
+    if (
+      receipt.channels.sms.enabled &&
+      tenantSettings.receipt.delivery.sms.enabled
+    ) {
       promises.push(this.sendSMS(receipt, tenantSettings));
     }
-    
+
     // ارسال واتساپ
-    if (receipt.channels.whatsapp.enabled && tenantSettings.receipt.delivery.whatsapp.enabled) {
+    if (
+      receipt.channels.whatsapp.enabled &&
+      tenantSettings.receipt.delivery.whatsapp.enabled
+    ) {
       promises.push(this.sendWhatsApp(receipt, tenantSettings));
     }
-    
+
     try {
       await Promise.all(promises);
-      receipt.status = 'sent';
+      receipt.status = "sent";
       await receipt.save();
     } catch (error) {
-      console.error('Error sending receipt:', error);
-      receipt.status = 'failed';
+      console.error("Error sending receipt:", error);
+      receipt.status = "failed";
       await receipt.save();
     }
   }
-  
+
   // ارسال ایمیل
   static async sendEmail(receipt, tenantSettings) {
     try {
@@ -283,143 +335,153 @@ class ReceiptService {
         secure: tenantSettings.receipt.delivery.email.smtp.secure,
         auth: {
           user: tenantSettings.receipt.delivery.email.smtp.username,
-          pass: tenantSettings.receipt.delivery.email.smtp.password
-        }
+          pass: tenantSettings.receipt.delivery.email.smtp.password,
+        },
       });
-      
+
       const mailOptions = {
         from: `"${tenantSettings.receipt.delivery.email.fromName}" <${tenantSettings.receipt.delivery.email.fromEmail}>`,
         to: receipt.content.customer.email,
-        subject: tenantSettings.receipt.delivery.email.subject || 'رسید تراکنش',
+        subject: tenantSettings.receipt.delivery.email.subject || "رسید تراکنش",
         html: receipt.content.html,
-        attachments: [{
-          filename: receipt.pdfFile.fileName,
-          path: receipt.pdfFile.path
-        }]
+        attachments: [
+          {
+            filename: receipt.pdfFile.fileName,
+            path: receipt.pdfFile.path,
+          },
+        ],
       };
-      
+
       await transporter.sendMail(mailOptions);
-      
-      await receipt.markChannelSent('email');
-      await receipt.addDeliveryHistory('email', 'sent');
-      
+
+      await receipt.markChannelSent("email");
+      await receipt.addDeliveryHistory("email", "sent");
     } catch (error) {
-      console.error('Error sending email:', error);
-      await receipt.markChannelFailed('email', error.message);
-      await receipt.addDeliveryHistory('email', 'failed', error.message);
+      console.error("Error sending email:", error);
+      await receipt.markChannelFailed("email", error.message);
+      await receipt.addDeliveryHistory("email", "failed", error.message);
       throw error;
     }
   }
-  
+
   // ارسال SMS
   static async sendSMS(receipt, tenantSettings) {
     try {
       const smsConfig = tenantSettings.receipt.delivery.sms;
       let response;
-      
+
       switch (smsConfig.provider) {
-        case 'kavenegar':
-          response = await axios.post('https://api.kavenegar.com/v1/sms/send.json', {
-            receptor: receipt.content.customer.phone,
-            message: this.generateSMSText(receipt),
-            sender: smsConfig.fromNumber
-          }, {
-            headers: {
-              'Authorization': `Bearer ${smsConfig.apiKey}`
-            }
-          });
+        case "kavenegar":
+          response = await axios.post(
+            "https://api.kavenegar.com/v1/sms/send.json",
+            {
+              receptor: receipt.content.customer.phone,
+              message: this.generateSMSText(receipt),
+              sender: smsConfig.fromNumber,
+            },
+            {
+              headers: {
+                Authorization: `Bearer ${smsConfig.apiKey}`,
+              },
+            },
+          );
           break;
-          
-        case 'melipayamak':
-          response = await axios.post('https://rest.payamak-panel.com/api/SendSMS/SendSMS', {
-            username: smsConfig.apiKey,
-            password: smsConfig.apiSecret,
-            to: receipt.content.customer.phone,
-            from: smsConfig.fromNumber,
-            text: this.generateSMSText(receipt)
-          });
+
+        case "melipayamak":
+          response = await axios.post(
+            "https://rest.payamak-panel.com/api/SendSMS/SendSMS",
+            {
+              username: smsConfig.apiKey,
+              password: smsConfig.apiSecret,
+              to: receipt.content.customer.phone,
+              from: smsConfig.fromNumber,
+              text: this.generateSMSText(receipt),
+            },
+          );
           break;
-          
+
         default:
-          throw new Error('SMS provider not supported');
+          throw new Error("SMS provider not supported");
       }
-      
+
       if (response.data.success || response.data.return === 0) {
-        await receipt.markChannelSent('sms');
-        await receipt.addDeliveryHistory('sms', 'sent');
+        await receipt.markChannelSent("sms");
+        await receipt.addDeliveryHistory("sms", "sent");
       } else {
-        throw new Error(response.data.message || 'SMS sending failed');
+        throw new Error(response.data.message || "SMS sending failed");
       }
-      
     } catch (error) {
-      console.error('Error sending SMS:', error);
-      await receipt.markChannelFailed('sms', error.message);
-      await receipt.addDeliveryHistory('sms', 'failed', error.message);
+      console.error("Error sending SMS:", error);
+      await receipt.markChannelFailed("sms", error.message);
+      await receipt.addDeliveryHistory("sms", "failed", error.message);
       throw error;
     }
   }
-  
+
   // ارسال واتساپ
   static async sendWhatsApp(receipt, tenantSettings) {
     try {
       const whatsappConfig = tenantSettings.receipt.delivery.whatsapp;
       let response;
-      
+
       switch (whatsappConfig.provider) {
-        case 'twilio':
-          response = await axios.post(`https://api.twilio.com/2010-04-01/Accounts/${whatsappConfig.apiKey}/Messages.json`, {
-            To: `whatsapp:${receipt.content.customer.phone}`,
-            From: `whatsapp:${whatsappConfig.phoneNumber}`,
-            Body: this.generateWhatsAppText(receipt),
-            MediaUrl: receipt.pdfFile.path
-          }, {
-            auth: {
-              username: whatsappConfig.apiKey,
-              password: whatsappConfig.apiSecret
-            }
-          });
+        case "twilio":
+          response = await axios.post(
+            `https://api.twilio.com/2010-04-01/Accounts/${whatsappConfig.apiKey}/Messages.json`,
+            {
+              To: `whatsapp:${receipt.content.customer.phone}`,
+              From: `whatsapp:${whatsappConfig.phoneNumber}`,
+              Body: this.generateWhatsAppText(receipt),
+              MediaUrl: receipt.pdfFile.path,
+            },
+            {
+              auth: {
+                username: whatsappConfig.apiKey,
+                password: whatsappConfig.apiSecret,
+              },
+            },
+          );
           break;
-          
+
         default:
-          throw new Error('WhatsApp provider not supported');
+          throw new Error("WhatsApp provider not supported");
       }
-      
+
       if (response.data.sid) {
-        await receipt.markChannelSent('whatsapp');
-        await receipt.addDeliveryHistory('whatsapp', 'sent');
+        await receipt.markChannelSent("whatsapp");
+        await receipt.addDeliveryHistory("whatsapp", "sent");
       } else {
-        throw new Error('WhatsApp sending failed');
+        throw new Error("WhatsApp sending failed");
       }
-      
     } catch (error) {
-      console.error('Error sending WhatsApp:', error);
-      await receipt.markChannelFailed('whatsapp', error.message);
-      await receipt.addDeliveryHistory('whatsapp', 'failed', error.message);
+      console.error("Error sending WhatsApp:", error);
+      await receipt.markChannelFailed("whatsapp", error.message);
+      await receipt.addDeliveryHistory("whatsapp", "failed", error.message);
       throw error;
     }
   }
-  
+
   // تولید متن SMS
   static generateSMSText(receipt) {
     return `رسید تراکنش ${receipt.content.transaction.id}
 مبلغ: ${receipt.content.transaction.amount.toLocaleString()} ${receipt.content.transaction.currency}
-تاریخ: ${new Date(receipt.content.transaction.date).toLocaleDateString('fa-IR')}
+تاریخ: ${new Date(receipt.content.transaction.date).toLocaleDateString("fa-IR")}
 ${receipt.content.tenant.name}`;
   }
-  
+
   // تولید متن واتساپ
   static generateWhatsAppText(receipt) {
     return `🏦 *رسید تراکنش*
 
 📋 شماره: ${receipt.content.transaction.id}
 💰 مبلغ: ${receipt.content.transaction.amount.toLocaleString()} ${receipt.content.transaction.currency}
-📅 تاریخ: ${new Date(receipt.content.transaction.date).toLocaleDateString('fa-IR')}
-🕐 ساعت: ${new Date(receipt.content.transaction.date).toLocaleTimeString('fa-IR')}
+📅 تاریخ: ${new Date(receipt.content.transaction.date).toLocaleDateString("fa-IR")}
+🕐 ساعت: ${new Date(receipt.content.transaction.date).toLocaleTimeString("fa-IR")}
 👤 مشتری: ${receipt.content.customer.name}
 
 🏢 ${receipt.content.tenant.name}`;
   }
-  
+
   // قالب پیش‌فرض HTML
   static getDefaultTemplate() {
     return `
@@ -529,7 +591,7 @@ ${receipt.content.tenant.name}`;
       </html>
     `;
   }
-  
+
   // CSS پیش‌فرض
   static getDefaultCSS() {
     return `
@@ -620,28 +682,28 @@ ${receipt.content.tenant.name}`;
       }
     `;
   }
-  
+
   // متدهای کمکی
   static formatAddress(address) {
-    if (!address) return '';
-    return `${address.street || ''} ${address.city || ''} ${address.state || ''} ${address.country || ''}`.trim();
+    if (!address) return "";
+    return `${address.street || ""} ${address.city || ""} ${address.state || ""} ${address.country || ""}`.trim();
   }
-  
+
   static getTransactionTypeText(type) {
     const types = {
-      'deposit': 'واریز',
-      'withdrawal': 'برداشت',
-      'transfer_in': 'انتقال ورودی',
-      'transfer_out': 'انتقال خروجی',
-      'exchange_buy': 'خرید ارز',
-      'exchange_sell': 'فروش ارز',
-      'fee': 'کارمزد',
-      'interest': 'سود',
-      'adjustment': 'تعدیل',
-      'refund': 'بازپرداخت'
+      deposit: "واریز",
+      withdrawal: "برداشت",
+      transfer_in: "انتقال ورودی",
+      transfer_out: "انتقال خروجی",
+      exchange_buy: "خرید ارز",
+      exchange_sell: "فروش ارز",
+      fee: "کارمزد",
+      interest: "سود",
+      adjustment: "تعدیل",
+      refund: "بازپرداخت",
     };
     return types[type] || type;
   }
 }
 
-module.exports = ReceiptService; 
+module.exports = ReceiptService;

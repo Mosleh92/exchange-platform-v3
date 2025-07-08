@@ -1,10 +1,10 @@
-const authController = require('../../controllers/auth.controller');
-const User = require('../../models/User');
-const Tenant = require('../../models/Tenant');
-const RefreshToken = require('../../models/RefreshToken');
-const jwt = require('jsonwebtoken');
+const authController = require("../../controllers/auth.controller");
+const User = require("../../models/User");
+const Tenant = require("../../models/Tenant");
+const RefreshToken = require("../../models/RefreshToken");
+const jwt = require("jsonwebtoken");
 
-describe('Auth Controller', () => {
+describe("Auth Controller", () => {
   let req, res;
   let testTenant;
 
@@ -13,26 +13,26 @@ describe('Auth Controller', () => {
 
     req = {
       body: {},
-      user: null
+      user: null,
     };
 
     res = {
       status: jest.fn().mockReturnThis(),
-      json: jest.fn()
+      json: jest.fn(),
     };
   });
 
-  describe('register', () => {
-    it('should register new user successfully', async () => {
+  describe("register", () => {
+    it("should register new user successfully", async () => {
       req.body = {
-        username: 'newuser123',
-        email: 'newuser@example.com',
-        password: 'SecurePass@123',
-        fullName: 'New User',
-        phone: '09123456789',
-        nationalId: '1234567890',
-        role: 'customer',
-        tenantId: testTenant._id
+        username: "newuser123",
+        email: "newuser@example.com",
+        password: "SecurePass@123",
+        fullName: "New User",
+        phone: "09123456789",
+        nationalId: "1234567890",
+        role: "customer",
+        tenantId: testTenant._id,
       };
 
       await authController.register(req, res);
@@ -43,56 +43,35 @@ describe('Auth Controller', () => {
           success: true,
           data: expect.objectContaining({
             user: expect.objectContaining({
-              username: 'newuser123',
-              email: 'newuser@example.com',
-              role: 'customer'
-            })
-          })
-        })
+              username: "newuser123",
+              email: "newuser@example.com",
+              role: "customer",
+            }),
+          }),
+        }),
       );
 
       // Verify user was created in database
-      const user = await User.findOne({ email: 'newuser@example.com' });
+      const user = await User.findOne({ email: "newuser@example.com" });
       expect(user).toBeTruthy();
-      expect(user.status).toBe('pending');
+      expect(user.status).toBe("pending");
     });
 
-    it('should reject registration with existing email', async () => {
+    it("should reject registration with existing email", async () => {
       // Create user first
       await global.testUtils.createTestUser({
-        email: 'existing@example.com',
-        tenantId: testTenant._id
+        email: "existing@example.com",
+        tenantId: testTenant._id,
       });
 
       req.body = {
-        username: 'newuser123',
-        email: 'existing@example.com',
-        password: 'SecurePass@123',
-        fullName: 'New User',
-        phone: '09123456789',
-        nationalId: '1234567890',
-        tenantId: testTenant._id
-      };
-
-      await authController.register(req, res);
-
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json).toHaveBeenCalledWith(
-        expect.objectContaining({
-          success: false
-        })
-      );
-    });
-
-    it('should reject registration with invalid email', async () => {
-      req.body = {
-        username: 'newuser123',
-        email: 'invalid-email',
-        password: 'SecurePass@123',
-        fullName: 'New User',
-        phone: '09123456789',
-        nationalId: '1234567890',
-        tenantId: testTenant._id
+        username: "newuser123",
+        email: "existing@example.com",
+        password: "SecurePass@123",
+        fullName: "New User",
+        phone: "09123456789",
+        nationalId: "1234567890",
+        tenantId: testTenant._id,
       };
 
       await authController.register(req, res);
@@ -101,48 +80,69 @@ describe('Auth Controller', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          message: 'آدرس ایمیل نامعتبر است'
-        })
+        }),
       );
     });
 
-    it('should sanitize user input', async () => {
+    it("should reject registration with invalid email", async () => {
+      req.body = {
+        username: "newuser123",
+        email: "invalid-email",
+        password: "SecurePass@123",
+        fullName: "New User",
+        phone: "09123456789",
+        nationalId: "1234567890",
+        tenantId: testTenant._id,
+      };
+
+      await authController.register(req, res);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          success: false,
+          message: "آدرس ایمیل نامعتبر است",
+        }),
+      );
+    });
+
+    it("should sanitize user input", async () => {
       req.body = {
         username: '<script>alert("xss")</script>',
-        email: 'test@example.com',
-        password: 'SecurePass@123',
-        fullName: '<b>Bold Name</b>',
-        phone: '09123456789',
-        nationalId: '1234567890',
-        tenantId: testTenant._id
+        email: "test@example.com",
+        password: "SecurePass@123",
+        fullName: "<b>Bold Name</b>",
+        phone: "09123456789",
+        nationalId: "1234567890",
+        tenantId: testTenant._id,
       };
 
       await authController.register(req, res);
 
       expect(res.status).toHaveBeenCalledWith(201);
-      
-      const user = await User.findOne({ email: 'test@example.com' });
-      expect(user.username).not.toContain('<script>');
-      expect(user.fullName).not.toContain('<b>');
+
+      const user = await User.findOne({ email: "test@example.com" });
+      expect(user.username).not.toContain("<script>");
+      expect(user.fullName).not.toContain("<b>");
     });
   });
 
-  describe('login', () => {
+  describe("login", () => {
     let testUser;
 
     beforeEach(async () => {
       testUser = await global.testUtils.createTestUser({
-        email: 'testuser@example.com',
-        password: 'SecurePass@123',
+        email: "testuser@example.com",
+        password: "SecurePass@123",
         tenantId: testTenant._id,
-        status: 'active'
+        status: "active",
       });
     });
 
-    it('should login successfully with valid credentials', async () => {
+    it("should login successfully with valid credentials", async () => {
       req.body = {
-        email: 'testuser@example.com',
-        password: 'SecurePass@123'
+        email: "testuser@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
@@ -154,10 +154,10 @@ describe('Auth Controller', () => {
             accessToken: expect.any(String),
             refreshToken: expect.any(String),
             user: expect.objectContaining({
-              email: 'testuser@example.com'
-            })
-          })
-        })
+              email: "testuser@example.com",
+            }),
+          }),
+        }),
       );
 
       // Verify refresh token was stored
@@ -165,10 +165,10 @@ describe('Auth Controller', () => {
       expect(refreshToken).toBeTruthy();
     });
 
-    it('should reject login with invalid email', async () => {
+    it("should reject login with invalid email", async () => {
       req.body = {
-        email: 'nonexistent@example.com',
-        password: 'SecurePass@123'
+        email: "nonexistent@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
@@ -176,15 +176,15 @@ describe('Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false
-        })
+          success: false,
+        }),
       );
     });
 
-    it('should reject login with invalid password', async () => {
+    it("should reject login with invalid password", async () => {
       req.body = {
-        email: 'testuser@example.com',
-        password: 'WrongPassword'
+        email: "testuser@example.com",
+        password: "WrongPassword",
       };
 
       await authController.login(req, res);
@@ -192,17 +192,17 @@ describe('Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false
-        })
+          success: false,
+        }),
       );
     });
 
-    it('should reject login for inactive user', async () => {
-      await User.findByIdAndUpdate(testUser._id, { status: 'inactive' });
+    it("should reject login for inactive user", async () => {
+      await User.findByIdAndUpdate(testUser._id, { status: "inactive" });
 
       req.body = {
-        email: 'testuser@example.com',
-        password: 'SecurePass@123'
+        email: "testuser@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
@@ -210,21 +210,21 @@ describe('Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(401);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false
-        })
+          success: false,
+        }),
       );
     });
 
-    it('should reject login for locked account', async () => {
+    it("should reject login for locked account", async () => {
       // Simulate locked account
       await User.findByIdAndUpdate(testUser._id, {
         loginAttempts: 5,
-        lockUntil: new Date(Date.now() + 60000) // 1 minute
+        lockUntil: new Date(Date.now() + 60000), // 1 minute
       });
 
       req.body = {
-        email: 'testuser@example.com',
-        password: 'SecurePass@123'
+        email: "testuser@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
@@ -232,17 +232,17 @@ describe('Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(423);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false
-        })
+          success: false,
+        }),
       );
     });
 
-    it('should reject login for inactive tenant', async () => {
-      await Tenant.findByIdAndUpdate(testTenant._id, { status: 'inactive' });
+    it("should reject login for inactive tenant", async () => {
+      await Tenant.findByIdAndUpdate(testTenant._id, { status: "inactive" });
 
       req.body = {
-        email: 'testuser@example.com',
-        password: 'SecurePass@123'
+        email: "testuser@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
@@ -250,15 +250,15 @@ describe('Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(403);
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
-          success: false
-        })
+          success: false,
+        }),
       );
     });
 
-    it('should increment login attempts on failed password', async () => {
+    it("should increment login attempts on failed password", async () => {
       req.body = {
-        email: 'testuser@example.com',
-        password: 'WrongPassword'
+        email: "testuser@example.com",
+        password: "WrongPassword",
       };
 
       await authController.login(req, res);
@@ -267,13 +267,13 @@ describe('Auth Controller', () => {
       expect(user.loginAttempts).toBe(1);
     });
 
-    it('should reset login attempts on successful login', async () => {
+    it("should reset login attempts on successful login", async () => {
       // Set some login attempts first
       await User.findByIdAndUpdate(testUser._id, { loginAttempts: 3 });
 
       req.body = {
-        email: 'testuser@example.com',
-        password: 'SecurePass@123'
+        email: "testuser@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
@@ -282,49 +282,51 @@ describe('Auth Controller', () => {
       expect(user.loginAttempts).toBe(0);
     });
 
-    it('should update last login timestamp', async () => {
+    it("should update last login timestamp", async () => {
       const beforeLogin = new Date();
 
       req.body = {
-        email: 'testuser@example.com',
-        password: 'SecurePass@123'
+        email: "testuser@example.com",
+        password: "SecurePass@123",
       };
 
       await authController.login(req, res);
 
       const user = await User.findById(testUser._id);
       expect(user.lastLogin).toBeInstanceOf(Date);
-      expect(user.lastLogin.getTime()).toBeGreaterThanOrEqual(beforeLogin.getTime());
+      expect(user.lastLogin.getTime()).toBeGreaterThanOrEqual(
+        beforeLogin.getTime(),
+      );
     });
   });
 
-  describe('refreshToken', () => {
+  describe("refreshToken", () => {
     let testUser, validRefreshToken;
 
     beforeEach(async () => {
       testUser = await global.testUtils.createTestUser({
         tenantId: testTenant._id,
-        status: 'active'
+        status: "active",
       });
 
       // Create refresh token
       validRefreshToken = jwt.sign(
-        { userId: testUser._id, tenantId: testTenant._id, type: 'refresh' },
+        { userId: testUser._id, tenantId: testTenant._id, type: "refresh" },
         process.env.JWT_REFRESH_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: "7d" },
       );
 
       await RefreshToken.create({
         userId: testUser._id,
         tenantId: testTenant._id,
         token: validRefreshToken,
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
     });
 
-    it('should refresh access token with valid refresh token', async () => {
+    it("should refresh access token with valid refresh token", async () => {
       req.body = {
-        refreshToken: validRefreshToken
+        refreshToken: validRefreshToken,
       };
 
       await authController.refreshToken(req, res);
@@ -335,16 +337,16 @@ describe('Auth Controller', () => {
           data: expect.objectContaining({
             accessToken: expect.any(String),
             user: expect.objectContaining({
-              id: testUser._id.toString()
-            })
-          })
-        })
+              id: testUser._id.toString(),
+            }),
+          }),
+        }),
       );
     });
 
-    it('should reject invalid refresh token', async () => {
+    it("should reject invalid refresh token", async () => {
       req.body = {
-        refreshToken: 'invalid-token'
+        refreshToken: "invalid-token",
       };
 
       await authController.refreshToken(req, res);
@@ -353,21 +355,21 @@ describe('Auth Controller', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          message: 'Refresh token نامعتبر است'
-        })
+          message: "Refresh token نامعتبر است",
+        }),
       );
     });
 
-    it('should reject expired refresh token', async () => {
+    it("should reject expired refresh token", async () => {
       // Create expired token
       const expiredToken = jwt.sign(
-        { userId: testUser._id, tenantId: testTenant._id, type: 'refresh' },
+        { userId: testUser._id, tenantId: testTenant._id, type: "refresh" },
         process.env.JWT_REFRESH_SECRET,
-        { expiresIn: '-1h' }
+        { expiresIn: "-1h" },
       );
 
       req.body = {
-        refreshToken: expiredToken
+        refreshToken: expiredToken,
       };
 
       await authController.refreshToken(req, res);
@@ -376,20 +378,20 @@ describe('Auth Controller', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          message: 'Refresh token نامعتبر است'
-        })
+          message: "Refresh token نامعتبر است",
+        }),
       );
     });
 
-    it('should reject refresh token not in database', async () => {
+    it("should reject refresh token not in database", async () => {
       const notStoredToken = jwt.sign(
-        { userId: testUser._id, tenantId: testTenant._id, type: 'refresh' },
+        { userId: testUser._id, tenantId: testTenant._id, type: "refresh" },
         process.env.JWT_REFRESH_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: "7d" },
       );
 
       req.body = {
-        refreshToken: notStoredToken
+        refreshToken: notStoredToken,
       };
 
       await authController.refreshToken(req, res);
@@ -398,31 +400,31 @@ describe('Auth Controller', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: false,
-          message: 'Refresh token یافت نشد'
-        })
+          message: "Refresh token یافت نشد",
+        }),
       );
     });
   });
 
-  describe('logout', () => {
+  describe("logout", () => {
     let testUser, refreshTokenRecord;
 
     beforeEach(async () => {
       testUser = await global.testUtils.createTestUser({
-        tenantId: testTenant._id
+        tenantId: testTenant._id,
       });
 
       refreshTokenRecord = await RefreshToken.create({
         userId: testUser._id,
         tenantId: testTenant._id,
-        token: 'test-refresh-token',
-        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        token: "test-refresh-token",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
       });
     });
 
-    it('should logout successfully', async () => {
+    it("should logout successfully", async () => {
       req.body = {
-        refreshToken: 'test-refresh-token'
+        refreshToken: "test-refresh-token",
       };
 
       await authController.logout(req, res);
@@ -430,8 +432,8 @@ describe('Auth Controller', () => {
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          message: 'با موفقیت خارج شدید'
-        })
+          message: "با موفقیت خارج شدید",
+        }),
       );
 
       // Verify refresh token was removed
@@ -439,24 +441,24 @@ describe('Auth Controller', () => {
       expect(token).toBeNull();
     });
 
-    it('should logout without refresh token', async () => {
+    it("should logout without refresh token", async () => {
       await authController.logout(req, res);
 
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          message: 'با موفقیت خارج شدید'
-        })
+          message: "با موفقیت خارج شدید",
+        }),
       );
     });
   });
 
-  describe('logoutAll', () => {
+  describe("logoutAll", () => {
     let testUser;
 
     beforeEach(async () => {
       testUser = await global.testUtils.createTestUser({
-        tenantId: testTenant._id
+        tenantId: testTenant._id,
       });
 
       req.user = { userId: testUser._id };
@@ -466,26 +468,26 @@ describe('Auth Controller', () => {
         {
           userId: testUser._id,
           tenantId: testTenant._id,
-          token: 'token1',
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          token: "token1",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         },
         {
           userId: testUser._id,
           tenantId: testTenant._id,
-          token: 'token2',
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        }
+          token: "token2",
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        },
       ]);
     });
 
-    it('should logout from all devices', async () => {
+    it("should logout from all devices", async () => {
       await authController.logoutAll(req, res);
 
       expect(res.json).toHaveBeenCalledWith(
         expect.objectContaining({
           success: true,
-          message: 'از همه دستگاه‌ها خارج شدید'
-        })
+          message: "از همه دستگاه‌ها خارج شدید",
+        }),
       );
 
       // Verify all refresh tokens were removed

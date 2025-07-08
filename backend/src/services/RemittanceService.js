@@ -1,9 +1,13 @@
-const Remittance = require('../models/Remittance');
-const Account = require('../models/Account');
-const ExchangeRate = require('../models/ExchangeRate');
-const { generateSecretCode, generateQRCode, verifyQRCode } = require('../utils/remittanceUtils');
-const NotificationService = require('./notificationService');
-const { recordTransaction } = require('./accountingService');
+const Remittance = require("../models/Remittance");
+const Account = require("../models/Account");
+const ExchangeRate = require("../models/ExchangeRate");
+const {
+  generateSecretCode,
+  generateQRCode,
+  verifyQRCode,
+} = require("../utils/remittanceUtils");
+const NotificationService = require("./notificationService");
+const { recordTransaction } = require("./accountingService");
 
 const RemittanceService = {
   /**
@@ -20,22 +24,28 @@ const RemittanceService = {
       receiverInfo,
       deliveryInfo,
       security,
-      notes
+      notes,
     } = req.body;
     const userId = req.user.userId;
     const tenantId = req.user.tenantId;
 
     // Validate exchange rate
-    const exchangeRate = await ExchangeRate.getCurrentRate(tenantId, fromCurrency, toCurrency);
+    const exchangeRate = await ExchangeRate.getCurrentRate(
+      tenantId,
+      fromCurrency,
+      toCurrency,
+    );
     if (!exchangeRate) {
-      throw new Error('نرخ ارز برای این جفت ارز یافت نشد');
+      throw new Error("نرخ ارز برای این جفت ارز یافت نشد");
     }
 
     // Calculate conversion
-    const conversion = exchangeRate.calculateConversion(amount, 'buy');
+    const conversion = exchangeRate.calculateConversion(amount, "buy");
     // Validate amount limits
     if (!exchangeRate.isAmountValid(amount)) {
-      throw new Error(`مقدار باید بین ${exchangeRate.minAmount} و ${exchangeRate.maxAmount} باشد`);
+      throw new Error(
+        `مقدار باید بین ${exchangeRate.minAmount} و ${exchangeRate.maxAmount} باشد`,
+      );
     }
 
     // Check sender account balance
@@ -43,10 +53,10 @@ const RemittanceService = {
       customerId: userId,
       tenantId,
       currency: fromCurrency,
-      status: 'active'
+      status: "active",
     });
     if (!senderAccount || senderAccount.availableBalance < amount) {
-      throw new Error('موجودی کافی نیست');
+      throw new Error("موجودی کافی نیست");
     }
 
     // Create remittance
@@ -66,15 +76,15 @@ const RemittanceService = {
       deliveryInfo,
       security,
       notes: { sender: notes },
-      audit: { createdBy: userId }
+      audit: { createdBy: userId },
     });
 
     // Add initial approval requirement
-    const requiredApprovals = type === 'international' ? 2 : 1;
+    const requiredApprovals = type === "international" ? 2 : 1;
     for (let i = 1; i <= requiredApprovals; i++) {
       remittance.approvals.push({
         level: i,
-        status: 'pending'
+        status: "pending",
       });
     }
 
@@ -82,10 +92,10 @@ const RemittanceService = {
     // ثبت سند حسابداری
     await recordTransaction({
       description: `ثبت حواله کاربر ${userId}`,
-      debitAccount: 'RemittanceOut',
-      creditAccount: 'Cash',
+      debitAccount: "RemittanceOut",
+      creditAccount: "Cash",
       amount,
-      reference: remittance.remittanceId
+      reference: remittance.remittanceId,
     });
     // Freeze amount in sender account
     await senderAccount.freezeAmount(amount);
@@ -99,18 +109,19 @@ const RemittanceService = {
    */
   async approveRemittance({ remittanceId, level, notes, userId, tenantId }) {
     const remittance = await Remittance.findOne({ remittanceId, tenantId });
-    if (!remittance) throw new Error('حواله یافت نشد');
+    if (!remittance) throw new Error("حواله یافت نشد");
     // Find approval level
-    const approval = remittance.approvals.find(a => a.level === level);
-    if (!approval) throw new Error('سطح تأیید نامعتبر است');
-    if (approval.status === 'approved') throw new Error('این سطح قبلاً تأیید شده است');
-    approval.status = 'approved';
+    const approval = remittance.approvals.find((a) => a.level === level);
+    if (!approval) throw new Error("سطح تأیید نامعتبر است");
+    if (approval.status === "approved")
+      throw new Error("این سطح قبلاً تأیید شده است");
+    approval.status = "approved";
     approval.approvedBy = userId;
     approval.approvedAt = new Date();
     approval.notes = notes;
     // If all approvals done, set status to approved
-    if (remittance.approvals.every(a => a.status === 'approved')) {
-      remittance.status = 'approved';
+    if (remittance.approvals.every((a) => a.status === "approved")) {
+      remittance.status = "approved";
     }
     await remittance.save();
     // (Optional) Send notification
@@ -123,15 +134,16 @@ const RemittanceService = {
    */
   async rejectRemittance({ remittanceId, level, notes, userId, tenantId }) {
     const remittance = await Remittance.findOne({ remittanceId, tenantId });
-    if (!remittance) throw new Error('حواله یافت نشد');
-    const approval = remittance.approvals.find(a => a.level === level);
-    if (!approval) throw new Error('سطح تأیید نامعتبر است');
-    if (approval.status === 'rejected') throw new Error('این سطح قبلاً رد شده است');
-    approval.status = 'rejected';
+    if (!remittance) throw new Error("حواله یافت نشد");
+    const approval = remittance.approvals.find((a) => a.level === level);
+    if (!approval) throw new Error("سطح تأیید نامعتبر است");
+    if (approval.status === "rejected")
+      throw new Error("این سطح قبلاً رد شده است");
+    approval.status = "rejected";
     approval.rejectedBy = userId;
     approval.rejectedAt = new Date();
     approval.notes = notes;
-    remittance.status = 'rejected';
+    remittance.status = "rejected";
     await remittance.save();
     // (Optional) Send notification
     // await NotificationService.sendNotification(...);
@@ -143,18 +155,27 @@ const RemittanceService = {
    */
   async getRemittanceById({ remittanceId, tenantId }) {
     const remittance = await Remittance.findOne({ remittanceId, tenantId })
-      .populate('senderId', 'name email phone')
-      .populate('receiverId', 'name email phone')
-      .populate('senderBranchId', 'name address')
-      .populate('receiverBranchId', 'name address');
-    if (!remittance) throw new Error('حواله یافت نشد');
+      .populate("senderId", "name email phone")
+      .populate("receiverId", "name email phone")
+      .populate("senderBranchId", "name address")
+      .populate("receiverBranchId", "name address");
+    if (!remittance) throw new Error("حواله یافت نشد");
     return remittance;
   },
 
   /**
    * Get customer remittances (with pagination and filters)
    */
-  async getCustomerRemittances({ userId, tenantId, page = 1, limit = 10, type, status, fromDate, toDate }) {
+  async getCustomerRemittances({
+    userId,
+    tenantId,
+    page = 1,
+    limit = 10,
+    type,
+    status,
+    fromDate,
+    toDate,
+  }) {
     const query = { tenantId, senderId: userId };
     if (type) query.type = type;
     if (status) query.status = status;
@@ -167,18 +188,18 @@ const RemittanceService = {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate('senderBranchId', 'name')
-      .populate('receiverBranchId', 'name');
+      .populate("senderBranchId", "name")
+      .populate("receiverBranchId", "name");
     const total = await Remittance.countDocuments(query);
     return {
       remittances,
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
+        total,
+      },
     };
-  }
+  },
 };
 
-module.exports = RemittanceService; 
+module.exports = RemittanceService;

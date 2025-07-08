@@ -1,8 +1,8 @@
-const Transaction = require('../models/CustomerTransaction');
-const { reconcileTransactions } = require('../services/reconciliationService');
-const Discrepancy = require('../models/Discrepancy');
-const ExcelJS = require('exceljs');
-const Account = require('../models/Account');
+const Transaction = require("../models/CustomerTransaction");
+const { reconcileTransactions } = require("../services/reconciliationService");
+const Discrepancy = require("../models/Discrepancy");
+const ExcelJS = require("exceljs");
+const Account = require("../models/Account");
 
 async function dailyVolume(req, res) {
   const { companyId, days = 30 } = req.query;
@@ -14,10 +14,10 @@ async function dailyVolume(req, res) {
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-        volume: { $sum: "$amount" }
-      }
+        volume: { $sum: "$amount" },
+      },
     },
-    { $sort: { _id: 1 } }
+    { $sort: { _id: 1 } },
   ]);
   res.json({ dailyVolume: result });
 }
@@ -34,18 +34,18 @@ async function profitAndLoss(req, res) {
     }
     // جمع خریدها
     const buyAgg = await Transaction.aggregate([
-      { $match: { ...filter, type: 'currency_buy' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+      { $match: { ...filter, type: "currency_buy" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     // جمع فروش‌ها
     const sellAgg = await Transaction.aggregate([
-      { $match: { ...filter, type: 'currency_sell' } },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+      { $match: { ...filter, type: "currency_sell" } },
+      { $group: { _id: null, total: { $sum: "$amount" } } },
     ]);
     // جمع کارمزدها
     const commissionAgg = await Transaction.aggregate([
       { $match: filter },
-      { $group: { _id: null, total: { $sum: '$commission' } } }
+      { $group: { _id: null, total: { $sum: "$commission" } } },
     ]);
     const totalBuy = buyAgg[0]?.total || 0;
     const totalSell = sellAgg[0]?.total || 0;
@@ -57,8 +57,8 @@ async function profitAndLoss(req, res) {
         totalBuy,
         totalSell,
         totalCommission,
-        profit
-      }
+        profit,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -76,7 +76,8 @@ async function getReconciliationReport(req, res) {
 
 async function financialReport(req, res) {
   try {
-    const { from, to, type, branchId, currency, customerId, status } = req.query;
+    const { from, to, type, branchId, currency, customerId, status } =
+      req.query;
     const match = {
       tenantId: req.user.tenantId,
       ...(branchId && { branchId }),
@@ -85,21 +86,33 @@ async function financialReport(req, res) {
       ...(customerId && { customerId }),
       ...(status && { status }),
       ...(from && { createdAt: { $gte: new Date(from) } }),
-      ...(to && { createdAt: { ...((from && { $gte: new Date(from) }) || {}), $lte: new Date(to) } })
+      ...(to && {
+        createdAt: {
+          ...((from && { $gte: new Date(from) }) || {}),
+          $lte: new Date(to),
+        },
+      }),
     };
     const transactions = await Transaction.aggregate([
       { $match: match },
-      { $group: { _id: '$type', total: { $sum: '$amount' }, count: { $sum: 1 } } }
+      {
+        $group: {
+          _id: "$type",
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
     res.json({ transactions });
   } catch (err) {
-    res.status(500).json({ error: 'خطا در گزارش مالی.' });
+    res.status(500).json({ error: "خطا در گزارش مالی." });
   }
 }
 
 async function financialReportExcel(req, res) {
   try {
-    const { from, to, type, branchId, currency, customerId, status } = req.query;
+    const { from, to, type, branchId, currency, customerId, status } =
+      req.query;
     const match = {
       tenantId: req.user.tenantId,
       ...(branchId && { branchId }),
@@ -108,67 +121,94 @@ async function financialReportExcel(req, res) {
       ...(customerId && { customerId }),
       ...(status && { status }),
       ...(from && { createdAt: { $gte: new Date(from) } }),
-      ...(to && { createdAt: { ...((from && { $gte: new Date(from) }) || {}), $lte: new Date(to) } })
+      ...(to && {
+        createdAt: {
+          ...((from && { $gte: new Date(from) }) || {}),
+          $lte: new Date(to),
+        },
+      }),
     };
     const transactions = await Transaction.aggregate([
       { $match: match },
-      { $group: { _id: '$type', total: { $sum: '$amount' }, count: { $sum: 1 } } }
+      {
+        $group: {
+          _id: "$type",
+          total: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Financial Report');
+    const sheet = workbook.addWorksheet("Financial Report");
     sheet.columns = [
-      { header: 'نوع تراکنش', key: 'type', width: 20 },
-      { header: 'تعداد', key: 'count', width: 10 },
-      { header: 'مجموع', key: 'total', width: 20 }
+      { header: "نوع تراکنش", key: "type", width: 20 },
+      { header: "تعداد", key: "count", width: 10 },
+      { header: "مجموع", key: "total", width: 20 },
     ];
-    transactions.forEach(t => {
+    transactions.forEach((t) => {
       sheet.addRow({ type: t._id, count: t.count, total: t.total });
     });
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=financial-report.xlsx');
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=financial-report.xlsx",
+    );
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    res.status(500).json({ error: 'خطا در خروجی اکسل گزارش مالی.' });
+    res.status(500).json({ error: "خطا در خروجی اکسل گزارش مالی." });
   }
 }
 
 async function discrepancyReport(req, res) {
   try {
-    const discrepancies = await Discrepancy.find({ tenantId: req.user.tenantId });
+    const discrepancies = await Discrepancy.find({
+      tenantId: req.user.tenantId,
+    });
     res.json({ discrepancies });
   } catch (err) {
-    res.status(500).json({ error: 'خطا در گزارش مغایرت‌ها.' });
+    res.status(500).json({ error: "خطا در گزارش مغایرت‌ها." });
   }
 }
 
 async function discrepancyReportExcel(req, res) {
   try {
-    const discrepancies = await Discrepancy.find({ tenantId: req.user.tenantId });
+    const discrepancies = await Discrepancy.find({
+      tenantId: req.user.tenantId,
+    });
     const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Discrepancies');
+    const sheet = workbook.addWorksheet("Discrepancies");
     sheet.columns = [
-      { header: 'شناسه تراکنش', key: 'transactionId', width: 30 },
-      { header: 'مبلغ مورد انتظار', key: 'expected', width: 20 },
-      { header: 'مبلغ پرداختی', key: 'paid', width: 20 },
-      { header: 'وضعیت', key: 'status', width: 15 },
-      { header: 'تاریخ', key: 'createdAt', width: 25 }
+      { header: "شناسه تراکنش", key: "transactionId", width: 30 },
+      { header: "مبلغ مورد انتظار", key: "expected", width: 20 },
+      { header: "مبلغ پرداختی", key: "paid", width: 20 },
+      { header: "وضعیت", key: "status", width: 15 },
+      { header: "تاریخ", key: "createdAt", width: 25 },
     ];
-    discrepancies.forEach(d => {
+    discrepancies.forEach((d) => {
       sheet.addRow({
         transactionId: d.transactionId,
         expected: d.expected,
         paid: d.paid,
         status: d.status,
-        createdAt: d.createdAt
+        createdAt: d.createdAt,
       });
     });
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', 'attachment; filename=discrepancies.xlsx');
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=discrepancies.xlsx",
+    );
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    res.status(500).json({ error: 'خطا در خروجی اکسل مغایرت‌ها.' });
+    res.status(500).json({ error: "خطا در خروجی اکسل مغایرت‌ها." });
   }
 }
 
@@ -182,7 +222,8 @@ async function discrepancyReportExcel(req, res) {
 // The only change here is to ensure the 'exports.' prefix is removed if it was there,
 // but the file content shows it's already defined as `async function transactionSummary...`
 
-async function transactionSummary(req, res) { // No change to definition, already correct style
+async function transactionSummary(req, res) {
+  // No change to definition, already correct style
   try {
     const tenantId = req.user.tenantId;
     const { from, to, type } = req.query;
@@ -197,11 +238,11 @@ async function transactionSummary(req, res) { // No change to definition, alread
       { $match: filter },
       {
         $group: {
-          _id: '$type',
-          totalAmount: { $sum: '$amount' },
-          count: { $sum: 1 }
-        }
-      }
+          _id: "$type",
+          totalAmount: { $sum: "$amount" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
     res.json({ success: true, data: result });
   } catch (error) {
@@ -213,14 +254,14 @@ async function accountBalanceSummary(req, res) {
   try {
     const tenantId = req.user.tenantId;
     const result = await Account.aggregate([
-      { $match: { tenantId, status: 'active' } },
+      { $match: { tenantId, status: "active" } },
       {
         $group: {
-          _id: '$currency',
-          totalBalance: { $sum: '$availableBalance' },
-          count: { $sum: 1 }
-        }
-      }
+          _id: "$currency",
+          totalBalance: { $sum: "$availableBalance" },
+          count: { $sum: 1 },
+        },
+      },
     ]);
     res.json({ success: true, data: result });
   } catch (error) {
@@ -231,7 +272,7 @@ async function accountBalanceSummary(req, res) {
 async function transactionTrend(req, res) {
   try {
     const tenantId = req.user.tenantId;
-    const { from, to, type, interval = 'daily' } = req.query;
+    const { from, to, type, interval = "daily" } = req.query;
     const filter = { tenantId };
     if (from || to) {
       filter.createdAt = {};
@@ -240,24 +281,24 @@ async function transactionTrend(req, res) {
     }
     if (type) filter.type = type;
     // تعیین فرمت گروه‌بندی بر اساس interval
-    let dateFormat = '%Y-%m-%d';
-    if (interval === 'monthly') dateFormat = '%Y-%m';
+    let dateFormat = "%Y-%m-%d";
+    if (interval === "monthly") dateFormat = "%Y-%m";
     const result = await Transaction.aggregate([
       { $match: filter },
       {
         $group: {
-          _id: { $dateToString: { format: dateFormat, date: '$createdAt' } },
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
           count: { $sum: 1 },
-          totalAmount: { $sum: '$amount' }
-        }
+          totalAmount: { $sum: "$amount" },
+        },
       },
-      { $sort: { '_id': 1 } }
+      { $sort: { _id: 1 } },
     ]);
     // تبدیل خروجی به فرمت مورد انتظار
-    const data = result.map(item => ({
+    const data = result.map((item) => ({
       date: item._id,
       count: item.count,
-      totalAmount: item.totalAmount
+      totalAmount: item.totalAmount,
     }));
     res.json({ success: true, data });
   } catch (error) {
@@ -275,5 +316,5 @@ module.exports = {
   discrepancyReportExcel,
   transactionSummary,
   accountBalanceSummary,
-  transactionTrend
-}; 
+  transactionTrend,
+};

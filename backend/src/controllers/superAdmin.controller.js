@@ -1,22 +1,22 @@
-const Tenant = require('../models/Tenant');
-const User = require('../models/User');
-const i18n = require('../utils/i18n');
-const Plan = require('../models/Plan');
-const TenantPlan = require('../models/TenantPlan');
+const Tenant = require("../models/Tenant");
+const User = require("../models/User");
+const i18n = require("../utils/i18n");
+const Plan = require("../models/Plan");
+const TenantPlan = require("../models/TenantPlan");
 
 // Get all tenants
 exports.getAllTenants = async (req, res) => {
   try {
     const { page = 1, limit = 10, status, type, search } = req.query;
-    
+
     const query = {};
     if (status) query.status = status;
     if (type) query.type = type;
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { code: { $regex: search, $options: 'i' } },
-        { 'admin.email': { $regex: search, $options: 'i' } }
+        { name: { $regex: search, $options: "i" } },
+        { code: { $regex: search, $options: "i" } },
+        { "admin.email": { $regex: search, $options: "i" } },
       ];
     }
 
@@ -24,8 +24,8 @@ exports.getAllTenants = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate('metadata.createdBy', 'fullName email')
-      .populate('metadata.approvedBy', 'fullName email');
+      .populate("metadata.createdBy", "fullName email")
+      .populate("metadata.approvedBy", "fullName email");
 
     const total = await Tenant.countDocuments(query);
 
@@ -36,16 +36,15 @@ exports.getAllTenants = async (req, res) => {
         pagination: {
           current: parseInt(page),
           pages: Math.ceil(total / limit),
-          total
-        }
-      }
+          total,
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Get all tenants error:', error);
+    console.error("Get all tenants error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.server_error')
+      message: i18n.t("messages.server_error"),
     });
   }
 };
@@ -56,26 +55,25 @@ exports.getTenant = async (req, res) => {
     const { tenantId } = req.params;
 
     const tenant = await Tenant.findOne({ tenantId })
-      .populate('metadata.createdBy', 'fullName email')
-      .populate('metadata.approvedBy', 'fullName email');
+      .populate("metadata.createdBy", "fullName email")
+      .populate("metadata.approvedBy", "fullName email");
 
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
     res.json({
       success: true,
-      data: { tenant }
+      data: { tenant },
     });
-
   } catch (error) {
-    console.error('Get tenant error:', error);
+    console.error("Get tenant error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.server_error')
+      message: i18n.t("messages.server_error"),
     });
   }
 };
@@ -83,15 +81,8 @@ exports.getTenant = async (req, res) => {
 // Create new tenant
 exports.createTenant = async (req, res) => {
   try {
-    const {
-      name,
-      type,
-      subscription,
-      contact,
-      settings,
-      branding,
-      admin
-    } = req.body;
+    const { name, type, subscription, contact, settings, branding, admin } =
+      req.body;
 
     const userId = req.user.userId;
 
@@ -108,46 +99,50 @@ exports.createTenant = async (req, res) => {
       subscription: {
         ...subscription,
         startDate: new Date(),
-        endDate: new Date(Date.now() + (subscription.months || 12) * 30 * 24 * 60 * 60 * 1000)
+        endDate: new Date(
+          Date.now() + (subscription.months || 12) * 30 * 24 * 60 * 60 * 1000,
+        ),
       },
       contact,
       settings,
       branding,
       admin,
       metadata: {
-        createdBy: userId
-      }
+        createdBy: userId,
+      },
     });
 
     await tenant.save();
 
     // Create tenant admin user
-    const adminUser = await User.createTenantAdmin({
-      username: admin.username,
-      email: admin.email,
-      password: admin.password || 'changeme123',
-      fullName: admin.fullName,
-      phone: admin.phone
-    }, tenant._id);
+    const adminUser = await User.createTenantAdmin(
+      {
+        username: admin.username,
+        email: admin.email,
+        password: admin.password || "changeme123",
+        fullName: admin.fullName,
+        phone: admin.phone,
+      },
+      tenant._id,
+    );
 
     res.status(201).json({
       success: true,
-      message: i18n.t('super_admin.tenant_created'),
-      data: { 
+      message: i18n.t("super_admin.tenant_created"),
+      data: {
         tenant,
         admin: {
           username: adminUser.username,
           email: adminUser.email,
-          password: admin.password || 'changeme123'
-        }
-      }
+          password: admin.password || "changeme123",
+        },
+      },
     });
-
   } catch (error) {
-    console.error('Create tenant error:', error);
+    console.error("Create tenant error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -163,7 +158,7 @@ exports.updateTenant = async (req, res) => {
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
@@ -173,15 +168,14 @@ exports.updateTenant = async (req, res) => {
 
     res.json({
       success: true,
-      message: i18n.t('super_admin.tenant_updated'),
-      data: { tenant }
+      message: i18n.t("super_admin.tenant_updated"),
+      data: { tenant },
     });
-
   } catch (error) {
-    console.error('Update tenant error:', error);
+    console.error("Update tenant error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -197,7 +191,7 @@ exports.activateTenant = async (req, res) => {
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
@@ -205,15 +199,14 @@ exports.activateTenant = async (req, res) => {
 
     res.json({
       success: true,
-      message: i18n.t('super_admin.tenant_activated'),
-      data: { tenant }
+      message: i18n.t("super_admin.tenant_activated"),
+      data: { tenant },
     });
-
   } catch (error) {
-    console.error('Activate tenant error:', error);
+    console.error("Activate tenant error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -229,7 +222,7 @@ exports.suspendTenant = async (req, res) => {
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
@@ -237,15 +230,14 @@ exports.suspendTenant = async (req, res) => {
 
     res.json({
       success: true,
-      message: i18n.t('super_admin.tenant_suspended'),
-      data: { tenant }
+      message: i18n.t("super_admin.tenant_suspended"),
+      data: { tenant },
     });
-
   } catch (error) {
-    console.error('Suspend tenant error:', error);
+    console.error("Suspend tenant error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -261,7 +253,7 @@ exports.extendSubscription = async (req, res) => {
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
@@ -269,15 +261,14 @@ exports.extendSubscription = async (req, res) => {
 
     res.json({
       success: true,
-      message: i18n.t('super_admin.subscription_extended'),
-      data: { tenant }
+      message: i18n.t("super_admin.subscription_extended"),
+      data: { tenant },
     });
-
   } catch (error) {
-    console.error('Extend subscription error:', error);
+    console.error("Extend subscription error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -293,19 +284,19 @@ exports.resetTenantAdminPassword = async (req, res) => {
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
     const adminUser = await User.findOne({
       tenantId: tenant._id,
-      role: 'tenant_admin'
+      role: "tenant_admin",
     });
 
     if (!adminUser) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
@@ -314,19 +305,18 @@ exports.resetTenantAdminPassword = async (req, res) => {
 
     res.json({
       success: true,
-      message: i18n.t('super_admin.password_reset'),
+      message: i18n.t("super_admin.password_reset"),
       data: {
         username: adminUser.username,
         email: adminUser.email,
-        newPassword
-      }
+        newPassword,
+      },
     });
-
   } catch (error) {
-    console.error('Reset password error:', error);
+    console.error("Reset password error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -338,14 +328,13 @@ exports.getTenantStats = async (req, res) => {
 
     res.json({
       success: true,
-      data: { stats: stats[0] || {} }
+      data: { stats: stats[0] || {} },
     });
-
   } catch (error) {
-    console.error('Get tenant stats error:', error);
+    console.error("Get tenant stats error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.server_error')
+      message: i18n.t("messages.server_error"),
     });
   }
 };
@@ -359,14 +348,13 @@ exports.getExpiringTenants = async (req, res) => {
 
     res.json({
       success: true,
-      data: { tenants }
+      data: { tenants },
     });
-
   } catch (error) {
-    console.error('Get expiring tenants error:', error);
+    console.error("Get expiring tenants error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.server_error')
+      message: i18n.t("messages.server_error"),
     });
   }
 };
@@ -381,7 +369,7 @@ exports.deleteTenant = async (req, res) => {
     if (!tenant) {
       return res.status(404).json({
         success: false,
-        message: i18n.t('messages.not_found')
+        message: i18n.t("messages.not_found"),
       });
     }
 
@@ -393,14 +381,13 @@ exports.deleteTenant = async (req, res) => {
 
     res.json({
       success: true,
-      message: i18n.t('super_admin.tenant_deleted')
+      message: i18n.t("super_admin.tenant_deleted"),
     });
-
   } catch (error) {
-    console.error('Delete tenant error:', error);
+    console.error("Delete tenant error:", error);
     res.status(500).json({
       success: false,
-      message: i18n.t('messages.operation_failed')
+      message: i18n.t("messages.operation_failed"),
     });
   }
 };
@@ -410,26 +397,38 @@ exports.assignTenantPlan = async (req, res) => {
   try {
     const { tenantId, planId, durationDays } = req.body;
     const plan = await Plan.findById(planId);
-    if (!plan) return res.status(404).json({ success: false, message: 'پلن یافت نشد' });
-    let tenantPlan = await TenantPlan.findOne({ tenantId, status: 'active' });
+    if (!plan)
+      return res.status(404).json({ success: false, message: "پلن یافت نشد" });
+    let tenantPlan = await TenantPlan.findOne({ tenantId, status: "active" });
     if (tenantPlan) {
       tenantPlan.planId = planId;
       tenantPlan.startDate = new Date();
-      tenantPlan.endDate = new Date(Date.now() + (durationDays || plan.durationDays) * 24 * 60 * 60 * 1000);
-      tenantPlan.status = 'active';
+      tenantPlan.endDate = new Date(
+        Date.now() + (durationDays || plan.durationDays) * 24 * 60 * 60 * 1000,
+      );
+      tenantPlan.status = "active";
     } else {
       tenantPlan = new TenantPlan({
         tenantId,
         planId,
         startDate: new Date(),
-        endDate: new Date(Date.now() + (durationDays || plan.durationDays) * 24 * 60 * 60 * 1000),
-        status: 'active'
+        endDate: new Date(
+          Date.now() +
+            (durationDays || plan.durationDays) * 24 * 60 * 60 * 1000,
+        ),
+        status: "active",
       });
     }
     await tenantPlan.save();
     res.json({ success: true, tenantPlan });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'خطا در تخصیص پلن', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "خطا در تخصیص پلن",
+        error: err.message,
+      });
   }
 };
 
@@ -437,13 +436,22 @@ exports.assignTenantPlan = async (req, res) => {
 exports.suspendTenantPlan = async (req, res) => {
   try {
     const { tenantId } = req.body;
-    const tenantPlan = await TenantPlan.findOne({ tenantId, status: 'active' });
-    if (!tenantPlan) return res.status(404).json({ success: false, message: 'پلن فعال یافت نشد' });
-    tenantPlan.status = 'suspended';
+    const tenantPlan = await TenantPlan.findOne({ tenantId, status: "active" });
+    if (!tenantPlan)
+      return res
+        .status(404)
+        .json({ success: false, message: "پلن فعال یافت نشد" });
+    tenantPlan.status = "suspended";
     await tenantPlan.save();
     res.json({ success: true, tenantPlan });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'خطا در تعلیق پلن', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "خطا در تعلیق پلن",
+        error: err.message,
+      });
   }
 };
 
@@ -451,15 +459,24 @@ exports.suspendTenantPlan = async (req, res) => {
 exports.expireTenantPlan = async (req, res) => {
   try {
     const { tenantId } = req.body;
-    const tenantPlan = await TenantPlan.findOne({ tenantId, status: 'active' });
-    if (!tenantPlan) return res.status(404).json({ success: false, message: 'پلن فعال یافت نشد' });
-    tenantPlan.status = 'expired';
+    const tenantPlan = await TenantPlan.findOne({ tenantId, status: "active" });
+    if (!tenantPlan)
+      return res
+        .status(404)
+        .json({ success: false, message: "پلن فعال یافت نشد" });
+    tenantPlan.status = "expired";
     tenantPlan.endDate = new Date();
     await tenantPlan.save();
     res.json({ success: true, tenantPlan });
   } catch (err) {
-    res.status(500).json({ success: false, message: 'خطا در انقضای پلن', error: err.message });
+    res
+      .status(500)
+      .json({
+        success: false,
+        message: "خطا در انقضای پلن",
+        error: err.message,
+      });
   }
 };
 
-module.exports = exports; 
+module.exports = exports;

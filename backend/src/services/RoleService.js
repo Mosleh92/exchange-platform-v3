@@ -1,4 +1,4 @@
-const Role = require('../models/Role');
+const Role = require("../models/Role");
 
 const RoleService = {
   /**
@@ -14,8 +14,12 @@ const RoleService = {
    * Update an existing role
    */
   async updateRole({ roleId, tenantId, updateData }) {
-    const role = await Role.findOneAndUpdate({ _id: roleId, tenantId }, updateData, { new: true });
-    if (!role) throw new Error('نقش یافت نشد');
+    const role = await Role.findOneAndUpdate(
+      { _id: roleId, tenantId },
+      updateData,
+      { new: true },
+    );
+    if (!role) throw new Error("نقش یافت نشد");
     return role;
   },
 
@@ -24,7 +28,7 @@ const RoleService = {
    */
   async deleteRole({ roleId, tenantId }) {
     const role = await Role.findOneAndDelete({ _id: roleId, tenantId });
-    if (!role) throw new Error('نقش یافت نشد');
+    if (!role) throw new Error("نقش یافت نشد");
     return role;
   },
 
@@ -33,7 +37,7 @@ const RoleService = {
    */
   async getRoleById({ roleId, tenantId }) {
     const role = await Role.findOne({ _id: roleId, tenantId });
-    if (!role) throw new Error('نقش یافت نشد');
+    if (!role) throw new Error("نقش یافت نشد");
     return role;
   },
 
@@ -52,8 +56,8 @@ const RoleService = {
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
+        total,
+      },
     };
   },
 
@@ -61,10 +65,14 @@ const RoleService = {
    * Assign permissions to a role
    */
   async assignPermissions({ roleId, tenantId, permissions }) {
-    const role = await Role.findOneAndUpdate({ _id: roleId, tenantId }, { permissions }, { new: true });
-    if (!role) throw new Error('نقش یافت نشد');
+    const role = await Role.findOneAndUpdate(
+      { _id: roleId, tenantId },
+      { permissions },
+      { new: true },
+    );
+    if (!role) throw new Error("نقش یافت نشد");
     return role;
-  }
+  },
 };
 
-module.exports = RoleService; 
+module.exports = RoleService;

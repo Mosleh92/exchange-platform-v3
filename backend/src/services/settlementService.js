@@ -1,6 +1,6 @@
-const CustomerTransaction = require('../models/CustomerTransaction');
-const { recordTransaction } = require('./accountingService');
-const { publish, consume } = require('./messageQueue');
+const CustomerTransaction = require("../models/CustomerTransaction");
+const { recordTransaction } = require("./accountingService");
+const { publish, consume } = require("./messageQueue");
 
 async function settleMatchedOrder(order) {
   // فرض: order شامل اطلاعات معامله matched است
@@ -9,24 +9,24 @@ async function settleMatchedOrder(order) {
     company: order.company,
     amount: order.amount,
     type: order.type,
-    status: 'settled',
-    referenceOrder: order._id
+    status: "settled",
+    referenceOrder: order._id,
   });
   await recordTransaction({
-    description: 'Settlement for matched order',
-    debitAccount: order.type === 'buy' ? 'ForeignCurrency' : 'Cash',
-    creditAccount: order.type === 'buy' ? 'Cash' : 'ForeignCurrency',
+    description: "Settlement for matched order",
+    debitAccount: order.type === "buy" ? "ForeignCurrency" : "Cash",
+    creditAccount: order.type === "buy" ? "Cash" : "ForeignCurrency",
     amount: order.amount,
-    reference: order._id
+    reference: order._id,
   });
 }
 
-if (process.env.NODE_ENV !== 'test') {
-  consume('settlement', async (msg) => {
+if (process.env.NODE_ENV !== "test") {
+  consume("settlement", async (msg) => {
     // فرض: msg شامل orderId است
     // اینجا می‌توانید order را از دیتابیس بخوانید و settleMatchedOrder را فراخوانی کنید
     // await settleMatchedOrder(order)
   });
 }
 
-module.exports = { settleMatchedOrder }; 
+module.exports = { settleMatchedOrder };

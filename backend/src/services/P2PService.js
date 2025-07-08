@@ -1,5 +1,5 @@
-const P2POrder = require('../models/P2POrder');
-const NotificationService = require('./notificationService');
+const P2POrder = require("../models/P2POrder");
+const NotificationService = require("./notificationService");
 
 const P2PService = {
   /**
@@ -20,8 +20,8 @@ const P2PService = {
       type,
       price,
       notes: { user: notes },
-      status: 'pending',
-      audit: { createdBy: userId }
+      status: "pending",
+      audit: { createdBy: userId },
     });
     await order.save();
     // (Optional) Send notification
@@ -34,9 +34,10 @@ const P2PService = {
    */
   async approveP2POrder({ orderId, userId, tenantId, notes }) {
     const order = await P2POrder.findOne({ _id: orderId, tenantId });
-    if (!order) throw new Error('سفارش یافت نشد');
-    if (order.status === 'approved') throw new Error('سفارش قبلاً تأیید شده است');
-    order.status = 'approved';
+    if (!order) throw new Error("سفارش یافت نشد");
+    if (order.status === "approved")
+      throw new Error("سفارش قبلاً تأیید شده است");
+    order.status = "approved";
     order.audit = order.audit || {};
     order.audit.approvedBy = userId;
     order.audit.approvedAt = new Date();
@@ -52,9 +53,9 @@ const P2PService = {
    */
   async rejectP2POrder({ orderId, userId, tenantId, notes }) {
     const order = await P2POrder.findOne({ _id: orderId, tenantId });
-    if (!order) throw new Error('سفارش یافت نشد');
-    if (order.status === 'rejected') throw new Error('سفارش قبلاً رد شده است');
-    order.status = 'rejected';
+    if (!order) throw new Error("سفارش یافت نشد");
+    if (order.status === "rejected") throw new Error("سفارش قبلاً رد شده است");
+    order.status = "rejected";
     order.audit = order.audit || {};
     order.audit.rejectedBy = userId;
     order.audit.rejectedAt = new Date();
@@ -70,14 +71,22 @@ const P2PService = {
    */
   async getP2POrderById({ orderId, tenantId }) {
     const order = await P2POrder.findOne({ _id: orderId, tenantId });
-    if (!order) throw new Error('سفارش یافت نشد');
+    if (!order) throw new Error("سفارش یافت نشد");
     return order;
   },
 
   /**
    * Get user P2P orders (with pagination and filters)
    */
-  async getUserP2POrders({ userId, tenantId, page = 1, limit = 10, status, fromDate, toDate }) {
+  async getUserP2POrders({
+    userId,
+    tenantId,
+    page = 1,
+    limit = 10,
+    status,
+    fromDate,
+    toDate,
+  }) {
     const query = { tenantId, userId };
     if (status) query.status = status;
     if (fromDate || toDate) {
@@ -95,10 +104,10 @@ const P2PService = {
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
+        total,
+      },
     };
-  }
+  },
 };
 
-module.exports = P2PService; 
+module.exports = P2PService;

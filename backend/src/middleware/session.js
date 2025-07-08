@@ -1,13 +1,13 @@
-const session = require('express-session');
-const RedisStore = require('connect-redis').default;
-const Redis = require('ioredis');
-const logger = require('../utils/logger');
+const session = require("express-session");
+const RedisStore = require("connect-redis").default;
+const Redis = require("ioredis");
+const logger = require("../utils/logger");
 
 // Initialize Redis client only if not in test environment
 let redisClient;
 let sessionConfig;
 
-if (process.env.NODE_ENV === 'test') {
+if (process.env.NODE_ENV === "test") {
   // Use memory store for tests
   sessionConfig = {
     secret: process.env.SESSION_SECRET,
@@ -16,20 +16,20 @@ if (process.env.NODE_ENV === 'test') {
     cookie: {
       httpOnly: true,
       secure: false,
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
-    name: 'sessionId' // Change default connect.sid
+    name: "sessionId", // Change default connect.sid
   };
 } else {
   // Use Redis store for production/development
-  redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+  redisClient = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
-  redisClient.on('error', (err) => {
+  redisClient.on("error", (err) => {
     if (logger && logger.error) {
-      logger.error('Redis connection error:', err);
+      logger.error("Redis connection error:", err);
     } else {
-      console.error('Redis connection error:', err);
+      console.error("Redis connection error:", err);
     }
   });
 
@@ -40,11 +40,11 @@ if (process.env.NODE_ENV === 'test') {
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
-    name: 'sessionId' // Change default connect.sid
+    name: "sessionId", // Change default connect.sid
   };
 }
 
@@ -54,19 +54,19 @@ const sessionMiddleware = session(sessionConfig);
 // Session error handler
 const sessionErrorHandler = (err, req, res, next) => {
   if (logger && logger.error) {
-    logger.error('Session error:', err);
+    logger.error("Session error:", err);
   } else {
-    console.error('Session error:', err);
+    console.error("Session error:", err);
   }
-  
-  if (err.code === 'ECONNREFUSED') {
+
+  if (err.code === "ECONNREFUSED") {
     return res.status(500).json({
       success: false,
-      message: 'خطا در اتصال به سرور',
-      code: 'SESSION_ERROR'
+      message: "خطا در اتصال به سرور",
+      code: "SESSION_ERROR",
     });
   }
-  
+
   next(err);
 };
 
@@ -76,12 +76,12 @@ const cleanupSession = (req, res, next) => {
     req.session.destroy((err) => {
       if (err) {
         if (logger && logger.error) {
-          logger.error('Session cleanup error:', err);
+          logger.error("Session cleanup error:", err);
         } else {
-          console.error('Session cleanup error:', err);
+          console.error("Session cleanup error:", err);
         }
       }
-      res.clearCookie('sessionId');
+      res.clearCookie("sessionId");
       next();
     });
   } else {
@@ -92,5 +92,5 @@ const cleanupSession = (req, res, next) => {
 module.exports = {
   sessionMiddleware,
   sessionErrorHandler,
-  cleanupSession
-}; 
+  cleanupSession,
+};

@@ -1,4 +1,4 @@
-const { getExternalRate } = require('../services/rateEngine');
+const { getExternalRate } = require("../services/rateEngine");
 
 // Minimal placeholder for rate.controller.js
 module.exports = {
@@ -8,11 +8,11 @@ module.exports = {
   getRate: async (req, res) => {
     try {
       const { pair } = req.query;
-      if (!pair) return res.status(400).json({ error: 'pair is required' });
+      if (!pair) return res.status(400).json({ error: "pair is required" });
       const rate = await getExternalRate(pair);
       res.json({ rate });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
-  }
+  },
 };

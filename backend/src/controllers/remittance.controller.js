@@ -1,10 +1,14 @@
-const Remittance = require('../models/Remittance');
-const Account = require('../models/Account');
-const ExchangeRate = require('../models/ExchangeRate');
-const User = require('../models/User');
-const { generateSecretCode, generateQRCode, verifyQRCode } = require('../utils/remittanceUtils');
-const NotificationService = require('../services/notificationService');
-const logger = require('../utils/logger');
+const Remittance = require("../models/Remittance");
+const Account = require("../models/Account");
+const ExchangeRate = require("../models/ExchangeRate");
+const User = require("../models/User");
+const {
+  generateSecretCode,
+  generateQRCode,
+  verifyQRCode,
+} = require("../utils/remittanceUtils");
+const NotificationService = require("../services/notificationService");
+const logger = require("../utils/logger");
 
 // Create new remittance
 exports.createRemittance = async (req, res) => {
@@ -17,29 +21,33 @@ exports.createRemittance = async (req, res) => {
       receiverInfo,
       deliveryInfo,
       security,
-      notes
+      notes,
     } = req.body;
 
     const userId = req.user.userId;
     const tenantId = req.user.tenantId;
 
     // Validate exchange rate
-    const exchangeRate = await ExchangeRate.getCurrentRate(tenantId, fromCurrency, toCurrency);
+    const exchangeRate = await ExchangeRate.getCurrentRate(
+      tenantId,
+      fromCurrency,
+      toCurrency,
+    );
     if (!exchangeRate) {
       return res.status(400).json({
         success: false,
-        message: 'نرخ ارز برای این جفت ارز یافت نشد'
+        message: "نرخ ارز برای این جفت ارز یافت نشد",
       });
     }
 
     // Calculate conversion
-    const conversion = exchangeRate.calculateConversion(amount, 'buy');
-    
+    const conversion = exchangeRate.calculateConversion(amount, "buy");
+
     // Validate amount limits
     if (!exchangeRate.isAmountValid(amount)) {
       return res.status(400).json({
         success: false,
-        message: `مقدار باید بین ${exchangeRate.minAmount} و ${exchangeRate.maxAmount} باشد`
+        message: `مقدار باید بین ${exchangeRate.minAmount} و ${exchangeRate.maxAmount} باشد`,
       });
     }
 
@@ -48,13 +56,13 @@ exports.createRemittance = async (req, res) => {
       customerId: userId,
       tenantId,
       currency: fromCurrency,
-      status: 'active'
+      status: "active",
     });
 
     if (!senderAccount || senderAccount.availableBalance < amount) {
       return res.status(400).json({
         success: false,
-        message: 'موجودی کافی نیست'
+        message: "موجودی کافی نیست",
       });
     }
 
@@ -75,15 +83,15 @@ exports.createRemittance = async (req, res) => {
       deliveryInfo,
       security,
       notes: { sender: notes },
-      audit: { createdBy: userId }
+      audit: { createdBy: userId },
     });
 
     // Add initial approval requirement
-    const requiredApprovals = type === 'international' ? 2 : 1;
+    const requiredApprovals = type === "international" ? 2 : 1;
     for (let i = 1; i <= requiredApprovals; i++) {
       remittance.approvals.push({
         level: i,
-        status: 'pending'
+        status: "pending",
       });
     }
 
@@ -94,21 +102,20 @@ exports.createRemittance = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'حواله با موفقیت ایجاد شد',
-      data: { remittance }
+      message: "حواله با موفقیت ایجاد شد",
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Create remittance error:', {
+    logger.error("Create remittance error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در ایجاد حواله'
+      message: "خطا در ایجاد حواله",
     });
   }
 };
@@ -121,35 +128,35 @@ exports.getRemittance = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
-    }).populate('senderId', 'name email phone')
-      .populate('receiverId', 'name email phone')
-      .populate('senderBranchId', 'name address')
-      .populate('receiverBranchId', 'name address');
+      tenantId,
+    })
+      .populate("senderId", "name email phone")
+      .populate("receiverId", "name email phone")
+      .populate("senderBranchId", "name address")
+      .populate("receiverBranchId", "name address");
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
 
     res.json({
       success: true,
-      data: { remittance }
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Get remittance error:', {
+    logger.error("Get remittance error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در دریافت حواله'
+      message: "خطا در دریافت حواله",
     });
   }
 };
@@ -162,7 +169,7 @@ exports.getCustomerRemittances = async (req, res) => {
     const tenantId = req.user.tenantId;
 
     const query = { tenantId, senderId: userId };
-    
+
     if (type) query.type = type;
     if (status) query.status = status;
     if (fromDate || toDate) {
@@ -175,8 +182,8 @@ exports.getCustomerRemittances = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate('senderBranchId', 'name')
-      .populate('receiverBranchId', 'name');
+      .populate("senderBranchId", "name")
+      .populate("receiverBranchId", "name");
 
     const total = await Remittance.countDocuments(query);
 
@@ -187,22 +194,21 @@ exports.getCustomerRemittances = async (req, res) => {
         pagination: {
           current: page,
           pages: Math.ceil(total / limit),
-          total
-        }
-      }
+          total,
+        },
+      },
     });
-
   } catch (error) {
-    logger.error('Get customer remittances error:', {
+    logger.error("Get customer remittances error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در دریافت حواله‌ها'
+      message: "خطا در دریافت حواله‌ها",
     });
   }
 };
@@ -217,13 +223,13 @@ exports.approveRemittance = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
+      tenantId,
     });
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
 
@@ -231,21 +237,20 @@ exports.approveRemittance = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'حواله با موفقیت تأیید شد',
-      data: { remittance }
+      message: "حواله با موفقیت تأیید شد",
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Approve remittance error:', {
+    logger.error("Approve remittance error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در تأیید حواله'
+      message: "خطا در تأیید حواله",
     });
   }
 };
@@ -259,13 +264,13 @@ exports.processRemittance = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
+      tenantId,
     });
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
 
@@ -273,21 +278,20 @@ exports.processRemittance = async (req, res) => {
 
     res.json({
       success: true,
-      message: 'حواله در حال پردازش است',
-      data: { remittance }
+      message: "حواله در حال پردازش است",
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Process remittance error:', {
+    logger.error("Process remittance error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در پردازش حواله'
+      message: "خطا در پردازش حواله",
     });
   }
 };
@@ -301,13 +305,13 @@ exports.completeRemittance = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
+      tenantId,
     });
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
 
@@ -318,40 +322,39 @@ exports.completeRemittance = async (req, res) => {
       customerId: remittance.senderId,
       tenantId,
       currency: remittance.fromCurrency,
-      status: 'active'
+      status: "active",
     });
 
     if (senderAccount) {
       await senderAccount.unfreezeAmount(remittance.amount);
-      await senderAccount.addTransaction(remittance.amount, 'debit');
+      await senderAccount.addTransaction(remittance.amount, "debit");
     }
 
     remittance.statusHistory.push({
-      status: 'completed',
+      status: "completed",
       changedBy: userId,
       changedAt: new Date(),
-      note: 'تکمیل حواله'
+      note: "تکمیل حواله",
     });
 
     await remittance.save();
 
     res.json({
       success: true,
-      message: 'حواله با موفقیت تکمیل شد',
-      data: { remittance }
+      message: "حواله با موفقیت تکمیل شد",
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Complete remittance error:', {
+    logger.error("Complete remittance error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در تکمیل حواله'
+      message: "خطا در تکمیل حواله",
     });
   }
 };
@@ -366,13 +369,13 @@ exports.cancelRemittance = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
+      tenantId,
     });
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
 
@@ -383,7 +386,7 @@ exports.cancelRemittance = async (req, res) => {
       customerId: remittance.senderId,
       tenantId,
       currency: remittance.fromCurrency,
-      status: 'active'
+      status: "active",
     });
 
     if (senderAccount) {
@@ -391,31 +394,30 @@ exports.cancelRemittance = async (req, res) => {
     }
 
     remittance.statusHistory.push({
-      status: 'cancelled',
+      status: "cancelled",
       changedBy: userId,
       changedAt: new Date(),
-      note: reason
+      note: reason,
     });
 
     await remittance.save();
 
     res.json({
       success: true,
-      message: 'حواله با موفقیت لغو شد',
-      data: { remittance }
+      message: "حواله با موفقیت لغو شد",
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Cancel remittance error:', {
+    logger.error("Cancel remittance error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در لغو حواله'
+      message: "خطا در لغو حواله",
     });
   }
 };
@@ -430,13 +432,13 @@ exports.addPayment = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
+      tenantId,
     });
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
 
@@ -445,28 +447,27 @@ exports.addPayment = async (req, res) => {
       method,
       reference,
       receipt,
-      paidAt: new Date()
+      paidAt: new Date(),
     };
 
     await remittance.addPayment(paymentData);
 
     res.json({
       success: true,
-      message: 'پرداخت با موفقیت اضافه شد',
-      data: { remittance }
+      message: "پرداخت با موفقیت اضافه شد",
+      data: { remittance },
     });
-
   } catch (error) {
-    logger.error('Add payment error:', {
+    logger.error("Add payment error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در اضافه کردن پرداخت'
+      message: "خطا در اضافه کردن پرداخت",
     });
   }
 };
@@ -490,20 +491,19 @@ exports.getRemittanceStats = async (req, res) => {
 
     res.json({
       success: true,
-      data: { stats }
+      data: { stats },
     });
-
   } catch (error) {
-    logger.error('Get remittance stats error:', {
+    logger.error("Get remittance stats error:", {
       error: error.message,
       stack: error.stack,
       user: req.user?.id || req.user?.userId,
       endpoint: req.originalUrl,
-      method: req.method
+      method: req.method,
     });
     res.status(500).json({
       success: false,
-      message: 'خطا در دریافت آمار حواله‌ها'
+      message: "خطا در دریافت آمار حواله‌ها",
     });
   }
 };
@@ -511,12 +511,19 @@ exports.getRemittanceStats = async (req, res) => {
 // ایجاد حواله رمزدار بین شعب
 exports.createInterBranchRemittance = async (req, res) => {
   try {
-    const { senderBranchId, receiverBranchId, amount, currency, receiverInfo, note } = req.body;
+    const {
+      senderBranchId,
+      receiverBranchId,
+      amount,
+      currency,
+      receiverInfo,
+      note,
+    } = req.body;
     const secretCode = generateSecretCode();
     const expiresAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 روز اعتبار
     const remittance = new Remittance({
       remittanceId: Remittance.generateRemittanceId(),
-      type: 'inter_branch',
+      type: "inter_branch",
       senderBranchId,
       receiverBranchId,
       amount,
@@ -528,15 +535,20 @@ exports.createInterBranchRemittance = async (req, res) => {
       notes: { sender: note },
       secretCode,
       expiresAt,
-      status: 'pending',
-      audit: { createdBy: req.user.userId }
+      status: "pending",
+      audit: { createdBy: req.user.userId },
     });
     await remittance.save();
-    remittance.qrCode = await generateQRCode({ id: remittance._id, secretCode });
+    remittance.qrCode = await generateQRCode({
+      id: remittance._id,
+      secretCode,
+    });
     await remittance.save();
     res.status(201).json({ success: true, remittance });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'خطا در ایجاد حواله رمزدار', error });
+    res
+      .status(500)
+      .json({ success: false, message: "خطا در ایجاد حواله رمزدار", error });
   }
 };
 
@@ -546,50 +558,71 @@ exports.redeemInterBranchRemittance = async (req, res) => {
     const { codeOrQR, receiverBranchId, receiverName } = req.body;
     let remittance;
     if (codeOrQR.length === 8) {
-      remittance = await Remittance.findOne({ secretCode: codeOrQR, receiverBranchId });
+      remittance = await Remittance.findOne({
+        secretCode: codeOrQR,
+        receiverBranchId,
+      });
     } else {
       // decode QR (JWT)
       const payload = verifyQRCode(codeOrQR);
       if (!payload) {
-        console.log(`[REMITTANCE-REDEEM-FAIL] QR نامعتبر branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`);
-        return res.status(400).json({ error: 'QR نامعتبر یا منقضی شده' });
+        console.log(
+          `[REMITTANCE-REDEEM-FAIL] QR نامعتبر branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`,
+        );
+        return res.status(400).json({ error: "QR نامعتبر یا منقضی شده" });
       }
-      remittance = await Remittance.findOne({ _id: payload.id, secretCode: payload.secretCode, receiverBranchId });
+      remittance = await Remittance.findOne({
+        _id: payload.id,
+        secretCode: payload.secretCode,
+        receiverBranchId,
+      });
     }
     if (!remittance) {
-      console.log(`[REMITTANCE-REDEEM-FAIL] حواله یافت نشد codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`);
-      return res.status(404).json({ error: 'حواله یافت نشد' });
+      console.log(
+        `[REMITTANCE-REDEEM-FAIL] حواله یافت نشد codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`,
+      );
+      return res.status(404).json({ error: "حواله یافت نشد" });
     }
-    if (remittance.status !== 'pending') {
-      console.log(`[REMITTANCE-REDEEM-FAIL] حواله قبلاً برداشت شده یا منقضی است codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`);
-      return res.status(400).json({ error: 'حواله قبلاً برداشت شده یا منقضی است' });
+    if (remittance.status !== "pending") {
+      console.log(
+        `[REMITTANCE-REDEEM-FAIL] حواله قبلاً برداشت شده یا منقضی است codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`,
+      );
+      return res
+        .status(400)
+        .json({ error: "حواله قبلاً برداشت شده یا منقضی است" });
     }
     if (remittance.expiresAt < new Date()) {
-      console.log(`[REMITTANCE-REDEEM-FAIL] حواله منقضی شده codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`);
-      return res.status(400).json({ error: 'حواله منقضی شده' });
+      console.log(
+        `[REMITTANCE-REDEEM-FAIL] حواله منقضی شده codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`,
+      );
+      return res.status(400).json({ error: "حواله منقضی شده" });
     }
     if (remittance.receiverInfo.name !== receiverName) {
-      console.log(`[REMITTANCE-REDEEM-FAIL] نام گیرنده مطابقت ندارد codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`);
-      return res.status(400).json({ error: 'نام گیرنده مطابقت ندارد' });
+      console.log(
+        `[REMITTANCE-REDEEM-FAIL] نام گیرنده مطابقت ندارد codeOrQR=${codeOrQR} branch=${receiverBranchId} name=${receiverName} ip=${req.ip}`,
+      );
+      return res.status(400).json({ error: "نام گیرنده مطابقت ندارد" });
     }
-    remittance.status = 'completed';
+    remittance.status = "completed";
     remittance.redeemedAt = new Date();
     remittance.statusHistory.push({
-      status: 'completed',
+      status: "completed",
       changedBy: req.user.userId,
       changedAt: new Date(),
-      note: 'برداشت حواله در شعبه مقصد'
+      note: "برداشت حواله در شعبه مقصد",
     });
     await remittance.save();
     // اعلان برداشت حواله به گیرنده
     await NotificationService.send({
       to: remittance.receiverInfo?.phone || remittance.receiverInfo?.email,
-      type: 'remittance_redeemed',
-      message: `حواله با کد ${remittance.secretCode} با موفقیت برداشت شد.`
+      type: "remittance_redeemed",
+      message: `حواله با کد ${remittance.secretCode} با موفقیت برداشت شد.`,
     });
     res.json({ success: true, remittance });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'خطا در برداشت حواله', error });
+    res
+      .status(500)
+      .json({ success: false, message: "خطا در برداشت حواله", error });
   }
 };
 
@@ -602,33 +635,35 @@ exports.confirmInterBranchRemittanceReceipt = async (req, res) => {
 
     const remittance = await Remittance.findOne({
       remittanceId,
-      tenantId
+      tenantId,
     });
 
     if (!remittance) {
       return res.status(404).json({
         success: false,
-        message: 'حواله یافت نشد'
+        message: "حواله یافت نشد",
       });
     }
-    if (remittance.status !== 'pending') {
+    if (remittance.status !== "pending") {
       return res.status(400).json({
         success: false,
-        message: 'حواله در وضعیت مناسب برای تایید دریافت نیست'
+        message: "حواله در وضعیت مناسب برای تایید دریافت نیست",
       });
     }
-    remittance.status = 'received';
+    remittance.status = "received";
     remittance.statusHistory.push({
-      status: 'received',
+      status: "received",
       changedBy: userId,
       changedAt: new Date(),
-      note: 'تایید دریافت حواله در شعبه مقصد'
+      note: "تایید دریافت حواله در شعبه مقصد",
     });
     await remittance.save();
     res.json({ success: true, remittance });
   } catch (error) {
-    res.status(500).json({ success: false, message: 'خطا در تایید دریافت حواله', error });
+    res
+      .status(500)
+      .json({ success: false, message: "خطا در تایید دریافت حواله", error });
   }
 };
 
-module.exports = exports; 
+module.exports = exports;

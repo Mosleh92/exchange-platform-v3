@@ -1,5 +1,5 @@
-const User = require('../models/User');
-const speakeasy = require('speakeasy');
+const User = require("../models/User");
+const speakeasy = require("speakeasy");
 
 const UserService = {
   /**
@@ -15,8 +15,12 @@ const UserService = {
    * Update an existing user
    */
   async updateUser({ userId, tenantId, updateData }) {
-    const user = await User.findOneAndUpdate({ _id: userId, tenantId }, updateData, { new: true });
-    if (!user) throw new Error('کاربر یافت نشد');
+    const user = await User.findOneAndUpdate(
+      { _id: userId, tenantId },
+      updateData,
+      { new: true },
+    );
+    if (!user) throw new Error("کاربر یافت نشد");
     return user;
   },
 
@@ -25,7 +29,7 @@ const UserService = {
    */
   async deleteUser({ userId, tenantId }) {
     const user = await User.findOneAndDelete({ _id: userId, tenantId });
-    if (!user) throw new Error('کاربر یافت نشد');
+    if (!user) throw new Error("کاربر یافت نشد");
     return user;
   },
 
@@ -34,7 +38,7 @@ const UserService = {
    */
   async getUserById({ userId, tenantId }) {
     const user = await User.findOne({ _id: userId, tenantId });
-    if (!user) throw new Error('کاربر یافت نشد');
+    if (!user) throw new Error("کاربر یافت نشد");
     return user;
   },
 
@@ -55,8 +59,8 @@ const UserService = {
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
+        total,
+      },
     };
   },
 
@@ -64,8 +68,12 @@ const UserService = {
    * Assign a role to a user
    */
   async assignRole({ userId, tenantId, role }) {
-    const user = await User.findOneAndUpdate({ _id: userId, tenantId }, { role }, { new: true });
-    if (!user) throw new Error('کاربر یافت نشد');
+    const user = await User.findOneAndUpdate(
+      { _id: userId, tenantId },
+      { role },
+      { new: true },
+    );
+    if (!user) throw new Error("کاربر یافت نشد");
     return user;
   },
 
@@ -75,13 +83,13 @@ const UserService = {
   async generateMfaSecret({ user }) {
     const secret = speakeasy.generateSecret({
       name: `ExchangePlatform (${user.email})`,
-      length: 32
+      length: 32,
     });
     return {
       ascii: secret.ascii,
       hex: secret.hex,
       base32: secret.base32,
-      otpauth_url: secret.otpauth_url
+      otpauth_url: secret.otpauth_url,
     };
   },
 
@@ -89,11 +97,15 @@ const UserService = {
    * Enable MFA for user (after verifying code)
    */
   async enableMfa({ userId, secret }) {
-    const user = await User.findByIdAndUpdate(userId, {
-      mfaEnabled: true,
-      mfaSecret: secret
-    }, { new: true });
-    if (!user) throw new Error('کاربر یافت نشد');
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        mfaEnabled: true,
+        mfaSecret: secret,
+      },
+      { new: true },
+    );
+    if (!user) throw new Error("کاربر یافت نشد");
     return user;
   },
 
@@ -103,11 +115,11 @@ const UserService = {
   verifyMfaToken({ secret, token }) {
     return speakeasy.totp.verify({
       secret,
-      encoding: 'base32',
+      encoding: "base32",
       token,
-      window: 1 // allow 1 step before/after
+      window: 1, // allow 1 step before/after
     });
-  }
+  },
 };
 
-module.exports = UserService; 
+module.exports = UserService;

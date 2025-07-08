@@ -20,8 +20,9 @@ mongorestore --db [db_name] [backup_folder]/[db_name]
 ```
 
 مثال:
+
 ```bash
 mongorestore --db exchange_platform ../backups/2024-06-01_02-00-00/exchange_platform
 ```
 
-> توصیه: بکاپ‌گیری منظم (مثلاً با cron) و تست دوره‌ای بازیابی برای اطمینان از سلامت داده‌ها انجام شود. 
+> توصیه: بکاپ‌گیری منظم (مثلاً با cron) و تست دوره‌ای بازیابی برای اطمینان از سلامت داده‌ها انجام شود.

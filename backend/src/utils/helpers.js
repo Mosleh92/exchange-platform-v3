@@ -34,4 +34,4 @@ module.exports = {
   generateTransactionCode,
   calculateCommission,
   generateVerificationCode,
-}; 
+};

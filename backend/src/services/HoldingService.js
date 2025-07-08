@@ -1,4 +1,4 @@
-const HoldManager = require('./HoldManager');
+const HoldManager = require("./HoldManager");
 
 const HoldingService = {
   /**
@@ -10,7 +10,7 @@ const HoldingService = {
     const { accountId, currency, amount, reason, holdUntil, notes } = req.body;
     const tenantId = req.user.tenantId;
     const userId = req.user.userId;
-    const userName = req.user.name || req.user.username || 'User';
+    const userName = req.user.name || req.user.username || "User";
     // Call HoldManager to create hold
     return await HoldManager.createHold(
       tenantId,
@@ -22,8 +22,8 @@ const HoldingService = {
         holdUntil,
         notes,
         userId,
-        userName
-      }
+        userName,
+      },
     );
   },
 
@@ -31,7 +31,10 @@ const HoldingService = {
    * Release a hold transaction
    */
   async releaseHold({ tenantId, holdTransactionId, releasedBy, notes }) {
-    return await HoldManager.releaseHold(tenantId, holdTransactionId, { releasedBy, notes });
+    return await HoldManager.releaseHold(tenantId, holdTransactionId, {
+      releasedBy,
+      notes,
+    });
   },
 
   /**
@@ -39,7 +42,7 @@ const HoldingService = {
    */
   async getActiveHolds({ tenantId, accountId, currency }) {
     return await HoldManager.getActiveHolds(tenantId, accountId, currency);
-  }
+  },
 };
 
-module.exports = HoldingService; 
+module.exports = HoldingService;

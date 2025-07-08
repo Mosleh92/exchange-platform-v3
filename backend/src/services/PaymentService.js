@@ -1,8 +1,8 @@
-const Payment = require('../models/Payment');
-const Account = require('../models/Account');
-const Transaction = require('../models/Transaction');
-const NotificationService = require('./notificationService');
-const { recordTransaction } = require('./accountingService');
+const Payment = require("../models/Payment");
+const Account = require("../models/Account");
+const Transaction = require("../models/Transaction");
+const NotificationService = require("./notificationService");
+const { recordTransaction } = require("./accountingService");
 
 const PaymentService = {
   /**
@@ -25,17 +25,17 @@ const PaymentService = {
       method,
       reference,
       notes: { user: notes },
-      status: 'pending',
-      audit: { createdBy: userId }
+      status: "pending",
+      audit: { createdBy: userId },
     });
     await payment.save();
     // ثبت سند حسابداری
     await recordTransaction({
       description: `ثبت پرداخت کاربر ${userId}`,
-      debitAccount: 'Cash',
-      creditAccount: 'Receivable',
+      debitAccount: "Cash",
+      creditAccount: "Receivable",
       amount,
-      reference: payment._id.toString()
+      reference: payment._id.toString(),
     });
     // (Optional) Send notification
     // await NotificationService.sendNotification(...);
@@ -47,9 +47,10 @@ const PaymentService = {
    */
   async approvePayment({ paymentId, userId, tenantId, notes }) {
     const payment = await Payment.findOne({ _id: paymentId, tenantId });
-    if (!payment) throw new Error('پرداخت یافت نشد');
-    if (payment.status === 'approved') throw new Error('پرداخت قبلاً تأیید شده است');
-    payment.status = 'approved';
+    if (!payment) throw new Error("پرداخت یافت نشد");
+    if (payment.status === "approved")
+      throw new Error("پرداخت قبلاً تأیید شده است");
+    payment.status = "approved";
     payment.audit = payment.audit || {};
     payment.audit.approvedBy = userId;
     payment.audit.approvedAt = new Date();
@@ -65,9 +66,10 @@ const PaymentService = {
    */
   async rejectPayment({ paymentId, userId, tenantId, notes }) {
     const payment = await Payment.findOne({ _id: paymentId, tenantId });
-    if (!payment) throw new Error('پرداخت یافت نشد');
-    if (payment.status === 'rejected') throw new Error('پرداخت قبلاً رد شده است');
-    payment.status = 'rejected';
+    if (!payment) throw new Error("پرداخت یافت نشد");
+    if (payment.status === "rejected")
+      throw new Error("پرداخت قبلاً رد شده است");
+    payment.status = "rejected";
     payment.audit = payment.audit || {};
     payment.audit.rejectedBy = userId;
     payment.audit.rejectedAt = new Date();
@@ -83,14 +85,22 @@ const PaymentService = {
    */
   async getPaymentById({ paymentId, tenantId }) {
     const payment = await Payment.findOne({ _id: paymentId, tenantId });
-    if (!payment) throw new Error('پرداخت یافت نشد');
+    if (!payment) throw new Error("پرداخت یافت نشد");
     return payment;
   },
 
   /**
    * Get customer payments (with pagination and filters)
    */
-  async getCustomerPayments({ userId, tenantId, page = 1, limit = 10, status, fromDate, toDate }) {
+  async getCustomerPayments({
+    userId,
+    tenantId,
+    page = 1,
+    limit = 10,
+    status,
+    fromDate,
+    toDate,
+  }) {
     const query = { tenantId, userId };
     if (status) query.status = status;
     if (fromDate || toDate) {
@@ -108,10 +118,10 @@ const PaymentService = {
       pagination: {
         current: page,
         pages: Math.ceil(total / limit),
-        total
-      }
+        total,
+      },
     };
-  }
+  },
 };
 
-module.exports = PaymentService; 
+module.exports = PaymentService;

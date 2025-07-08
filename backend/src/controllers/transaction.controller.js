@@ -1,22 +1,25 @@
 // backend/src/controllers/transaction.controller.js
 // کد قبلی شما + اصلاحات فارسی:
 
-const { getTenantConnection } = require('../config/database');
-const logger = require('../utils/logger');
-const { generateTransactionCode, calculateCommission } = require('../utils/helpers');
-const { broadcastToTenant } = require('../config/socket');
-const PersianUtils = require('../utils/persian');
-const mongoose = require('mongoose');
-const Transaction = require('../models/Transaction');
-const Account = require('../models/Account');
-const ExchangeRate = require('../models/ExchangeRate');
-const User = require('../models/User');
-const { on } = require('../services/eventDispatcher');
-const CustomerTransaction = require('../models/CustomerTransaction');
-const TransactionService = require('../services/TransactionService');
-const RemittanceService = require('../services/RemittanceService');
-const HoldingService = require('../services/HoldingService');
-const validator = require('validator');
+const { getTenantConnection } = require("../config/database");
+const logger = require("../utils/logger");
+const {
+  generateTransactionCode,
+  calculateCommission,
+} = require("../utils/helpers");
+const { broadcastToTenant } = require("../config/socket");
+const PersianUtils = require("../utils/persian");
+const mongoose = require("mongoose");
+const Transaction = require("../models/Transaction");
+const Account = require("../models/Account");
+const ExchangeRate = require("../models/ExchangeRate");
+const User = require("../models/User");
+const { on } = require("../services/eventDispatcher");
+const CustomerTransaction = require("../models/CustomerTransaction");
+const TransactionService = require("../services/TransactionService");
+const RemittanceService = require("../services/RemittanceService");
+const HoldingService = require("../services/HoldingService");
+const validator = require("validator");
 
 class TransactionController {
   async createTransaction(req, res) {
@@ -29,45 +32,52 @@ class TransactionController {
         paymentMethod,
         deliveryMethod,
         notes,
-        receiverInfo
+        receiverInfo,
       } = req.body;
 
       const userId = req.user.userId;
       const tenantId = req.user.tenantId;
 
       // Validate exchange rate
-      const exchangeRate = await ExchangeRate.getCurrentRate(tenantId, fromCurrency, toCurrency);
+      const exchangeRate = await ExchangeRate.getCurrentRate(
+        tenantId,
+        fromCurrency,
+        toCurrency,
+      );
       if (!exchangeRate) {
         return res.status(400).json({
           success: false,
-          message: 'نرخ ارز برای این جفت ارز یافت نشد'
+          message: "نرخ ارز برای این جفت ارز یافت نشد",
         });
       }
 
       // Calculate conversion
-      const conversion = exchangeRate.calculateConversion(amount, type === 'currency_buy' ? 'buy' : 'sell');
-      
+      const conversion = exchangeRate.calculateConversion(
+        amount,
+        type === "currency_buy" ? "buy" : "sell",
+      );
+
       // Validate amount limits
       if (!exchangeRate.isAmountValid(amount)) {
         return res.status(400).json({
           success: false,
-          message: `مقدار باید بین ${exchangeRate.minAmount} و ${exchangeRate.maxAmount} باشد`
+          message: `مقدار باید بین ${exchangeRate.minAmount} و ${exchangeRate.maxAmount} باشد`,
         });
       }
 
       // Check customer account balance for sell transactions
-      if (type === 'currency_sell') {
+      if (type === "currency_sell") {
         const customerAccount = await Account.findOne({
           customerId: userId,
           tenantId,
           currency: fromCurrency,
-          status: 'active'
+          status: "active",
         });
 
         if (!customerAccount || customerAccount.availableBalance < amount) {
           return res.status(400).json({
             success: false,
-            message: 'موجودی کافی نیست'
+            message: "موجودی کافی نیست",
           });
         }
       }
@@ -90,22 +100,21 @@ class TransactionController {
         deliveryMethod,
         notes: { customer: notes },
         receiverInfo,
-        audit: { createdBy: userId }
+        audit: { createdBy: userId },
       });
 
       await transaction.save();
 
       res.status(201).json({
         success: true,
-        message: 'تراکنش با موفقیت ایجاد شد',
-        data: { transaction }
+        message: "تراکنش با موفقیت ایجاد شد",
+        data: { transaction },
       });
-
     } catch (error) {
-      console.error('Create transaction error:', error);
+      console.error("Create transaction error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در ایجاد تراکنش'
+        message: "خطا در ایجاد تراکنش",
       });
     }
   }
@@ -117,40 +126,47 @@ class TransactionController {
 
       const transaction = await Transaction.findOne({
         transactionId,
-        tenantId
-      }).populate('customerId', 'name email phone')
-        .populate('fromAccount')
-        .populate('toAccount');
+        tenantId,
+      })
+        .populate("customerId", "name email phone")
+        .populate("fromAccount")
+        .populate("toAccount");
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
-          message: 'تراکنش یافت نشد'
+          message: "تراکنش یافت نشد",
         });
       }
 
       res.json({
         success: true,
-        data: { transaction }
+        data: { transaction },
       });
-
     } catch (error) {
-      console.error('Get transaction error:', error);
+      console.error("Get transaction error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در دریافت تراکنش'
+        message: "خطا در دریافت تراکنش",
       });
     }
   }
 
   async getCustomerTransactions(req, res) {
     try {
-      const { page = 1, limit = 10, type, status, fromDate, toDate } = req.query;
+      const {
+        page = 1,
+        limit = 10,
+        type,
+        status,
+        fromDate,
+        toDate,
+      } = req.query;
       const userId = req.user.userId;
       const tenantId = req.user.tenantId;
 
       const query = { tenantId, customerId: userId };
-      
+
       if (type) query.type = type;
       if (status) query.status = status;
       if (fromDate || toDate) {
@@ -163,8 +179,8 @@ class TransactionController {
         .sort({ createdAt: -1 })
         .limit(limit * 1)
         .skip((page - 1) * limit)
-        .populate('fromAccount')
-        .populate('toAccount');
+        .populate("fromAccount")
+        .populate("toAccount");
 
       const total = await Transaction.countDocuments(query);
 
@@ -175,16 +191,15 @@ class TransactionController {
           pagination: {
             current: page,
             pages: Math.ceil(total / limit),
-            total
-          }
-        }
+            total,
+          },
+        },
       });
-
     } catch (error) {
-      console.error('Get customer transactions error:', error);
+      console.error("Get customer transactions error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در دریافت تراکنش‌ها'
+        message: "خطا در دریافت تراکنش‌ها",
       });
     }
   }
@@ -198,20 +213,20 @@ class TransactionController {
 
       const transaction = await Transaction.findOne({
         transactionId,
-        tenantId
+        tenantId,
       });
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
-          message: 'تراکنش یافت نشد'
+          message: "تراکنش یافت نشد",
         });
       }
 
-      if (transaction.status === 'completed') {
+      if (transaction.status === "completed") {
         return res.status(400).json({
           success: false,
-          message: 'تراکنش قبلاً تکمیل شده است'
+          message: "تراکنش قبلاً تکمیل شده است",
         });
       }
 
@@ -220,22 +235,21 @@ class TransactionController {
         method,
         reference,
         receipt,
-        paidAt: new Date()
+        paidAt: new Date(),
       };
 
       await transaction.addPayment(paymentData);
 
       res.json({
         success: true,
-        message: 'پرداخت با موفقیت اضافه شد',
-        data: { transaction }
+        message: "پرداخت با موفقیت اضافه شد",
+        data: { transaction },
       });
-
     } catch (error) {
-      console.error('Add payment error:', error);
+      console.error("Add payment error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در اضافه کردن پرداخت'
+        message: "خطا در اضافه کردن پرداخت",
       });
     }
   }
@@ -249,34 +263,33 @@ class TransactionController {
 
       const transaction = await Transaction.findOne({
         transactionId,
-        tenantId
+        tenantId,
       });
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
-          message: 'تراکنش یافت نشد'
+          message: "تراکنش یافت نشد",
         });
       }
 
       await transaction.verifyPayment(paymentIndex, userId);
 
       // If transaction is completed, update customer account
-      if (transaction.status === 'completed') {
+      if (transaction.status === "completed") {
         await this.updateCustomerAccount(transaction);
       }
 
       res.json({
         success: true,
-        message: 'پرداخت با موفقیت تأیید شد',
-        data: { transaction }
+        message: "پرداخت با موفقیت تأیید شد",
+        data: { transaction },
       });
-
     } catch (error) {
-      console.error('Verify payment error:', error);
+      console.error("Verify payment error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در تأیید پرداخت'
+        message: "خطا در تأیید پرداخت",
       });
     }
   }
@@ -290,13 +303,13 @@ class TransactionController {
 
       const transaction = await Transaction.findOne({
         transactionId,
-        tenantId
+        tenantId,
       });
 
       if (!transaction) {
         return res.status(404).json({
           success: false,
-          message: 'تراکنش یافت نشد'
+          message: "تراکنش یافت نشد",
         });
       }
 
@@ -304,15 +317,14 @@ class TransactionController {
 
       res.json({
         success: true,
-        message: 'تراکنش با موفقیت لغو شد',
-        data: { transaction }
+        message: "تراکنش با موفقیت لغو شد",
+        data: { transaction },
       });
-
     } catch (error) {
-      console.error('Cancel transaction error:', error);
+      console.error("Cancel transaction error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در لغو تراکنش'
+        message: "خطا در لغو تراکنش",
       });
     }
   }
@@ -335,56 +347,58 @@ class TransactionController {
 
       res.json({
         success: true,
-        data: { stats }
+        data: { stats },
       });
-
     } catch (error) {
-      console.error('Get transaction stats error:', error);
+      console.error("Get transaction stats error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در دریافت آمار تراکنش‌ها'
+        message: "خطا در دریافت آمار تراکنش‌ها",
       });
     }
   }
 
   async updateCustomerAccount(transaction) {
     try {
-      if (transaction.type === 'currency_buy') {
+      if (transaction.type === "currency_buy") {
         // Customer is buying foreign currency, so we credit their foreign currency account
         let toAccount = await Account.findOne({
           customerId: transaction.customerId,
           tenantId: transaction.tenantId,
           currency: transaction.toCurrency,
-          status: 'active'
+          status: "active",
         });
 
         if (!toAccount) {
           // Create new account if it doesn't exist
           toAccount = new Account({
-            accountNumber: Account.generateAccountNumber(transaction.toCurrency, transaction.tenantId),
+            accountNumber: Account.generateAccountNumber(
+              transaction.toCurrency,
+              transaction.tenantId,
+            ),
             customerId: transaction.customerId,
             tenantId: transaction.tenantId,
             currency: transaction.toCurrency,
-            status: 'active'
+            status: "active",
           });
         }
 
-        await toAccount.addTransaction(transaction.convertedAmount, 'credit');
-      } else if (transaction.type === 'currency_sell') {
+        await toAccount.addTransaction(transaction.convertedAmount, "credit");
+      } else if (transaction.type === "currency_sell") {
         // Customer is selling foreign currency, so we debit their foreign currency account
         const fromAccount = await Account.findOne({
           customerId: transaction.customerId,
           tenantId: transaction.tenantId,
           currency: transaction.fromCurrency,
-          status: 'active'
+          status: "active",
         });
 
         if (fromAccount) {
-          await fromAccount.addTransaction(transaction.amount, 'debit');
+          await fromAccount.addTransaction(transaction.amount, "debit");
         }
       }
     } catch (error) {
-      console.error('Update customer account error:', error);
+      console.error("Update customer account error:", error);
       throw error;
     }
   }
@@ -392,7 +406,14 @@ class TransactionController {
   // Get all transactions for the logged-in customer (customer portal)
   async getMyTransactions(req, res) {
     try {
-      const { page = 1, limit = 10, type, status, fromDate, toDate } = req.query;
+      const {
+        page = 1,
+        limit = 10,
+        type,
+        status,
+        fromDate,
+        toDate,
+      } = req.query;
       const customerId = req.user._id || req.user.userId;
       const tenantId = req.user.tenantId;
       const query = { tenantId, customerId };
@@ -415,16 +436,16 @@ class TransactionController {
           pagination: {
             current: page,
             pages: Math.ceil(total / limit),
-            total
-          }
-        }
+            total,
+          },
+        },
       });
     } catch (error) {
-      console.error('Get my transactions error:', error);
+      console.error("Get my transactions error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در دریافت تراکنش‌های شما',
-        error: error.message
+        message: "خطا در دریافت تراکنش‌های شما",
+        error: error.message,
       });
     }
   }
@@ -437,20 +458,20 @@ class TransactionController {
       const query = {
         tenantId,
         customerId,
-        type: 'deposit',
-        status: { $in: ['pending', 'under_review'] }
+        type: "deposit",
+        status: { $in: ["pending", "under_review"] },
       };
       const deposits = await Transaction.find(query).sort({ createdAt: -1 });
       res.json({
         success: true,
-        data: deposits
+        data: deposits,
       });
     } catch (error) {
-      console.error('Get my pending deposits error:', error);
+      console.error("Get my pending deposits error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در دریافت واریزهای در انتظار',
-        error: error.message
+        message: "خطا در دریافت واریزهای در انتظار",
+        error: error.message,
       });
     }
   }
@@ -461,32 +482,34 @@ class TransactionController {
       const customerId = req.user._id || req.user.userId;
       const tenantId = req.user.tenantId;
       const { orderType, currency, amount, description } = req.body;
-      if (!['buy', 'sell'].includes(orderType)) {
-        return res.status(400).json({ success: false, message: 'نوع سفارش نامعتبر است' });
+      if (!["buy", "sell"].includes(orderType)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "نوع سفارش نامعتبر است" });
       }
-      const type = orderType === 'buy' ? 'exchange_buy' : 'exchange_sell';
+      const type = orderType === "buy" ? "exchange_buy" : "exchange_sell";
       const transaction = new Transaction({
         tenantId,
         customerId,
         type,
         currency,
         amount,
-        status: 'pending',
-        description: description || '',
-        audit: { createdBy: customerId }
+        status: "pending",
+        description: description || "",
+        audit: { createdBy: customerId },
       });
       await transaction.save();
       res.status(201).json({
         success: true,
-        message: 'درخواست شما ثبت شد و در انتظار بررسی است',
-        data: transaction
+        message: "درخواست شما ثبت شد و در انتظار بررسی است",
+        data: transaction,
       });
     } catch (error) {
-      console.error('Create my order error:', error);
+      console.error("Create my order error:", error);
       res.status(500).json({
         success: false,
-        message: 'خطا در ثبت سفارش',
-        error: error.message
+        message: "خطا در ثبت سفارش",
+        error: error.message,
       });
     }
   }
@@ -497,19 +520,21 @@ class TransactionController {
     try {
       let result;
       switch (type) {
-        case 'currency_buy':
-        case 'currency_sell':
+        case "currency_buy":
+        case "currency_sell":
           result = await TransactionService.handleCurrencyOrder(req);
           break;
-        case 'remittance':
+        case "remittance":
           result = await RemittanceService.handleRemittance(req);
           break;
-        case 'hold':
+        case "hold":
           result = await HoldingService.handleHold(req);
           break;
         // سایر انواع تراکنش در آینده
         default:
-          return res.status(400).json({ success: false, message: 'نوع تراکنش نامعتبر است' });
+          return res
+            .status(400)
+            .json({ success: false, message: "نوع تراکنش نامعتبر است" });
       }
       res.status(201).json({ success: true, data: result });
     } catch (error) {
@@ -524,12 +549,18 @@ class TransactionController {
       const transaction = await Transaction.findOneAndUpdate(
         { _id: transactionId, tenantId },
         updateData,
-        { new: true }
+        { new: true },
       );
       if (!transaction) {
-        return res.status(404).json({ success: false, message: 'تراکنش یافت نشد' });
+        return res
+          .status(404)
+          .json({ success: false, message: "تراکنش یافت نشد" });
       }
-      res.json({ success: true, message: 'تراکنش با موفقیت ویرایش شد', data: transaction });
+      res.json({
+        success: true,
+        message: "تراکنش با موفقیت ویرایش شد",
+        data: transaction,
+      });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
@@ -538,29 +569,34 @@ class TransactionController {
   async deleteTransaction(req, res) {
     try {
       const { tenantId, transactionId } = req.params;
-      const transaction = await Transaction.findOneAndDelete({ _id: transactionId, tenantId });
+      const transaction = await Transaction.findOneAndDelete({
+        _id: transactionId,
+        tenantId,
+      });
       if (!transaction) {
-        return res.status(404).json({ success: false, message: 'تراکنش یافت نشد' });
+        return res
+          .status(404)
+          .json({ success: false, message: "تراکنش یافت نشد" });
       }
-      res.json({ success: true, message: 'تراکنش با موفقیت حذف شد' });
+      res.json({ success: true, message: "تراکنش با موفقیت حذف شد" });
     } catch (error) {
       res.status(500).json({ success: false, message: error.message });
     }
   }
 }
 
-on('ReceiptUploaded', async ({ transactionId }) => {
+on("ReceiptUploaded", async ({ transactionId }) => {
   const transaction = await CustomerTransaction.findById(transactionId);
   if (!transaction) return;
   // مجموع پرداخت‌های تایید شده
   const totalPaid = (transaction.paymentBreakdown || [])
-    .filter(p => p.status === 'verified')
+    .filter((p) => p.status === "verified")
     .reduce((sum, p) => sum + (p.amount || 0), 0);
   if (totalPaid >= transaction.amount) {
-    transaction.status = 'completed';
+    transaction.status = "completed";
     await transaction.save();
   } else {
-    transaction.status = 'under_review';
+    transaction.status = "under_review";
     await transaction.save();
   }
 });
