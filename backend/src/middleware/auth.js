@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
+const SubscriptionService = require('../services/SubscriptionService');
 
 const auth = async (req, res, next) => {
     try {
@@ -42,6 +43,17 @@ const auth = async (req, res, next) => {
                 success: false,
                 message: 'سازمان شما غیرفعال شده است'
             });
+        }
+
+        // بررسی وضعیت اشتراک
+        if (user.role !== 'super_admin') {
+            const subscription = await SubscriptionService.getActiveSubscription(user.tenantId);
+            if (!subscription || subscription.status !== 'active') {
+                return res.status(402).json({
+                    success: false,
+                    message: 'اشتراک منقضی شده است'
+                });
+            }
         }
 
         // تنظیم اطلاعات کاربر در request (فقط یک بار)

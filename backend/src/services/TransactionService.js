@@ -1,5 +1,6 @@
 const Transaction = require('../models/Transaction');
-const logger = require('../utils/logger');
+const Account = require('../models/Account');
+const { logger } = require('../utils/logger');
 const AccountingService = require('./accounting');
 const AccountService = require('./AccountService');
 const mongoose = require('mongoose');
@@ -183,6 +184,61 @@ class TransactionService {
      */
     static validateTransactionData(transactionData) {
         return AccountingService.validateTransaction(transactionData);
+    }
+
+    /**
+     * Enhanced transaction creation with proper session management
+     * @param {Object} data - Transaction data
+     * @param {mongoose.Session} session - MongoDB session
+     * @returns {Promise<Object>} The created transaction
+     */
+    static async createTransactionWithSession(data, session) {
+        const {
+            fromAccount,
+            toAccount,
+            amount,
+            currency,
+            type,
+            rate,
+            fee
+        } = data;
+
+        // بررسی موجودی
+        const sourceAccount = await Account.findById(fromAccount).session(session);
+        if (!sourceAccount || sourceAccount.balance < amount) {
+            throw new Error('موجودی ناکافی');
+        }
+
+        // محاسبه کارمزد
+        const finalAmount = amount - fee;
+
+        // ایجاد تراکنش
+        const transaction = new Transaction({
+            fromAccount,
+            toAccount,
+            amount,
+            finalAmount,
+            currency,
+            type,
+            rate,
+            fee,
+            status: 'pending'
+        });
+
+        // بهروزرسانی حسابها
+        await Account.updateOne(
+            { _id: fromAccount },
+            { $inc: { balance: -amount } }
+        ).session(session);
+
+        await Account.updateOne(
+            { _id: toAccount },
+            { $inc: { balance: finalAmount } }
+        ).session(session);
+
+        await transaction.save({ session });
+
+        return transaction;
     }
 }
 
