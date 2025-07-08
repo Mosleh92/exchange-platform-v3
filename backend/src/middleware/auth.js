@@ -121,6 +121,10 @@ const tenantAccess = async (req, res, next) => {
 
 module.exports = {
     auth: authMiddleware,
+    authMiddleware, // alias
+    authenticate: authMiddleware, // alias for compatibility
+    protect: authMiddleware, // alias for compatibility  
     authorize,
-    tenantAccess
+    tenantAccess,
+    superAdmin: authorize('super_admin') // helper for super admin role
 };

@@ -130,3 +130,4 @@
     "lint-staged": "^14.0.1",
     "mongodb-memory-server": "^9.0.0"
   }
+}
