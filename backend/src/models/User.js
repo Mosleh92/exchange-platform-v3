@@ -247,7 +247,7 @@ userSchema.statics.findByTenantAndBranch = function(tenantId, branchId, query = 
   return this.find({ tenantId, branchId, ...query });
 };
 
-module.exports = mongoose.model('User', userSchema);
+const User = mongoose.model('User', userSchema);
 
 // ===== TRANSACTION MODEL =====
 const transactionSchema = new mongoose.Schema({
