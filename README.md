@@ -14,6 +14,25 @@ A comprehensive multi-tenant exchange platform built with Node.js, React, and Mo
 - **Mobile Responsive** - Works on all devices
 - **Real-time Notifications** - Instant updates via WebSocket
 
+## 🔒 Security Features
+
+- **Tenant Isolation** - Complete data separation between organizations
+- **Authentication & Authorization** - JWT-based auth with role-based permissions
+- **Input Validation & Sanitization** - Comprehensive data validation and XSS protection
+- **Rate Limiting** - API rate limiting to prevent abuse
+- **Security Logging** - Comprehensive audit trails and security event logging
+- **Error Handling** - Secure error handling without information disclosure
+- **Connection Pooling** - Optimized database and cache connections
+- **Monitoring & Alerting** - Health checks and performance monitoring
+
+## 📊 Performance Optimizations
+
+- **Database Indexing** - Optimized indexes for all tenant-scoped queries
+- **Redis Caching** - Multi-layer caching with tenant isolation
+- **Connection Pooling** - MongoDB and Redis connection optimization
+- **Monitoring** - Real-time performance metrics and health checks
+- **Logging** - Structured logging with security and performance insights
+
 ## 🏗️ Architecture
 
 ```
@@ -99,6 +118,58 @@ A comprehensive multi-tenant exchange platform built with Node.js, React, and Mo
    - Frontend: http://localhost:5173
    - Backend API: http://localhost:3000
    - Admin Panel: http://localhost:5173/admin
+
+## 🔐 Security Configuration
+
+### Environment Variables
+
+The following environment variables are required for security:
+
+```bash
+# Authentication
+JWT_SECRET=your-super-secure-jwt-secret-key
+JWT_REFRESH_SECRET=your-super-secure-refresh-secret-key
+SESSION_SECRET=your-session-secret-key
+
+# Database Security
+DATABASE_URL=mongodb://localhost:27017/exchange_platform
+CUSTOMER_ENCRYPTION_KEY=your-customer-data-encryption-key
+
+# Redis Cache
+REDIS_URL=redis://localhost:6379
+
+# Security Settings
+NODE_ENV=production
+BCRYPT_ROUNDS=12
+LOG_LEVEL=info
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000  # 15 minutes
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+### Security Best Practices
+
+1. **Strong Secrets**: Use cryptographically strong secrets for JWT and session keys
+2. **Environment Security**: Never commit `.env` files to version control
+3. **Database Security**: Use MongoDB authentication and encryption at rest
+4. **Network Security**: Use HTTPS in production and secure firewall rules
+5. **Regular Updates**: Keep dependencies updated and monitor for security advisories
+
+### Monitoring and Logging
+
+- **Health Checks**: `/health` endpoint for system monitoring
+- **Metrics**: `/metrics` endpoint for Prometheus integration
+- **Logs**: Structured logging to files and console
+- **Alerts**: Built-in alerting for security events and system issues
+
+### Security Endpoints
+
+- `GET /health` - Comprehensive health check
+- `GET /health/ready` - Kubernetes readiness probe
+- `GET /health/live` - Kubernetes liveness probe
+- `GET /metrics` - Application metrics
+- `GET /health/alerts` - Current system alerts
 
 ## 🛠️ Available Scripts
 
