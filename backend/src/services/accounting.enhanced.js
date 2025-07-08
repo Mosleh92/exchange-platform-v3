@@ -3,7 +3,7 @@ const Dinero = require('dinero.js');
 const accounting = require('accounting-js');
 const moment = require('moment-jalaali');
 const Transaction = require('../models/Transaction');
-const logger = require('../utils/logger');
+const { logger } = require('../utils/logger');
 
 // Configure Decimal.js for high precision
 Decimal.config({ precision: 28, rounding: 4 });

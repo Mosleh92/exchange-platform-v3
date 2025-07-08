@@ -104,7 +104,7 @@ class ExchangePlatformServer {
     }
 
     setupMiddleware() {
-        // Security middleware
+        // Enhanced security middleware
         this.app.use(helmet({
             contentSecurityPolicy: {
                 directives: {
@@ -116,15 +116,49 @@ class ExchangePlatformServer {
                     fontSrc: ["'self'", "https://cdnjs.cloudflare.com", "https://fonts.gstatic.com"],
                 },
             },
+            crossOriginEmbedderPolicy: false,
+            crossOriginResourcePolicy: { policy: "cross-origin" },
+            hsts: {
+                maxAge: 31536000,
+                includeSubDomains: true,
+                preload: true
+            }
         }));
 
+        // Enhanced CORS configuration
         this.app.use(cors({
-            origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'],
-            credentials: true
+            origin: function (origin, callback) {
+                const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+                    'http://localhost:3000',
+                    'http://localhost:3001',
+                    'https://exchange-platform-v3.onrender.com'
+                ];
+                
+                // Allow requests with no origin (mobile apps, etc.)
+                if (!origin) return callback(null, true);
+                
+                if (allowedOrigins.indexOf(origin) !== -1) {
+                    callback(null, true);
+                } else {
+                    callback(new Error('CORS policy: Origin not allowed'));
+                }
+            },
+            credentials: true,
+            methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token'],
+            exposedHeaders: ['X-CSRF-Token']
         }));
 
         // Performance middleware
-        this.app.use(compression());
+        this.app.use(compression({
+            filter: (req, res) => {
+                if (req.headers['x-no-compression']) {
+                    return false;
+                }
+                return compression.filter(req, res);
+            },
+            threshold: 1024
+        }));
 
         // Logging middleware
         this.app.use(requestLogger);
@@ -173,15 +207,59 @@ class ExchangePlatformServer {
     }
 
     setupRoutes() {
-        // Health check
-        this.app.get('/health', (req, res) => {
-            res.json({
-                success: true,
-                message: 'Exchange Platform API is running',
-                timestamp: new Date().toISOString(),
-                version: '1.0.0',
-                uptime: process.uptime()
-            });
+        // Enhanced Health check for Render and monitoring
+        this.app.get('/health', async (req, res) => {
+            try {
+                const memoryUsage = process.memoryUsage();
+                const dbState = mongoose.connection.readyState;
+                const cache = require('./utils/cache');
+                
+                // Test cache connectivity
+                let cacheStatus = 'unknown';
+                try {
+                    await cache.set('health_check', Date.now(), 5);
+                    const cached = await cache.get('health_check');
+                    cacheStatus = cached ? 'connected' : 'disconnected';
+                } catch (error) {
+                    cacheStatus = 'error';
+                }
+
+                const health = {
+                    success: true,
+                    message: 'Exchange Platform API is running',
+                    timestamp: new Date().toISOString(),
+                    version: '1.0.0',
+                    uptime: process.uptime(),
+                    environment: process.env.NODE_ENV,
+                    status: {
+                        database: dbState === 1 ? 'connected' : 'disconnected',
+                        cache: cacheStatus,
+                        memory: {
+                            rss: Math.round(memoryUsage.rss / 1024 / 1024) + ' MB',
+                            heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + ' MB',
+                            heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + ' MB'
+                        }
+                    }
+                };
+
+                // Return 503 if critical services are down
+                if (dbState !== 1) {
+                    return res.status(503).json({
+                        ...health,
+                        success: false,
+                        message: 'Service unavailable - Database disconnected'
+                    });
+                }
+
+                res.json(health);
+            } catch (error) {
+                res.status(503).json({
+                    success: false,
+                    message: 'Health check failed',
+                    error: error.message,
+                    timestamp: new Date().toISOString()
+                });
+            }
         });
 
         // API Info

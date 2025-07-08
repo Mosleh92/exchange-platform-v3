@@ -2,8 +2,36 @@ services:
   - type: web
     name: exchange-platform-backend
     runtime: node
-    buildCommand: npm install && npm run build:backend
-    startCommand: npm start
+    region: oregon # or your preferred region
+    buildCommand: cd backend && npm ci --only=production
+    startCommand: cd backend && npm run start:prod
+    healthCheckPath: /health
+    numInstances: 1
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+      - key: PORT
+        value: 10000
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: exchange-platform-redis
+          property: connectionString
+    autoDeploy: true
+    
+  - type: redis
+    name: exchange-platform-redis
+    region: oregon
+    plan: starter # free tier
+    ipAllowList: [] # empty allows all IPs
+    
+  - type: web
+    name: exchange-platform-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://exchange-platform-backend.onrender.com
+      - key: NODE_ENV
+        value: production

@@ -440,6 +440,19 @@ transactionSchema.index({ 'transaction_flow.status': 1, 'created_at': -1 });
 transactionSchema.index({ 'payment_status': 1, 'created_at': -1 });
 transactionSchema.index({ 'exchange_account.account_id': 1 });
 
+// Enhanced compound indexes for optimized queries
+transactionSchema.index({ tenantId: 1, status: 1, createdAt: -1 });
+transactionSchema.index({ tenantId: 1, customerId: 1, createdAt: -1 });
+transactionSchema.index({ tenantId: 1, type: 1, createdAt: -1 });
+transactionSchema.index({ tenantId: 1, branchId: 1, status: 1 });
+transactionSchema.index({ customerId: 1, status: 1, createdAt: -1 });
+transactionSchema.index({ status: 1, type: 1, createdAt: -1 });
+
+// Indexes for financial reporting queries
+transactionSchema.index({ tenantId: 1, createdAt: -1, amount: 1 });
+transactionSchema.index({ tenantId: 1, type: 1, commission: 1 });
+transactionSchema.index({ tenantId: 1, fromCurrency: 1, toCurrency: 1, createdAt: -1 });
+
 // Virtual for isCompleted
 transactionSchema.virtual('isCompleted').get(function() {
     return this.status === 'completed';

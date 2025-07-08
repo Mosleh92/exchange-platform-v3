@@ -407,7 +407,7 @@ transactionSchema.methods.fail = async function(reason) {
   await this.save();
 };
 
-const Transaction = mongoose.model('Transaction', transactionSchema);
+// Note: Transaction model is defined in separate Transaction.js file
 
 // ===== P2P ANNOUNCEMENT MODEL =====
 const p2pAnnouncementSchema = new mongoose.Schema({
@@ -599,9 +599,5 @@ auditLogSchema.index({ timestamp: -1 });
 
 const AuditLog = mongoose.model('AuditLog', auditLogSchema);
 
-module.exports = {
-  User,
-  Transaction,
-  P2PAnnouncement,
-  AuditLog
-};
+// Export only AuditLog here, User is exported earlier in the file
+module.exports.AuditLog = AuditLog;

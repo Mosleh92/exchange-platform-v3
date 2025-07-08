@@ -1,5 +1,17 @@
-const EnhancedAccountingService = require('../services/accounting.enhanced');
 const Decimal = require('decimal.js');
+
+// Mock the logger and Transaction model since we're testing in isolation
+jest.mock('../utils/logger', () => ({
+  error: jest.fn()
+}));
+
+jest.mock('../models/Transaction', () => ({
+  find: jest.fn().mockReturnValue({
+    lean: jest.fn().mockResolvedValue([])
+  })
+}));
+
+const EnhancedAccountingService = require('../services/accounting.enhanced');
 
 describe('EnhancedAccountingService', () => {
   describe('formatCurrency', () => {
