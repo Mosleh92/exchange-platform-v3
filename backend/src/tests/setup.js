@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const redis = require('redis');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 // Set test environment
@@ -10,9 +9,18 @@ process.env.SESSION_SECRET = 'test-session-secret-for-testing-purposes-only';
 process.env.BCRYPT_ROUNDS = '4'; // Faster hashing for tests
 
 let mongoServer;
-let mockRedisClient;
 
-// Mock Redis client globally
+// Mock Redis client for components that might still import it directly
+const mockRedisClient = {
+  connect: jest.fn().mockResolvedValue(undefined),
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  quit: jest.fn().mockResolvedValue(undefined)
+};
+
+// Mock Redis module globally
 jest.mock('redis', () => ({
   createClient: jest.fn(() => mockRedisClient)
 }));
@@ -28,16 +36,6 @@ beforeAll(async () => {
     useNewUrlParser: true,
     useUnifiedTopology: true
   });
-  
-  // Create mock Redis client
-  mockRedisClient = {
-    connect: jest.fn().mockResolvedValue(undefined),
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
-    del: jest.fn().mockResolvedValue(undefined),
-    on: jest.fn(),
-    quit: jest.fn().mockResolvedValue(undefined)
-  };
   
   console.log('Test environment setup completed');
 });

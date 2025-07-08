@@ -2,12 +2,14 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const mongoose = require('mongoose');
+const { securityLogger } = require('../utils/logger');
 
 const auth = async (req, res, next) => {
     try {
         // Get token from header
         const authHeader = req.header('Authorization');
         if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            securityLogger.logAuthFailure(req, 'No token provided');
             return res.status(401).json({
                 success: false,
                 message: 'توکن احراز هویت ارائه نشده است'
@@ -22,6 +24,7 @@ const auth = async (req, res, next) => {
         // Check if user still exists
         const user = await User.findById(decoded.userId).populate('tenantId');
         if (!user) {
+            securityLogger.logAuthFailure(req, 'User not found');
             return res.status(401).json({
                 success: false,
                 message: 'کاربر یافت نشد'
@@ -30,6 +33,7 @@ const auth = async (req, res, next) => {
 
         // Check if user is active
         if (user.status !== 'active') {
+            securityLogger.logAuthFailure(req, 'User account inactive');
             return res.status(401).json({
                 success: false,
                 message: 'حساب کاربری غیرفعال شده است'
@@ -39,6 +43,7 @@ const auth = async (req, res, next) => {
         // Check tenant status for non-super admin users
         if (user.role !== 'super_admin' && user.tenantId) {
             if (!user.tenantId || user.tenantId.status !== 'active') {
+                securityLogger.logAuthFailure(req, 'Tenant inactive');
                 return res.status(403).json({
                     success: false,
                     message: 'سازمان شما غیرفعال شده است'
@@ -57,9 +62,13 @@ const auth = async (req, res, next) => {
         };
         req.userData = user;
 
+        // Log successful authentication
+        securityLogger.logAuthSuccess(req, req.user);
+
         next();
     } catch (error) {
         if (error.name === 'JsonWebTokenError') {
+            securityLogger.logAuthFailure(req, 'Invalid token');
             return res.status(401).json({
                 success: false,
                 message: 'توکن نامعتبر است'
@@ -67,12 +76,14 @@ const auth = async (req, res, next) => {
         }
         
         if (error.name === 'TokenExpiredError') {
+            securityLogger.logAuthFailure(req, 'Token expired');
             return res.status(401).json({
                 success: false,
                 message: 'توکن منقضی شده است'
             });
         }
 
+        securityLogger.logAuthFailure(req, `Auth error: ${error.message}`);
         console.error('Auth middleware error:', error);
         res.status(500).json({
             success: false,
@@ -85,6 +96,7 @@ const auth = async (req, res, next) => {
 const authorize = (...rolesOrPermissions) => {
     return (req, res, next) => {
         if (!req.user) {
+            securityLogger.logUnauthorizedAccess(req, 'Authentication required');
             return res.status(401).json({
                 success: false,
                 message: 'احراز هویت لازم است'
@@ -106,6 +118,9 @@ const authorize = (...rolesOrPermissions) => {
                 if (found) return next();
             }
         }
+
+        // Log unauthorized access attempt
+        securityLogger.logUnauthorizedAccess(req, `Required roles/permissions: ${rolesOrPermissions.join(', ')}`);
 
         return res.status(403).json({
             success: false,
@@ -145,6 +160,7 @@ const tenantIsolation = async (req, res, next) => {
 
         // Check if user belongs to this tenant
         if (!req.user.tenantId || req.user.tenantId.toString() !== tenantId.toString()) {
+            securityLogger.logTenantIsolationViolation(req, tenantId);
             return res.status(403).json({
                 success: false,
                 message: 'شما دسترسی به این صرافی را ندارید'
