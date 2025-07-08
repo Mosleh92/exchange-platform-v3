@@ -40,4 +40,13 @@ function tenantScopePlugin(schema) {
 
 customerSchema.plugin(tenantScopePlugin);
 
+// Indexes for performance and tenant isolation
+customerSchema.index({ tenantId: 1, branchId: 1 });
+customerSchema.index({ tenantId: 1, phone: 1 });
+customerSchema.index({ tenantId: 1, national_id: 1 });
+customerSchema.index({ tenantId: 1, kyc_status: 1 });
+customerSchema.index({ tenantId: 1, created_at: -1 });
+customerSchema.index({ created_by: 1 });
+customerSchema.index({ phoneVerified: 1 });
+
 module.exports = mongoose.model('Customer', customerSchema);
