@@ -1,62 +1,38 @@
 {
   "name": "exchange-platform-backend",
   "version": "3.0.0",
+  "description": "Multi-tenant Exchange Platform Backend",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "nodemon src/app.js"
+    "dev": "nodemon src/app.js",
+    "build": "echo 'No build step required'",
+    "test": "jest",
+    "setup": "node scripts/setup.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "mongoose": "^7.5.0",
-    "redis": "^4.6.7"
-    // ... سایر dependencies
-  }
-}
-  },
-  "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "build": "echo 'Backend build completed successfully'",
-    "setup": "node src/scripts/setup.js",
-    "seed": "node src/scripts/seed.js",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
-    "lint": "eslint src --ext .js",
-    "lint:fix": "eslint src --ext .js --fix"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "mongoose": "^8.0.3",
-    "socket.io": "^4.7.4",
-    "redis": "^4.6.12",
-    "jsonwebtoken": "^9.0.2",
+    "redis": "^4.6.7",
     "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "helmet": "^7.1.0",
-    "express-rate-limit": "^7.1.5",
+    "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.7",
-    "joi": "^17.11.0",
-    "winston": "^3.11.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.8.1",
+    "socket.io": "^4.7.2",
+    "nodemailer": "^6.9.4",
+    "joi": "^17.9.2",
+    "winston": "^3.10.0",
     "compression": "^1.7.4",
-    "express-validator": "^7.0.1",
-    "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.0",
-    "node-cron": "^3.0.3",
-    "uuid": "^9.0.1",
-    "axios": "^1.6.2",
-    "dotenv": "^16.3.1",
-    "cookie-parser": "^1.4.6",
-    "sharp": "^0.33.1",
-    "validator": "^13.11.0"
+    "express-session": "^1.17.3",
+    "connect-redis": "^7.1.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "jest": "^29.7.0",
-    "supertest": "^6.3.3",
-    "eslint": "^8.55.0",
-    "prettier": "^3.1.1"
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
