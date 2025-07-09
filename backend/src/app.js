@@ -1,6 +1,9 @@
 // backend/src/app.js
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
+const express = require('express');
+const mongoose = require('mongoose');
 const redis = require('redis');
 const cors = require('cors');
 const helmet = require('helmet');
