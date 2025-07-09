@@ -18,24 +18,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/socket.io': {
-        target: 'ws://localhost:3000',
-        ws: true,
-        changeOrigin: true,
-      },
     },
   },
   build: {
     outDir: 'dist',
+    assetsDir: 'assets',
     sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['react-hook-form', 'react-hot-toast', 'react-select'],
-        },
-      },
-    },
   },
   define: {
     'process.env': {},
