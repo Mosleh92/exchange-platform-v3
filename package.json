@@ -2,6 +2,7 @@
   "name": "exchange-platform-v3",
   "version": "1.0.0",
   "private": true,
+  "description": "Multi-tenant exchange platform built with Node.js, React, and MongoDB",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=8.0.0"
@@ -21,9 +22,26 @@
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
     "lint:frontend": "cd frontend && npm run lint",
-    "audit:fix": "npm audit fix && cd backend && npm audit fix && cd ../frontend && npm audit fix"
+    "audit:fix": "npm audit fix && cd backend && npm audit fix && cd ../frontend && npm audit fix",
+    "setup": "npm run install:all && cd backend && npm run setup",
+    "clean": "rm -rf node_modules backend/node_modules frontend/node_modules frontend/dist backend/dist",
+    "postinstall": "cd backend && npm install && cd ../frontend && npm install"
   },
+  "keywords": [
+    "exchange",
+    "trading",
+    "multi-tenant",
+    "nodejs",
+    "react",
+    "mongodb"
+  ],
+  "author": "Exchange Platform Team",
+  "license": "MIT",
   "devDependencies": {
     "concurrently": "^8.2.2"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mosleh92/exchange-platform-v3.git"
   }
 }
