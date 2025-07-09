@@ -1,45 +1,43 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import path from 'path-browserify'
+import path from 'path'
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(new URL('./src', import.meta.url).pathname),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
-    host: '0.0.0.0',
     port: 5173,
+    host: true,
     proxy: {
       '/api': {
-        target: 'http://0.0.0.0:5000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
+        secure: false,
       },
       '/socket.io': {
-        target: 'http://0.0.0.0:5000',
+        target: 'ws://localhost:3000',
         ws: true,
+        changeOrigin: true,
       },
     },
   },
   build: {
     outDir: 'dist',
-    sourcemap: true,
+    sourcemap: false,
     rollupOptions: {
       output: {
         manualChunks: {
-          vendor: ['react', 'react-dom'],
-          router: ['react-router-dom'],
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          ui: ['react-hook-form', 'react-hot-toast', 'react-select'],
         },
       },
     },
   },
   define: {
-    global: 'globalThis',
-  },
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
+    'process.env': {},
   },
 })
