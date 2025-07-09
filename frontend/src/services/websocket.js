@@ -1,173 +1,127 @@
-import { io } from 'socket.io-client';
-import { toast } from 'react-hot-toast';
+const socketIo = require('socket.io');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
+const redis = require('redis');
 
 class WebSocketService {
-  constructor() {
-    this.socket = null;
-    this.isConnected = false;
-    this.reconnectAttempts = 0;
-    this.maxReconnectAttempts = 5;
-    this.reconnectDelay = 1000;
-    this.listeners = new Map();
-  }
-
-  connect(tenantId = null) {
-    if (this.socket && this.isConnected) {
-      console.log('WebSocket already connected');
-      return;
-    }
-
-    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:6001'}/ws`;
+  constructor(server) {
+    this.io = socketIo(server, {
+      cors: {
+        origin: process.env.FRONTEND_URL || "http://localhost:5173",
+        methods: ["GET", "POST"],
+        credentials: true
+      }
+    });
     
-    this.socket = io(wsUrl, {
-      transports: ['websocket'],
-      upgrade: false,
-      reconnection: true,
-      reconnectionAttempts: this.maxReconnectAttempts,
-      reconnectionDelay: this.reconnectDelay
+    this.redisClient = redis.createClient({
+      url: process.env.REDIS_URL
     });
-
-    this.socket.on('connect', () => {
-      console.log('WebSocket connected');
-      this.isConnected = true;
-      this.reconnectAttempts = 0;
-      
-      if (tenantId) {
-        this.socket.emit('join-tenant', { tenantId });
-        console.log(`Client ${this.socket.id} joined tenant ${tenantId}`);
-      }
-    });
-
-    this.socket.on('disconnect', () => {
-      console.log('WebSocket disconnected');
-      this.isConnected = false;
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('WebSocket connection error:', error);
-      this.isConnected = false;
-      this.reconnectAttempts++;
-      
-      if (this.reconnectAttempts < this.maxReconnectAttempts) {
-        console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-        setTimeout(() => {
-          this.connect(tenantId);
-        }, this.reconnectDelay * this.reconnectAttempts);
-      } else {
-        toast.error('اتصال WebSocket ناموفق بود');
-      }
-    });
-
-    // Handle incoming messages
-    this.socket.on('message', (data) => {
-      this.handleMessage(data);
-    });
-
-    // Handle specific events
-    this.socket.on('transaction:created', (data) => {
-      this.emit('transaction:created', data);
-    });
-
-    this.socket.on('transaction:updated', (data) => {
-      this.emit('transaction:updated', data);
-    });
-
-    this.socket.on('remittance:created', (data) => {
-      this.emit('remittance:created', data);
-    });
-
-    this.socket.on('remittance:updated', (data) => {
-      this.emit('remittance:updated', data);
-    });
-
-    this.socket.on('p2p:new_order', (data) => {
-      this.emit('p2p:new_order', data);
-    });
-
-    this.socket.on('p2p:order_updated', (data) => {
-      this.emit('p2p:order_updated', data);
-    });
-
-    this.socket.on('chat:new_message', (data) => {
-      this.emit('chat:new_message', data);
-    });
-
-    this.socket.on('payment:status_changed', (data) => {
-      this.emit('payment:status_changed', data);
-    });
+    
+    this.connectedUsers = new Map();
+    this.setupSocketAuthentication();
+    this.setupEventHandlers();
   }
 
-  disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-      this.isConnected = false;
-      this.listeners.clear();
-    }
-  }
-
-  emit(event, data) {
-    if (this.socket && this.isConnected) {
-      this.socket.emit(event, data);
-    }
-  }
-
-  on(event, callback) {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
-    this.listeners.get(event).push(callback);
-  }
-
-  off(event, callback) {
-    if (this.listeners.has(event)) {
-      const callbacks = this.listeners.get(event);
-      const index = callbacks.indexOf(callback);
-      if (index > -1) {
-        callbacks.splice(index, 1);
-      }
-    }
-  }
-
-  handleMessage(data) {
-    const event = data.type || 'message';
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach(callback => {
-        try {
-          callback(data);
-        } catch (error) {
-          console.error('Error in WebSocket event handler:', error);
+  setupSocketAuthentication() {
+    this.io.use(async (socket, next) => {
+      try {
+        const token = socket.handshake.auth.token;
+        
+        if (!token) {
+          return next(new Error('Authentication error'));
         }
+
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findById(decoded.id).populate('tenantId');
+
+        if (!user || !user.isActive) {
+          return next(new Error('Authentication error'));
+        }
+
+        socket.user = user;
+        next();
+      } catch (error) {
+        next(new Error('Authentication error'));
+      }
+    });
+  }
+
+  setupEventHandlers() {
+    this.io.on('connection', (socket) => {
+      console.log(`User ${socket.user.email} connected`);
+      
+      // Store user connection
+      this.connectedUsers.set(socket.user.id.toString(), {
+        socketId: socket.id,
+        user: socket.user
       });
+
+      // Join tenant room
+      if (socket.user.tenantId) {
+        socket.join(`tenant_${socket.user.tenantId._id}`);
+      }
+
+      // Join user-specific room
+      socket.join(`user_${socket.user.id}`);
+
+      // Handle trading events
+      socket.on('join_trading_room', (data) => {
+        socket.join(`trading_${data.pair}`);
+        socket.emit('joined_trading_room', { pair: data.pair });
+      });
+
+      socket.on('leave_trading_room', (data) => {
+        socket.leave(`trading_${data.pair}`);
+        socket.emit('left_trading_room', { pair: data.pair });
+      });
+
+      // Handle P2P events
+      socket.on('join_p2p_room', () => {
+        socket.join('p2p_marketplace');
+        socket.emit('joined_p2p_room');
+      });
+
+      // Handle notifications
+      socket.on('mark_notification_read', (notificationId) => {
+        // Mark notification as read in database
+        this.markNotificationAsRead(socket.user.id, notificationId);
+      });
+
+      // Handle disconnect
+      socket.on('disconnect', () => {
+        console.log(`User ${socket.user.email} disconnected`);
+        this.connectedUsers.delete(socket.user.id.toString());
+      });
+    });
+  }
+
+  // Send notification to specific user
+  sendNotificationToUser(userId, notification) {
+    const userConnection = this.connectedUsers.get(userId.toString());
+    if (userConnection) {
+      this.io.to(`user_${userId}`).emit('notification', notification);
     }
   }
 
-  // Join specific room
-  joinRoom(room) {
-    this.emit('join-room', { room });
+  // Send notification to all users in tenant
+  sendNotificationToTenant(tenantId, notification) {
+    this.io.to(`tenant_${tenantId}`).emit('tenant_notification', notification);
   }
 
-  // Leave specific room
-  leaveRoom(room) {
-    this.emit('leave-room', { room });
+  // Send trading update
+  sendTradingUpdate(pair, update) {
+    this.io.to(`trading_${pair}`).emit('trading_update', update);
   }
 
-  // Send message to specific room
-  sendToRoom(room, message) {
-    this.emit('room-message', { room, message });
+  // Send P2P update
+  sendP2PUpdate(update) {
+    this.io.to('p2p_marketplace').emit('p2p_update', update);
   }
 
-  // Get connection status
-  getConnectionStatus() {
-    return {
-      isConnected: this.isConnected,
-      reconnectAttempts: this.reconnectAttempts,
-      maxReconnectAttempts: this.maxReconnectAttempts
-    };
+  async markNotificationAsRead(userId, notificationId) {
+    // Implementation to mark notification as read
+    // This would update the notification in your database
   }
 }
 
-// Create singleton instance
-const websocketService = new WebSocketService();
-
-export default websocketService; 
+module.exports = WebSocketService;
