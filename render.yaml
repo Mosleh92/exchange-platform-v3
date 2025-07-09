@@ -1,9 +1,12 @@
 services:
   - type: web
-    name: exchange-platform-backend
+    name: exchange-platform-v3
     runtime: node
-    buildCommand: npm install && npm run build:backend
+    buildCommand: npm install && npm run build
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+      - key: FRONTEND_URL
+        value: https://exchange-platform-v3.onrender.com
