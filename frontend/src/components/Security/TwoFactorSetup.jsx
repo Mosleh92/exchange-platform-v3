@@ -237,6 +237,351 @@ const SecurityDashboard = () => {
                 </div>
             </div>
 
+            {/* Recent Security Alerts */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">هشدارهای امنیتی اخیر</h3>
+                {dashboardData.recentAlerts.length === 0 ? (
+                    <p className="text-gray-500 text-center py-4">هیچ هشدار امنیتی وجود ندارد</p>
+                ) : (
+                    <div className="space-y-3">
+                        {dashboardData.recentAlerts.map((alert, index) => (
+                            <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-md">
+                                <div className="flex items-center">
+                                    <div className={`w-2 h-2 rounded-full mr-3 ${
+                                        alert.action === 'SUSPICIOUS_IP_ACTIVITY' ? 'bg-red-500' :
+                                        alert.action === 'NEW_DEVICE_DETECTED' ? 'bg-yellow-500' :
+                                        'bg-gray-500'
+                                    }`}></div>
+                                    <span className="text-sm text-gray-800">{alert.details}</span>
+                                </div>
+                                <span className="text-xs text-gray-500">
+                                    {new Date(alert.createdAt).toLocaleString('fa-IR')}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Activity Chart */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">فعالیت روزانه</h3>
+                <div className="grid grid-cols-7 gap-2">
+                    {dashboardData.dailyActivity.map((day, index) => (
+                        <div key={index} className="text-center">
+                            <div className="text-xs text-gray-500 mb-1">
+                                {new Date(day._id).toLocaleDateString('fa-IR', { weekday: 'short' })}
+                            </div>
+                            <div className="bg-blue-100 rounded-md p-2">
+                                <div className="text-sm font-semibold text-blue-800">{day.count}</div>
+                                <div className="text-xs text-blue-600">فعالیت</div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// IP Whitelist Management Component
+const IPWhitelistManager = () => {
+    const [ipList, setIpList] = useState([]);
+    const [newIP, setNewIP] = useState('');
+    const [description, setDescription] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        fetchIPList();
+    }, []);
+
+    const fetchIPList = async () => {
+        try {
+            const response = await securityAPI.getIPWhitelist();
+            setIpList(response.data);
+        } catch (error) {
+            toast.error('خطا در دریافت لیست IP');
+        }
+    };
+
+    const addIP = async () => {
+        if (!newIP.trim()) {
+            toast.error('آدرس IP را وارد کنید');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await securityAPI.addIPToWhitelist(newIP, description);
+            toast.success('IP با موفقیت اضافه شد');
+            setNewIP('');
+            setDescription('');
+            fetchIPList();
+        } catch (error) {
+            toast.error('خطا در اضافه کردن IP');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const removeIP = async (ip) => {
+        if (!confirm(`آیا مطمئن هستید که می‌خواهید IP ${ip} را حذف کنید؟`)) {
+            return;
+        }
+
+        try {
+            await securityAPI.removeIPFromWhitelist(ip);
+            toast.success('IP با موفقیت حذف شد');
+            fetchIPList();
+        } catch (error) {
+            toast.error('خطا در حذف IP');
+        }
+    };
+
+    return (
+        <div className="max-w-4xl mx-auto p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">مدیریت لیست سفید IP</h2>
+
+            {/* Add New IP */}
+            <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h3 className="text-lg font-semibold mb-4">اضافه کردن IP جدید</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">آدرس IP</label>
+                        <input
+                            type="text"
+                            value={newIP}
+                            onChange={(e) => setNewIP(e.target.value)}
+                            placeholder="192.168.1.1 یا 192.168.1.0/24"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">توضیحات</label>
+                        <input
+                            type="text"
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            placeholder="دفتر مرکزی"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    <div className="flex items-end">
+                        <button
+                            onClick={addIP}
+                            disabled={isLoading}
+                            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                        >
+                            {isLoading ? 'در حال اضافه...' : 'اضافه کردن'}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* IP List */}
+            <div className="bg-white rounded-lg shadow-md p-6">
+                <h3 className="text-lg font-semibold mb-4">IP های مجاز</h3>
+                {ipList.length === 0 ? (
+                    <p className="text-gray-500 text-center py-8">هیچ IP در لیست سفید وجود ندارد</p>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <table className="w-full table-auto">
+                            <thead>
+                                <tr className="bg-gray-50">
+                                    <th className="px-4 py-2 text-right">آدرس IP</th>
+                                    <th className="px-4 py-2 text-right">توضیحات</th>
+                                    <th className="px-4 py-2 text-right">تاریخ اضافه</th>
+                                    <th className="px-4 py-2 text-center">عملیات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {ipList.map((item, index) => (
+                                    <tr key={index} className="border-t">
+                                        <td className="px-4 py-2 font-mono">{item.ip}</td>
+                                        <td className="px-4 py-2">{item.description}</td>
+                                        <td className="px-4 py-2 text-sm text-gray-600">
+                                            {new Date(item.addedAt).toLocaleDateString('fa-IR')}
+                                        </td>
+                                        <td className="px-4 py-2 text-center">
+                                            <button
+                                                onClick={() => removeIP(item.ip)}
+                                                className="text-red-600 hover:text-red-800 text-sm"
+                                            >
+                                                حذف
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// Security Settings Component
+const SecuritySettings = () => {
+    const [settings, setSettings] = useState({
+        ipWhitelistEnabled: false,
+        deviceTrackingEnabled: true,
+        loginNotifications: {
+            email: true,
+            sms: false
+        },
+        securityAlerts: {
+            email: true,
+            sms: true
+        }
+    });
+    const [isLoading, setIsLoading] = useState(false);
+
+    const updateSettings = async () => {
+        setIsLoading(true);
+        try {
+            await securityAPI.updateSecuritySettings(settings);
+            toast.success('تنظیمات با موفقیت به‌روزرسانی شد');
+        } catch (error) {
+            toast.error('خطا در به‌روزرسانی تنظیمات');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleChange = (path, value) => {
+        setSettings(prev => {
+            const newSettings = { ...prev };
+            const keys = path.split('.');
+            let current = newSettings;
+            
+            for (let i = 0; i < keys.length - 1; i++) {
+                current = current[keys[i]];
+            }
+            
+            current[keys[keys.length - 1]] = value;
+            return newSettings;
+        });
+    };
+
+    return (
+        <div className="max-w-2xl mx-auto p-6">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">تنظیمات امنیتی</h2>
+
+            <div className="bg-white rounded-lg shadow-md p-6 space-y-6">
+                {/* IP Whitelist */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="font-semibold text-gray-800">لیست سفید IP</h3>
+                        <p className="text-sm text-gray-600">محدود کردن دسترسی به IP های مشخص</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={settings.ipWhitelistEnabled}
+                            onChange={(e) => handleChange('ipWhitelistEnabled', e.target.checked)}
+                            className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                {/* Device Tracking */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="font-semibold text-gray-800">ردیابی دستگاه</h3>
+                        <p className="text-sm text-gray-600">شناسایی و ردیابی دستگاه‌های جدید</p>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                            type="checkbox"
+                            checked={settings.deviceTrackingEnabled}
+                            onChange={(e) => handleChange('deviceTrackingEnabled', e.target.checked)}
+                            className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+
+                {/* Login Notifications */}
+                <div>
+                    <h3 className="font-semibold text-gray-800 mb-3">اطلاع‌رسانی ورود</h3>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">ایمیل</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.loginNotifications.email}
+                                    onChange={(e) => handleChange('loginNotifications.email', e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">پیامک</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.loginNotifications.sms}
+                                    onChange={(e) => handleChange('loginNotifications.sms', e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Security Alerts */}
+                <div>
+                    <h3 className="font-semibold text-gray-800 mb-3">هشدارهای امنیتی</h3>
+                    <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">ایمیل</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.securityAlerts.email}
+                                    onChange={(e) => handleChange('securityAlerts.email', e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-600">پیامک</span>
+                            <label className="relative inline-flex items-center cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={settings.securityAlerts.sms}
+                                    onChange={(e) => handleChange('securityAlerts.sms', e.target.checked)}
+                                    className="sr-only peer"
+                                />
+                                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="pt-4 border-t">
+                    <button
+                        onClick={updateSettings}
+                        disabled={isLoading}
+                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                    >
+                        {isLoading ? 'در حال ذخیره...' : 'ذخیره تنظیمات'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export { TwoFactorSetup, SecurityDashboard, IPWhitelistManager, SecuritySettings };
+
             {/* Security Features Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
                 <div className="bg-white rounded-lg shadow-md p-6">
