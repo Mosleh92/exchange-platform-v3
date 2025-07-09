@@ -1,4 +1,18 @@
+// اضافه کردن route های امنیتی
+const twoFactorAuthRoutes = require('./routes/twoFactorAuth');
+const securityRoutes = require('./routes/security');
 
+// استفاده از middleware های امنیتی
+const SecurityMiddleware = require('./middleware/securityMiddleware');
+const AuditLogService = require('./services/auditLogService');
+
+// اعمال middleware های کلی
+app.use(SecurityMiddleware.createSecurityStack());
+app.use(AuditLogService.createMiddleware());
+
+// Route ها
+app.use('/api/2fa', twoFactorAuthRoutes);
+app.use('/api/security', securityRoutes);
 const securityRoutes = require('./routes/security');
 app.use('/api/security', securityRoutes);
 const express = require('express');
