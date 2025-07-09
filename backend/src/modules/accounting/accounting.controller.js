@@ -1,41 +1,53 @@
-const mongoose = require('mongoose');
+const Accounting = require('./accounting.model');
 
-// ساختار سند حسابداری پایه برای ثبت تمام رویدادهای مالی
-const accountingSchema = new mongoose.Schema({
-  tenant: { type: mongoose.Types.ObjectId, ref: 'Tenant', required: true }, // صرافی یا بانک
-  branch: { type: mongoose.Types.ObjectId, ref: 'Branch' }, // شعبه (اختیاری)
-  user: { type: mongoose.Types.ObjectId, ref: 'User' }, // ثبت کننده سند
-  type: {
-    type: String,
-    enum: [
-      'cash_in',       // دریافت نقدی
-      'cash_out',      // پرداخت نقدی
-      'cheque_in',     // چک دریافتی
-      'cheque_out',    // چک پرداختی
-      'bank_deposit',  // واریز به حساب بانکی
-      'bank_withdraw', // برداشت از حساب بانکی
-      'internal_transfer', // انتقال داخلی
-      'customer_payment',  // پرداخت بجای مشتری
-      'fx_buy',        // خرید ارز
-      'fx_sell',       // فروش ارز
-      'fx_dual',       // معامله دو ارزی
-      'remittance_send',   // ارسال حواله
-      'remittance_receive',// دریافت حواله
-      'commission',    // کمیسیون
-      'expense',       // هزینه
-      'revenue'        // درآمد
-    ],
-    required: true
-  },
-  description: { type: String },
-  currency: { type: String, required: true }, // مانند USD, AED, IRR
-  amount: { type: Number, required: true },
-  relatedAccounts: [{ type: mongoose.Types.ObjectId, ref: 'Account' }], // حساب‌های مرتبط (در صورت انتقال بین حساب‌ها)
-  customer: { type: mongoose.Types.ObjectId, ref: 'User' }, // مشتری دخیل در تراکنش
-  referenceNo: { type: String }, // شماره سند یا رسید
-  date: { type: Date, default: Date.now },
-  extraData: { type: mongoose.Schema.Types.Mixed }, // داده‌های اضافی سفارشی (برای توسعه‌پذیری)
-  status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'completed' }
-});
+// ثبت سند حسابداری جدید
+exports.createEntry = async (req, res) => {
+  try {
+    const { tenant, branch, _id: user } = req.user;
+    const entry = new Accounting({ ...req.body, tenant, branch, user });
+    await entry.save();
+    res.status(201).json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
 
-module.exports = mongoose.model('Accounting', accountingSchema);
+// دریافت همه اسناد حسابداری (با امکان فیلتر)
+exports.getEntries = async (req, res) => {
+  try {
+    const { tenant } = req.user;
+    const filter = { tenant, ...req.query };
+    const entries = await Accounting.find(filter).sort('-createdAt').limit(100);
+    res.json(entries);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// ویرایش سند حسابداری
+exports.updateEntry = async (req, res) => {
+  try {
+    const { tenant } = req.user;
+    const entry = await Accounting.findOneAndUpdate(
+      { _id: req.params.id, tenant },
+      req.body,
+      { new: true }
+    );
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    res.json(entry);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
+
+// حذف سند حسابداری
+exports.deleteEntry = async (req, res) => {
+  try {
+    const { tenant } = req.user;
+    const entry = await Accounting.findOneAndDelete({ _id: req.params.id, tenant });
+    if (!entry) return res.status(404).json({ error: 'Entry not found' });
+    res.json({ message: 'Entry deleted' });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+};
