@@ -8,5 +8,3 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: FRONTEND_URL
-        value: https://exchange-platform-v3.onrender.com
