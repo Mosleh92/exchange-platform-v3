@@ -1,248 +1,289 @@
 import React, { useState, useEffect } from 'react'
-import { Routes, Route, Link, useLocation } from 'react-router-dom'
+import { Routes, Route, Link } from 'react-router-dom'
 import { toast } from 'react-hot-toast'
-import { 
-  Home, 
-  BarChart3, 
-  Shield, 
-  Users, 
-  Zap, 
-  Building, 
-  Smartphone,
-  TrendingUp,
-  DollarSign,
-  Activity,
-  CheckCircle,
-  AlertCircle,
-  Clock
-} from 'lucide-react'
 
-// Components
-const LoadingSpinner = () => (
-  <div className="flex items-center justify-center p-8">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
-  </div>
-)
-
-const FeatureCard = ({ icon: Icon, title, description, color = "primary" }) => (
-  <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
-    <div className={`w-12 h-12 bg-${color}-100 rounded-full flex items-center justify-center mb-4`}>
-      <Icon className={`w-6 h-6 text-${color}-600`} />
-    </div>
-    <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-    <p className="text-gray-600 leading-relaxed">{description}</p>
-  </div>
-)
-
-const StatCard = ({ icon: Icon, title, value, change, color = "primary" }) => (
-  <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-sm font-medium text-gray-600">{title}</p>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        {change && (
-          <p className={`text-sm ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'} flex items-center`}>
-            <TrendingUp className="w-4 h-4 mr-1" />
-            {change}
-          </p>
-        )}
-      </div>
-      <div className={`p-3 bg-${color}-100 rounded-full`}>
-        <Icon className={`w-6 h-6 text-${color}-600`} />
-      </div>
-    </div>
-  </div>
-)
-
-// Pages
+// Simple Home Page Component
 const HomePage = () => {
   const [stats, setStats] = useState(null)
+
+  useEffect(() => {
+    fetch('/api/status')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setStats(data.data)
+        }
+      })
+      .catch(err => console.error('Error fetching stats:', err))
+  }, [])
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-100">
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center">
+          <h1 className="text-6xl font-bold text-gray-900 mb-6">
+            Exchange Platform V3
+          </h1>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            A comprehensive multi-tenant exchange platform built with modern technologies.
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900">Total Users</h3>
+              <p className="text-3xl font-bold text-blue-600">{stats?.totalUsers || '0'}</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900">Total Trades</h3>
+              <p className="text-3xl font-bold text-green-600">{stats?.totalTrades || '0'}</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900">System Status</h3>
+              <p className="text-3xl font-bold text-purple-600">{stats?.systemStatus || 'Unknown'}</p>
+            </div>
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-semibold text-gray-900">Uptime</h3>
+              <p className="text-3xl font-bold text-orange-600">{Math.floor(stats?.uptime || 0)}s</p>
+            </div>
+          </div>
+
+          <div className="space-x-4">
+            <Link
+              to="/login"
+              className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Get Started
+            </Link>
+            <Link
+              to="/dashboard"
+              className="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Simple Login Page
+const LoginPage = () => {
+  const [formData, setFormData] = useState({ email: '', password: '' })
   const [loading, setLoading] = useState(false)
 
-  const fetchStats = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     setLoading(true)
+
     try {
-      const response = await fetch('/api/status')
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
       const data = await response.json()
+
       if (data.success) {
-        setStats(data.data)
+        toast.success('Login successful!')
+        window.location.href = '/dashboard'
+      } else {
+        toast.error(data.message || 'Login failed')
       }
     } catch (error) {
-      toast.error('Failed to fetch stats')
+      toast.error('Login failed. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow">
+        <h2 className="text-2xl font-bold text-center mb-6">Login</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              type="password"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Logging in...' : 'Login'}
+          </button>
+        </form>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Don't have an account? <Link to="/register" className="text-blue-600 hover:underline">Register</Link>
+        </p>
+      </div>
+    </div>
+  )
+}
+
+// Simple Dashboard Page
+const DashboardPage = () => {
+  const [data, setData] = useState(null)
+
   useEffect(() => {
-    fetchStats()
+    fetch('/api/status')
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          setData(result.data)
+        }
+      })
+      .catch(err => console.error('Error:', err))
   }, [])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Exchange Platform V3</h1>
-                <p className="text-sm text-gray-600">Multi-tenant Trading Platform</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link
-                to="/dashboard"
-                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link
-                to="/login"
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Login
-              </Link>
-            </div>
+    <div className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Total Trades</h3>
+            <p className="text-3xl font-bold text-blue-600">{data?.totalTrades || 0}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Active Users</h3>
+            <p className="text-3xl font-bold text-green-600">{data?.totalUsers || 0}</p>
+          </div>
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">System Status</h3>
+            <p className="text-3xl font-bold text-purple-600">{data?.systemStatus || 'Unknown'}</p>
           </div>
         </div>
-      </header>
+      </div>
+    </div>
+  )
+}
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-12">
-        {/* Hero Section */}
-        <section className="text-center mb-16">
-          <h2 className="text-5xl font-bold text-gray-900 mb-6">
-            Next-Generation
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              {' '}Exchange Platform
-            </span>
-          </h2>
-          <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto leading-relaxed">
-            A comprehensive multi-tenant exchange platform built with modern technologies. 
-            Secure, scalable, and feature-rich trading solution for the future of finance.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <button
-              onClick={fetchStats}
-              disabled={loading}
-              className="px-8 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 flex items-center justify-center"
-            >
-              {loading ? <LoadingSpinner /> : 'Get Started'}
-            </button>
-            <button className="px-8 py-3 bg-white text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-              Learn More
-            </button>
-          </div>
+// Simple Register Page
+const RegisterPage = () => {
+  const [formData, setFormData] = useState({ name: '', email: '', password: '' })
+  const [loading, setLoading] = useState(false)
 
-          {/* Status Indicators */}
-          <div className="flex flex-wrap justify-center gap-4 mb-12">
-            <div className="flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-full">
-              <CheckCircle className="w-4 h-4 mr-2" />
-              System Online
-            </div>
-            <div className="flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full">
-              <Activity className="w-4 h-4 mr-2" />
-              Real-time Trading
-            </div>
-            <div className="flex items-center px-4 py-2 bg-purple-100 text-purple-800 rounded-full">
-              <Shield className="w-4 h-4 mr-2" />
-              Secure Platform
-            </div>
-          </div>
-        </section>
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setLoading(true)
 
-        {/* Stats Section */}
-        {stats && (
-          <section className="mb-16">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <StatCard
-                icon={Users}
-                title="Total Users"
-                value={stats.totalUsers.toLocaleString()}
-                change="+12%"
-                color="primary"
-              />
-              <StatCard
-                icon={TrendingUp}
-                title="Total Trades"
-                value={stats.totalTrades.toLocaleString()}
-                change="+8%"
-                color="success"
-              />
-              <StatCard
-                icon={DollarSign}
-                title="System Status"
-                value={stats.systemStatus}
-                color="warning"
-              />
-              <StatCard
-                icon={Clock}
-                title="Uptime"
-                value={`${Math.floor(stats.uptime / 60)}m`}
-                color="secondary"
-              />
-            </div>
-          </section>
-        )}
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
 
-        {/* Features Section */}
-        <section className="mb-16">
-          <div className="text-center mb-12">
-            <h3 className="text-3xl font-bold text-gray-900 mb-4">
-              Powerful Features
-            </h3>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Everything you need for a modern trading platform
-            </p>
-          </div>
+      const data = await response.json()
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard
-              icon={Shield}
-              title="Advanced Security"
-              description="Multi-layer security with 2FA, encryption, and secure wallet integration for maximum protection."
-              color="primary"
-            />
-            <FeatureCard
-              icon={Zap}
-              title="Real-time Updates"
-              description="Live market data, instant notifications, and real-time trading updates with WebSocket technology."
-              color="success"
-            />
-            <FeatureCard
-              icon={Building}
-              title="Multi-tenant Architecture"
-              description="Support for multiple organizations with isolated data and customizable features."
-              color="warning"
-            />
-            <FeatureCard
-              icon={Smartphone}
-              title="Mobile Responsive"
-              description="Fully responsive design that works perfectly on all devices and screen sizes."
-              color="secondary"
-            />
-            <FeatureCard
-              icon={BarChart3}
-              title="Advanced Analytics"
-              description="Comprehensive reporting and analytics tools for better trading decisions."
-              color="primary"
-            />
-            <FeatureCard
-              icon={Users}
-              title="User Management"
-              description="Role-based access control with detailed user management and permissions."
-              color="success"
+      if (data.success) {
+        toast.success('Registration successful!')
+        window.location.href = '/login'
+      } else {
+        toast.error(data.message || 'Registration failed')
+      }
+    } catch (error) {
+      toast.error('Registration failed. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="max-w-md w-full bg-white p-8 rounded-lg shadow">
+        <h2 className="text-2xl font-bold text-center mb-6">Register</h2>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Name</label>
+            <input
+              type="text"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.name}
+              onChange={(e) => setFormData({...formData, name: e.target.value})}
             />
           </div>
-        </section>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Email</label>
+            <input
+              type="email"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.email}
+              onChange={(e) => setFormData({...formData, email: e.target.value})}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700">Password</label>
+            <input
+              type="password"
+              required
+              className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md"
+              value={formData.password}
+              onChange={(e) => setFormData({...formData, password: e.target.value})}
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loading ? 'Creating account...' : 'Register'}
+          </button>
+        </form>
+        <p className="mt-4 text-center text-sm text-gray-600">
+          Already have an account? <Link to="/login" className="text-blue-600 hover:underline">Login</Link>
+        </p>
+      </div>
+    </div>
+  )
+}
 
-        {/* CTA Section */}
-        <section className="text-center">
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-            <h3 className="text-3xl font-bold mb-4">Ready to Start Trading?</h3>
-            <p className="
+// 404 Page
+const NotFoundPage = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+    <div className="text-center">
+      <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
+      <h2 className="text-2xl font-semibold text-gray-700 mb-4">Page Not Found</h2>
+      <Link to="/" className="text-blue-600 hover:underline">Go Home</Link>
+    </div>
+  </div>
+)
+
+// Main App Component
+function App() {
+  return (
+    <div className="min-h-screen">
+      <Routes>
+        <Route path="/" element={<HomePage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </div>
+  )
+}
+
+export default App
