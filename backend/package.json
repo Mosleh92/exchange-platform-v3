@@ -1,12 +1,18 @@
 {
   "name": "exchange-platform-backend",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Backend API for Exchange Platform V3",
-  "main": "src/server.js",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=8.0.0"
+  "version": "3.0.0",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "redis": "^4.6.7"
+    // ... سایر dependencies
+  }
+}
   },
   "scripts": {
     "start": "node src/server.js",
