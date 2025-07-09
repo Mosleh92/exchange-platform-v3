@@ -220,6 +220,29 @@ npm run test:e2e
 npm run test:coverage
 ```
 
+
+# Backend Dependencies
+cd backend
+
+# Security packages
+npm install speakeasy qrcode helmet express-rate-limit express-slow-down
+npm install isomorphic-dompurify redis express-validator
+npm install jsonwebtoken crypto bcryptjs
+
+# Development dependencies
+npm install --save-dev jest supertest
+
+# Frontend Dependencies (if using React)
+cd ../frontend
+
+# QR Code and 2FA components
+npm install qrcode.react react-qr-scanner
+npm install @types/qrcode.react
+
+# Security utilities
+npm install crypto-js
+npm install react-helmet-async
+
 ## 📚 API Documentation
 
 - **Swagger UI**: http://localhost:3000/api-docs
