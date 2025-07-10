@@ -1,926 +1,748 @@
-# راهنمای دپلوی | Deployment Guide
+# 🚀 Production Deployment Guide
 
-## 📋 فهرست مطالب
+## Overview
+Complete guide for deploying Exchange Platform v3 to production with security, performance, and monitoring best practices.
 
-- [پیش‌نیازها](#پیش‌نیازها)
-- [محیط Development](#محیط-development)
-- [محیط Staging](#محیط-staging)
-- [محیط Production](#محیط-production)
-- [Docker Deployment](#docker-deployment)
-- [Kubernetes Deployment](#kubernetes-deployment)
-- [CI/CD Pipeline](#cicd-pipeline)
+## 📋 Table of Contents
+- [Prerequisites](#prerequisites)
+- [Environment Setup](#environment-setup)
+- [Database Setup](#database-setup)
+- [Application Deployment](#application-deployment)
+- [Security Configuration](#security-configuration)
 - [Monitoring & Logging](#monitoring--logging)
-- [Backup & Recovery](#backup--recovery)
+- [Performance Optimization](#performance-optimization)
+- [Troubleshooting](#troubleshooting)
 
-## پیش‌نیازها
+## 🔧 Prerequisites
 
-### نرم‌افزارهای مورد نیاز
-- Node.js >= 16.0.0
-- npm >= 8.0.0
-- Docker >= 20.10
-- Docker Compose >= 2.0
-- Git >= 2.30
-- MongoDB >= 5.0
-- Redis >= 6.0
+### System Requirements
+- **OS**: Ubuntu 20.04+ / CentOS 8+ / Amazon Linux 2
+- **CPU**: 4+ cores (8+ recommended)
+- **RAM**: 8GB+ (16GB+ recommended)
+- **Storage**: 100GB+ SSD
+- **Network**: Stable internet connection
 
-### سرویس‌های ابری (اختیاری)
-- AWS / Azure / GCP
-- MongoDB Atlas
-- Redis Cloud
-- CloudFlare CDN
-
-## محیط Development
-
-### راه‌اندازی محلی
-
-#### 1. کلون پروژه
+### Software Requirements
 ```bash
-git clone https://github.com/your-username/exchange-platform-v3.git
-cd exchange-platform-v3
+# Node.js 18+ LTS
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# MongoDB 6.0+
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu focal/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt-get update
+sudo apt-get install -y mongodb-org
+
+# Redis (for caching)
+sudo apt-get install -y redis-server
+
+# Nginx (for reverse proxy)
+sudo apt-get install -y nginx
+
+# PM2 (for process management)
+sudo npm install -g pm2
 ```
 
-#### 2. نصب وابستگی‌ها
+### Security Requirements
+- **SSL Certificate**: Valid SSL certificate for domain
+- **Firewall**: Configured firewall rules
+- **SSH**: Secure SSH configuration
+- **Updates**: Regular security updates
+
+## 🌍 Environment Setup
+
+### 1. Create Production User
 ```bash
-# نصب وابستگی‌های اصلی
-npm install
+# Create production user
+sudo adduser exchange
+sudo usermod -aG sudo exchange
+sudo su - exchange
 
-# نصب وابستگی‌های بک‌اند
-cd backend
-npm install
-
-# نصب وابستگی‌های فرانت‌اند
-cd ../frontend
-npm install
+# Generate SSH key
+ssh-keygen -t rsa -b 4096 -C "exchange@production"
 ```
 
-#### 3. تنظیم متغیرهای محیطی
-
-**Backend (.env)**
-```env
-# Server Configuration
-PORT=5000
-NODE_ENV=development
-
-# Database
-MONGODB_URI=mongodb://localhost:27017/exchange_platform_dev
-
-# Redis
-REDIS_URL=redis://localhost:6379
-
-# JWT
-JWT_SECRET=dev-secret-key-change-in-production
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_SECRET=dev-refresh-secret
-JWT_REFRESH_EXPIRES_IN=7d
-
-# File Upload
-UPLOAD_PATH=./uploads
-MAX_FILE_SIZE=5242880
-
-# CORS
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
-FRONTEND_URL=http://localhost:3000
-
-# Security
-BCRYPT_ROUNDS=10
-SESSION_SECRET=dev-session-secret
-
-# External APIs
-EXCHANGE_RATE_API_KEY=your-dev-api-key
-EXCHANGE_RATE_BASE_URL=https://api.exchangerate-api.com/v4
-```
-
-**Frontend (.env)**
-```env
-VITE_API_BASE_URL=http://localhost:5000/api
-VITE_APP_NAME=پلتفرم صرافی (Development)
-VITE_APP_VERSION=1.0.0
-VITE_SOCKET_URL=http://localhost:5000
-```
-
-#### 4. راه‌اندازی دیتابیس
+### 2. Install Dependencies
 ```bash
-# راه‌اندازی MongoDB
+# Update system
+sudo apt update && sudo apt upgrade -y
+
+# Install required packages
+sudo apt install -y curl wget git unzip build-essential
+sudo apt install -y python3 python3-pip
+sudo apt install -y certbot python3-certbot-nginx
+```
+
+### 3. Configure Firewall
+```bash
+# Configure UFW firewall
+sudo ufw allow ssh
+sudo ufw allow 80
+sudo ufw allow 443
+sudo ufw allow 3000  # Backend API
+sudo ufw allow 3001  # Frontend
+sudo ufw enable
+```
+
+## 🗄️ Database Setup
+
+### 1. MongoDB Configuration
+```bash
+# Create MongoDB data directory
+sudo mkdir -p /data/db
+sudo chown -R mongodb:mongodb /data/db
+
+# Configure MongoDB
+sudo nano /etc/mongod.conf
+```
+
+**MongoDB Configuration:**
+```yaml
+# /etc/mongod.conf
+systemLog:
+  destination: file
+  logAppend: true
+  path: /var/log/mongodb/mongod.log
+
+storage:
+  dbPath: /data/db
+  journal:
+    enabled: true
+
+net:
+  port: 27017
+  bindIp: 127.0.0.1
+
+security:
+  authorization: enabled
+
+operationProfiling:
+  mode: slowOp
+  slowOpThresholdMs: 100
+
+setParameter:
+  enableLocalhostAuthBypass: false
+```
+
+### 2. Create Database User
+```bash
+# Start MongoDB
 sudo systemctl start mongod
 sudo systemctl enable mongod
 
-# راه‌اندازی Redis
-sudo systemctl start redis
-sudo systemctl enable redis
+# Create admin user
+mongosh admin --eval '
+db.createUser({
+  user: "admin",
+  pwd: "SECURE_ADMIN_PASSWORD",
+  roles: [{ role: "userAdminAnyDatabase", db: "admin" }]
+})
+'
+
+# Create application user
+mongosh exchange_platform --eval '
+db.createUser({
+  user: "exchange_app",
+  pwd: "SECURE_APP_PASSWORD",
+  roles: [
+    { role: "readWrite", db: "exchange_platform" },
+    { role: "dbAdmin", db: "exchange_platform" }
+  ]
+})
+'
 ```
 
-#### 5. Seed داده‌ها
+### 3. Redis Configuration
 ```bash
-cd backend
-npm run seed
+# Configure Redis
+sudo nano /etc/redis/redis.conf
 ```
 
-#### 6. اجرای پروژه
+**Redis Configuration:**
+```conf
+# /etc/redis/redis.conf
+bind 127.0.0.1
+port 6379
+requirepass SECURE_REDIS_PASSWORD
+maxmemory 512mb
+maxmemory-policy allkeys-lru
+save 900 1
+save 300 10
+save 60 10000
+```
+
+## 🚀 Application Deployment
+
+### 1. Clone Repository
 ```bash
-# ترمینال 1 - Backend
-cd backend
-npm run dev
+# Clone application
+cd /home/exchange
+git clone https://github.com/Mosleh92/exchange-platform-v3.git
+cd exchange-platform-v3
 
-# ترمینال 2 - Frontend
-cd frontend
-npm run dev
+# Install dependencies
+npm ci --production
 ```
 
-### Docker Development
-
-#### 1. فایل docker-compose.dev.yml
-```yaml
-version: '3.8'
-
-services:
-  mongodb:
-    image: mongo:5.0
-    container_name: exchange_mongodb_dev
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: password
-
-  redis:
-    image: redis:6.0-alpine
-    container_name: exchange_redis_dev
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    container_name: exchange_backend_dev
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
-    environment:
-      - NODE_ENV=development
-      - MONGODB_URI=mongodb://admin:password@mongodb:27017/exchange_platform_dev
-      - REDIS_URL=redis://redis:6379
-    depends_on:
-      - mongodb
-      - redis
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: exchange_frontend_dev
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_BASE_URL=http://localhost:5000/api
-    depends_on:
-      - backend
-
-volumes:
-  mongodb_data:
-  redis_data:
-```
-
-#### 2. اجرا
+### 2. Environment Configuration
 ```bash
-docker-compose -f docker-compose.dev.yml up -d
+# Create environment file
+nano .env.production
 ```
 
-## محیط Staging
-
-### راه‌اندازی Staging
-
-#### 1. فایل docker-compose.staging.yml
-```yaml
-version: '3.8'
-
-services:
-  mongodb:
-    image: mongo:5.0
-    container_name: exchange_mongodb_staging
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_staging_data:/data/db
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-    networks:
-      - exchange_network
-
-  redis:
-    image: redis:6.0-alpine
-    container_name: exchange_redis_staging
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_staging_data:/data
-    networks:
-      - exchange_network
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: exchange_backend_staging
-    ports:
-      - "5000:5000"
-    environment:
-      - NODE_ENV=staging
-      - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/exchange_platform_staging
-      - REDIS_URL=redis://redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-    depends_on:
-      - mongodb
-      - redis
-    networks:
-      - exchange_network
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: exchange_frontend_staging
-    ports:
-      - "80:80"
-    environment:
-      - VITE_API_BASE_URL=http://staging-api.exchange.com/api
-    depends_on:
-      - backend
-    networks:
-      - exchange_network
-    restart: unless-stopped
-
-  nginx:
-    image: nginx:alpine
-    container_name: exchange_nginx_staging
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.staging.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - exchange_network
-    restart: unless-stopped
-
-volumes:
-  mongodb_staging_data:
-  redis_staging_data:
-
-networks:
-  exchange_network:
-    driver: bridge
-```
-
-#### 2. متغیرهای محیطی Staging
+**Environment Variables:**
 ```env
-# .env.staging
-NODE_ENV=staging
-MONGO_ROOT_USERNAME=admin
-MONGO_ROOT_PASSWORD=secure-password
-JWT_SECRET=staging-jwt-secret-key
-JWT_REFRESH_SECRET=staging-refresh-secret-key
-REDIS_PASSWORD=redis-password
-```
-
-#### 3. اجرا
-```bash
-# Build و اجرا
-docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
-
-# مشاهده لاگ‌ها
-docker-compose -f docker-compose.staging.yml logs -f
-
-# توقف
-docker-compose -f docker-compose.staging.yml down
-```
-
-## محیط Production
-
-### راه‌اندازی Production
-
-#### 1. فایل docker-compose.production.yml
-```yaml
-version: '3.8'
-
-services:
-  mongodb:
-    image: mongo:5.0
-    container_name: exchange_mongodb_prod
-    volumes:
-      - mongodb_prod_data:/data/db
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
-    networks:
-      - exchange_prod_network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 1G
-
-  redis:
-    image: redis:6.0-alpine
-    container_name: exchange_redis_prod
-    volumes:
-      - redis_prod_data:/data
-    command: redis-server --requirepass ${REDIS_PASSWORD}
-    networks:
-      - exchange_prod_network
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: exchange_backend_prod
-    environment:
-      - NODE_ENV=production
-      - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME}:${MONGO_ROOT_PASSWORD}@mongodb:27017/exchange_platform_prod
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
-      - JWT_SECRET=${JWT_SECRET}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - SMTP_HOST=${SMTP_HOST}
-      - SMTP_USER=${SMTP_USER}
-      - SMTP_PASS=${SMTP_PASS}
-    depends_on:
-      - mongodb
-      - redis
-    networks:
-      - exchange_prod_network
-    restart: unless-stopped
-    deploy:
-      replicas: 3
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
-      update_config:
-        parallelism: 1
-        delay: 10s
-      restart_policy:
-        condition: on-failure
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: exchange_frontend_prod
-    environment:
-      - VITE_API_BASE_URL=https://api.exchange.com/api
-    depends_on:
-      - backend
-    networks:
-      - exchange_prod_network
-    restart: unless-stopped
-    deploy:
-      replicas: 2
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-        reservations:
-          memory: 256M
-          cpus: '0.25'
-
-  nginx:
-    image: nginx:alpine
-    container_name: exchange_nginx_prod
-    ports:
-      - "443:443"
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.production.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-      - ./logs/nginx:/var/log/nginx
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - exchange_prod_network
-    restart: unless-stopped
-    deploy:
-      replicas: 2
-
-volumes:
-  mongodb_prod_data:
-    driver: local
-  redis_prod_data:
-    driver: local
-
-networks:
-  exchange_prod_network:
-    driver: bridge
-```
-
-#### 2. متغیرهای محیطی Production
-```env
-# .env.production
+# Application
 NODE_ENV=production
-MONGO_ROOT_USERNAME=admin
-MONGO_ROOT_PASSWORD=very-secure-password
-JWT_SECRET=very-secure-jwt-secret-key-256-bits
-JWT_REFRESH_SECRET=very-secure-refresh-secret-key-256-bits
-REDIS_PASSWORD=very-secure-redis-password
+PORT=3000
+FRONTEND_URL=https://your-domain.com
+
+# Database
+MONGODB_URI=mongodb://exchange_app:SECURE_APP_PASSWORD@localhost:27017/exchange_platform?authSource=exchange_platform
+
+# Redis
+REDIS_URL=redis://:SECURE_REDIS_PASSWORD@localhost:6379
+
+# Security
+JWT_SECRET=YOUR_SUPER_SECURE_JWT_SECRET_AT_LEAST_64_CHARS
+JWT_EXPIRES_IN=24h
+REFRESH_TOKEN_SECRET=YOUR_REFRESH_TOKEN_SECRET
+REFRESH_TOKEN_EXPIRES_IN=7d
+
+# Session
+SESSION_SECRET=YOUR_SESSION_SECRET
+
+# Email (SMTP)
 SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
+
+# SMS (Twilio)
+TWILIO_ACCOUNT_SID=your-account-sid
+TWILIO_AUTH_TOKEN=your-auth-token
+TWILIO_PHONE_NUMBER=+1234567890
+
+# File Upload
+UPLOAD_PATH=/home/exchange/uploads
+MAX_FILE_SIZE=10485760
+
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+
+# Monitoring
+SENTRY_DSN=your-sentry-dsn
+LOG_LEVEL=info
 ```
 
-#### 3. اجرا
+### 3. PM2 Configuration
 ```bash
-# Build و اجرا
-docker-compose -f docker-compose.production.yml --env-file .env.production up -d
-
-# مشاهده لاگ‌ها
-docker-compose -f docker-compose.production.yml logs -f
-
-# Scale سرویس‌ها
-docker-compose -f docker-compose.production.yml up -d --scale backend=5 --scale frontend=3
+# Create PM2 ecosystem file
+nano ecosystem.config.js
 ```
 
-## Docker Deployment
-
-### Dockerfile ها
-
-#### Backend Dockerfile
-```dockerfile
-# backend/Dockerfile
-FROM node:16-alpine
-
-WORKDIR /app
-
-# نصب وابستگی‌ها
-COPY package*.json ./
-RUN npm ci --only=production
-
-# کپی کد
-COPY . .
-
-# ایجاد کاربر غیر root
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nodejs -u 1001
-USER nodejs
-
-# Expose پورت
-EXPOSE 5000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:5000/health || exit 1
-
-# اجرای اپلیکیشن
-CMD ["npm", "start"]
+**PM2 Configuration:**
+```javascript
+module.exports = {
+  apps: [{
+    name: 'exchange-platform-backend',
+    script: './backend/src/server.js',
+    instances: 'max',
+    exec_mode: 'cluster',
+    env: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    },
+    env_production: {
+      NODE_ENV: 'production',
+      PORT: 3000
+    },
+    error_file: './logs/err.log',
+    out_file: './logs/out.log',
+    log_file: './logs/combined.log',
+    time: true,
+    max_memory_restart: '1G',
+    node_args: '--max-old-space-size=1024',
+    watch: false,
+    ignore_watch: ['node_modules', 'logs'],
+    instances: 4,
+    exec_mode: 'cluster'
+  }, {
+    name: 'exchange-platform-frontend',
+    script: 'serve',
+    args: '-s frontend/dist -l 3001',
+    env: {
+      NODE_ENV: 'production'
+    },
+    env_production: {
+      NODE_ENV: 'production'
+    }
+  }]
+};
 ```
 
-#### Frontend Dockerfile
-```dockerfile
-# frontend/Dockerfile
-FROM node:16-alpine as builder
+### 4. Start Application
+```bash
+# Build frontend
+cd frontend
+npm run build
+cd ..
 
-WORKDIR /app
-
-# نصب وابستگی‌ها
-COPY package*.json ./
-RUN npm ci
-
-# کپی کد و build
-COPY . .
-RUN npm run build
-
-# Production stage
-FROM nginx:alpine
-
-# کپی فایل‌های build شده
-COPY --from=builder /app/dist /usr/share/nginx/html
-
-# کپی تنظیمات nginx
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-
-# Expose پورت
-EXPOSE 80
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost/health || exit 1
-
-CMD ["nginx", "-g", "daemon off;"]
+# Start with PM2
+pm2 start ecosystem.config.js --env production
+pm2 save
+pm2 startup
 ```
 
-### Docker Compose برای Development
-```dockerfile
-# backend/Dockerfile.dev
-FROM node:16-alpine
+## 🔒 Security Configuration
 
-WORKDIR /app
+### 1. SSL Certificate
+```bash
+# Install SSL certificate
+sudo certbot --nginx -d your-domain.com -d www.your-domain.com
 
-# نصب وابستگی‌ها
-COPY package*.json ./
-RUN npm install
-
-# کپی کد
-COPY . .
-
-# Expose پورت
-EXPOSE 5000
-
-# اجرای اپلیکیشن در development mode
-CMD ["npm", "run", "dev"]
+# Auto-renewal
+sudo crontab -e
+# Add: 0 12 * * * /usr/bin/certbot renew --quiet
 ```
 
-## Kubernetes Deployment
-
-### Namespace
-```yaml
-# k8s/namespace.yaml
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: exchange-platform
+### 2. Nginx Configuration
+```bash
+# Configure Nginx
+sudo nano /etc/nginx/sites-available/exchange-platform
 ```
 
-### ConfigMap
-```yaml
-# k8s/configmap.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: exchange-config
-  namespace: exchange-platform
-data:
-  NODE_ENV: "production"
-  MONGODB_URI: "mongodb://mongodb-service:27017/exchange_platform_prod"
-  REDIS_URL: "redis://redis-service:6379"
-  VITE_API_BASE_URL: "https://api.exchange.com/api"
-```
+**Nginx Configuration:**
+```nginx
+# /etc/nginx/sites-available/exchange-platform
+upstream backend {
+    server 127.0.0.1:3000;
+}
 
-### Secret
-```yaml
-# k8s/secret.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: exchange-secrets
-  namespace: exchange-platform
-type: Opaque
-data:
-  JWT_SECRET: <base64-encoded-jwt-secret>
-  JWT_REFRESH_SECRET: <base64-encoded-refresh-secret>
-  MONGO_ROOT_PASSWORD: <base64-encoded-mongo-password>
-  REDIS_PASSWORD: <base64-encoded-redis-password>
-```
+upstream frontend {
+    server 127.0.0.1:3001;
+}
 
-### Deployment Backend
-```yaml
-# k8s/backend-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: backend-deployment
-  namespace: exchange-platform
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: backend
-  template:
-    metadata:
-      labels:
-        app: backend
-    spec:
-      containers:
-      - name: backend
-        image: exchange-platform/backend:latest
-        ports:
-        - containerPort: 5000
-        env:
-        - name: NODE_ENV
-          valueFrom:
-            configMapKeyRef:
-              name: exchange-config
-              key: NODE_ENV
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: exchange-secrets
-              key: JWT_SECRET
-        resources:
-          limits:
-            memory: "1Gi"
-            cpu: "1000m"
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 5
-          periodSeconds: 5
-```
+server {
+    listen 80;
+    server_name your-domain.com www.your-domain.com;
+    return 301 https://$server_name$request_uri;
+}
 
-### Service Backend
-```yaml
-# k8s/backend-service.yaml
-apiVersion: v1
-kind: Service
-metadata:
-  name: backend-service
-  namespace: exchange-platform
-spec:
-  selector:
-    app: backend
-  ports:
-  - protocol: TCP
-    port: 80
-    targetPort: 5000
-  type: ClusterIP
-```
+server {
+    listen 443 ssl http2;
+    server_name your-domain.com www.your-domain.com;
 
-### Ingress
-```yaml
-# k8s/ingress.yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: exchange-ingress
-  namespace: exchange-platform
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-spec:
-  tls:
-  - hosts:
-    - api.exchange.com
-    - exchange.com
-    secretName: exchange-tls
-  rules:
-  - host: api.exchange.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: backend-service
-            port:
-              number: 80
-  - host: exchange.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: frontend-service
-            port:
-              number: 80
-```
+    ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
 
-## CI/CD Pipeline
+    # Security headers
+    add_header X-Frame-Options DENY;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
-### GitHub Actions
-```yaml
-# .github/workflows/deploy.yml
-name: Deploy to Production
+    # API routes
+    location /api/ {
+        proxy_pass http://backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
 
-on:
-  push:
-    branches: [ main ]
+    # Frontend routes
+    location / {
+        proxy_pass http://frontend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '16'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: |
-        npm ci
-        cd backend && npm ci
-        cd ../frontend && npm ci
-    
-    - name: Run tests
-      run: |
-        cd backend && npm test
-        cd ../frontend && npm test
-    
-    - name: Run security audit
-      run: |
-        npm run security:audit
-        cd backend && npm run security:audit
+    # Static files
+    location /uploads/ {
+        alias /home/exchange/uploads/;
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+    }
 
-  build:
-    needs: test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-    
-    - name: Login to Docker Hub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: Build and push Backend
-      uses: docker/build-push-action@v4
-      with:
-        context: ./backend
-        push: true
-        tags: exchange-platform/backend:latest
-    
-    - name: Build and push Frontend
-      uses: docker/build-push-action@v4
-      with:
-        context: ./frontend
-        push: true
-        tags: exchange-platform/frontend:latest
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-    - name: Deploy to Kubernetes
-      uses: steebchen/kubectl@v2
-      with:
-        config: ${{ secrets.KUBE_CONFIG_DATA }}
-        command: apply -f k8s/
-```
-
-## Monitoring & Logging
-
-### Prometheus Configuration
-```yaml
-# monitoring/prometheus.yml
-global:
-  scrape_interval: 15s
-
-scrape_configs:
-  - job_name: 'exchange-backend'
-    static_configs:
-      - targets: ['backend-service:5000']
-    metrics_path: '/metrics'
-    scrape_interval: 5s
-
-  - job_name: 'exchange-frontend'
-    static_configs:
-      - targets: ['frontend-service:80']
-    metrics_path: '/metrics'
-    scrape_interval: 5s
-
-  - job_name: 'mongodb'
-    static_configs:
-      - targets: ['mongodb-service:27017']
-    metrics_path: '/metrics'
-    scrape_interval: 10s
-
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis-service:6379']
-    metrics_path: '/metrics'
-    scrape_interval: 10s
-```
-
-### Grafana Dashboard
-```json
-{
-  "dashboard": {
-    "title": "Exchange Platform Dashboard",
-    "panels": [
-      {
-        "title": "API Response Time",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "rate(http_request_duration_seconds_sum[5m]) / rate(http_request_duration_seconds_count[5m])"
-          }
-        ]
-      },
-      {
-        "title": "Database Connections",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "mongodb_connections_current"
-          }
-        ]
-      },
-      {
-        "title": "Redis Memory Usage",
-        "type": "graph",
-        "targets": [
-          {
-            "expr": "redis_memory_used_bytes"
-          }
-        ]
-      }
-    ]
-  }
+    # Health check
+    location /health {
+        proxy_pass http://backend;
+        access_log off;
+    }
 }
 ```
 
-## Backup & Recovery
-
-### Database Backup Script
 ```bash
-#!/bin/bash
-# scripts/backup.sh
-
-# تنظیمات
-BACKUP_DIR="/backups"
-DATE=$(date +%Y%m%d_%H%M%S)
-MONGODB_URI="mongodb://admin:password@localhost:27017"
-DATABASES=("exchange_platform_prod" "exchange_platform_staging")
-
-# ایجاد پوشه backup
-mkdir -p $BACKUP_DIR
-
-# Backup هر دیتابیس
-for db in "${DATABASES[@]}"
-do
-  echo "Backing up $db..."
-  mongodump --uri="$MONGODB_URI/$db" --out="$BACKUP_DIR/$db_$DATE"
-  
-  # فشرده‌سازی
-  tar -czf "$BACKUP_DIR/$db_$DATE.tar.gz" -C "$BACKUP_DIR" "$db_$DATE"
-  rm -rf "$BACKUP_DIR/$db_$DATE"
-  
-  echo "Backup completed: $BACKUP_DIR/$db_$DATE.tar.gz"
-done
-
-# حذف backup های قدیمی (بیش از 30 روز)
-find $BACKUP_DIR -name "*.tar.gz" -mtime +30 -delete
-
-# آپلود به cloud storage (اختیاری)
-# aws s3 sync $BACKUP_DIR s3://your-backup-bucket/
+# Enable site
+sudo ln -s /etc/nginx/sites-available/exchange-platform /etc/nginx/sites-enabled/
+sudo nginx -t
+sudo systemctl restart nginx
 ```
 
-### Recovery Script
+### 3. Security Hardening
+```bash
+# Configure SSH
+sudo nano /etc/ssh/sshd_config
+```
+
+**SSH Configuration:**
+```conf
+# /etc/ssh/sshd_config
+Port 22
+Protocol 2
+HostKey /etc/ssh/ssh_host_rsa_key
+HostKey /etc/ssh/ssh_host_ecdsa_key
+HostKey /etc/ssh/ssh_host_ed25519_key
+UsePrivilegeSeparation yes
+KeyRegenerationInterval 3600
+ServerKeyBits 1024
+SyslogFacility AUTH
+LogLevel INFO
+LoginGraceTime 120
+PermitRootLogin no
+StrictModes yes
+RSAAuthentication yes
+PubkeyAuthentication yes
+AuthorizedKeysFile %h/.ssh/authorized_keys
+IgnoreRhosts yes
+RhostsRSAAuthentication no
+HostbasedAuthentication no
+PermitEmptyPasswords no
+ChallengeResponseAuthentication no
+PasswordAuthentication yes
+X11Forwarding yes
+X11DisplayOffset 10
+PrintMotd no
+PrintLastLog yes
+TCPKeepAlive yes
+AcceptEnv LANG LC_*
+Subsystem sftp /usr/lib/openssh/sftp-server
+UsePAM yes
+```
+
+```bash
+# Restart SSH
+sudo systemctl restart sshd
+```
+
+## 📊 Monitoring & Logging
+
+### 1. Log Management
+```bash
+# Create log directory
+mkdir -p /home/exchange/logs
+
+# Configure logrotate
+sudo nano /etc/logrotate.d/exchange-platform
+```
+
+**Logrotate Configuration:**
+```conf
+# /etc/logrotate.d/exchange-platform
+/home/exchange/logs/*.log {
+    daily
+    missingok
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    create 644 exchange exchange
+    postrotate
+        pm2 reloadLogs
+    endscript
+}
+```
+
+### 2. Monitoring Setup
+```bash
+# Install monitoring tools
+sudo apt install -y htop iotop nethogs
+
+# Create monitoring script
+nano /home/exchange/monitor.sh
+```
+
+**Monitoring Script:**
 ```bash
 #!/bin/bash
-# scripts/recovery.sh
+# /home/exchange/monitor.sh
 
-BACKUP_FILE=$1
-MONGODB_URI="mongodb://admin:password@localhost:27017"
+LOG_FILE="/home/exchange/logs/system-$(date +%Y%m%d).log"
 
-if [ -z "$BACKUP_FILE" ]; then
-  echo "Usage: $0 <backup_file.tar.gz>"
-  exit 1
+echo "$(date): Starting system monitoring..." >> $LOG_FILE
+
+# CPU and Memory
+echo "CPU Usage: $(top -bn1 | grep 'Cpu(s)' | awk '{print $2}' | cut -d'%' -f1)%" >> $LOG_FILE
+echo "Memory Usage: $(free -m | awk 'NR==2{printf "%.2f%%", $3*100/$2}')" >> $LOG_FILE
+
+# Disk Usage
+echo "Disk Usage: $(df -h / | awk 'NR==2{print $5}')" >> $LOG_FILE
+
+# Application Status
+if pm2 list | grep -q "online"; then
+    echo "Application Status: ONLINE" >> $LOG_FILE
+else
+    echo "Application Status: OFFLINE" >> $LOG_FILE
 fi
 
-# استخراج فایل backup
-tar -xzf $BACKUP_FILE
+# Database Status
+if systemctl is-active --quiet mongod; then
+    echo "Database Status: ONLINE" >> $LOG_FILE
+else
+    echo "Database Status: OFFLINE" >> $LOG_FILE
+fi
 
-# بازیابی دیتابیس
-mongorestore --uri="$MONGODB_URI" --drop $BACKUP_FILE
-
-echo "Recovery completed successfully"
+# Network
+echo "Network Connections: $(netstat -an | wc -l)" >> $LOG_FILE
 ```
 
----
+```bash
+# Make executable
+chmod +x /home/exchange/monitor.sh
 
-**نسخه راهنما**: v1.0.0  
-**آخرین بروزرسانی**: 2024  
-**توسعه‌دهنده**: Exchange Platform Team 
+# Add to crontab
+crontab -e
+# Add: */5 * * * * /home/exchange/monitor.sh
+```
+
+### 3. Alerting Setup
+```bash
+# Create alert script
+nano /home/exchange/alert.sh
+```
+
+**Alert Script:**
+```bash
+#!/bin/bash
+# /home/exchange/alert.sh
+
+# Check application status
+if ! pm2 list | grep -q "online"; then
+    echo "ALERT: Application is offline!" | mail -s "Exchange Platform Alert" admin@your-domain.com
+fi
+
+# Check disk usage
+DISK_USAGE=$(df -h / | awk 'NR==2{print $5}' | cut -d'%' -f1)
+if [ $DISK_USAGE -gt 80 ]; then
+    echo "ALERT: Disk usage is ${DISK_USAGE}%!" | mail -s "Exchange Platform Alert" admin@your-domain.com
+fi
+
+# Check memory usage
+MEMORY_USAGE=$(free | awk 'NR==2{printf "%.0f", $3*100/$2}')
+if [ $MEMORY_USAGE -gt 90 ]; then
+    echo "ALERT: Memory usage is ${MEMORY_USAGE}%!" | mail -s "Exchange Platform Alert" admin@your-domain.com
+fi
+```
+
+## ⚡ Performance Optimization
+
+### 1. Database Optimization
+```bash
+# MongoDB optimization
+sudo nano /etc/mongod.conf
+```
+
+**MongoDB Performance Settings:**
+```yaml
+# /etc/mongod.conf
+storage:
+  dbPath: /data/db
+  journal:
+    enabled: true
+  wiredTiger:
+    engineConfig:
+      cacheSizeGB: 2
+    collectionConfig:
+      blockCompressor: snappy
+    indexConfig:
+      prefixCompression: true
+
+operationProfiling:
+  mode: slowOp
+  slowOpThresholdMs: 100
+
+setParameter:
+  enableLocalhostAuthBypass: false
+  maxTransactionLockRequestTimeoutMillis: 5000
+```
+
+### 2. Node.js Optimization
+```bash
+# Node.js performance settings
+export NODE_OPTIONS="--max-old-space-size=2048 --optimize-for-size"
+export UV_THREADPOOL_SIZE=64
+```
+
+### 3. Nginx Optimization
+```bash
+# Nginx performance settings
+sudo nano /etc/nginx/nginx.conf
+```
+
+**Nginx Performance Settings:**
+```nginx
+# /etc/nginx/nginx.conf
+worker_processes auto;
+worker_rlimit_nofile 65535;
+
+events {
+    worker_connections 65535;
+    use epoll;
+    multi_accept on;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    client_max_body_size 10M;
+    
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml+rss
+        application/atom+xml
+        image/svg+xml;
+}
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **Application Won't Start**
+```bash
+# Check logs
+pm2 logs exchange-platform-backend
+pm2 logs exchange-platform-frontend
+
+# Check environment
+pm2 env exchange-platform-backend
+
+# Restart application
+pm2 restart all
+```
+
+2. **Database Connection Issues**
+```bash
+# Check MongoDB status
+sudo systemctl status mongod
+
+# Check MongoDB logs
+sudo tail -f /var/log/mongodb/mongod.log
+
+# Test connection
+mongosh --host localhost --port 27017 --username exchange_app --password SECURE_APP_PASSWORD
+```
+
+3. **Nginx Issues**
+```bash
+# Check Nginx status
+sudo systemctl status nginx
+
+# Check Nginx logs
+sudo tail -f /var/log/nginx/error.log
+
+# Test configuration
+sudo nginx -t
+```
+
+4. **SSL Certificate Issues**
+```bash
+# Check certificate status
+sudo certbot certificates
+
+# Renew certificate
+sudo certbot renew --dry-run
+
+# Check certificate expiration
+openssl x509 -in /etc/letsencrypt/live/your-domain.com/cert.pem -text -noout | grep "Not After"
+```
+
+### Performance Monitoring
+
+1. **System Resources**
+```bash
+# CPU and Memory
+htop
+
+# Disk I/O
+iotop
+
+# Network
+nethogs
+
+# Process monitoring
+pm2 monit
+```
+
+2. **Application Metrics**
+```bash
+# PM2 metrics
+pm2 show exchange-platform-backend
+
+# MongoDB metrics
+mongosh --eval "db.serverStatus()"
+
+# Nginx metrics
+curl -s http://localhost/nginx_status
+```
+
+3. **Log Analysis**
+```bash
+# Application logs
+tail -f /home/exchange/logs/combined.log
+
+# Error logs
+tail -f /home/exchange/logs/err.log
+
+# System logs
+sudo journalctl -f
+```
+
+## 📞 Support
+
+### Emergency Contacts
+- **Technical Support**: tech-support@exchange.com
+- **Security Issues**: security@exchange.com
+- **Database Issues**: db-support@exchange.com
+
+### Documentation
+- **API Documentation**: https://docs.exchange.com/api
+- **Database Schema**: https://docs.exchange.com/database
+- **Troubleshooting**: https://docs.exchange.com/troubleshooting
+
+### Monitoring Dashboard
+- **Application Status**: https://status.exchange.com
+- **Performance Metrics**: https://metrics.exchange.com
+- **Error Tracking**: https://errors.exchange.com 
