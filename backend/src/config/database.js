@@ -1,464 +1,333 @@
 // src/config/database.js
-const mongoose = require('mongoose');
+const { Pool } = require('pg');
 const logger = require('../utils/logger');
 
 /**
- * Enhanced Database Configuration
- * Includes optimized indexes for multi-tenant performance
+ * Advanced database configuration with performance optimizations
  */
-class EnhancedDatabaseConfig {
+class DatabaseManager {
   constructor() {
-    this.connectionOptions = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      maxPoolSize: 50,
-      minPoolSize: 5,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-      bufferMaxEntries: 0,
-      bufferCommands: false,
-      readPreference: 'secondaryPreferred',
-      writeConcern: {
-        w: 'majority',
-        j: true,
-        wtimeout: 10000
-      }
-    };
+    this.pool = null;
+    this.isInitialized = false;
   }
 
   /**
-   * Connect to database with enhanced configuration
+   * Initialize database connection with advanced configuration
    */
-  async connect() {
+  async initialize() {
     try {
-      const connection = await mongoose.connect(process.env.MONGODB_URI, this.connectionOptions);
-      
-      logger.info('Database connected successfully', {
-        host: connection.connection.host,
-        port: connection.connection.port,
-        database: connection.connection.name
+      this.pool = new Pool({
+        host: process.env.DB_HOST || 'localhost',
+        port: process.env.DB_PORT || 5432,
+        database: process.env.DB_NAME || 'exchange_platform',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD,
+        
+        // Connection pool optimization
+        max: parseInt(process.env.DB_MAX_CONNECTIONS) || 20,
+        min: parseInt(process.env.DB_MIN_CONNECTIONS) || 5,
+        idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000,
+        connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 10000,
+        
+        // SSL configuration for production
+        ssl: process.env.NODE_ENV === 'production' ? {
+          rejectUnauthorized: false
+        } : false,
+        
+        // Statement timeout
+        statement_timeout: parseInt(process.env.DB_STATEMENT_TIMEOUT) || 30000,
+        
+        // Query timeout
+        query_timeout: parseInt(process.env.DB_QUERY_TIMEOUT) || 30000
       });
 
-      // Set up connection event handlers
-      this.setupConnectionHandlers(connection);
-      
-      // Create optimized indexes
-      await this.createOptimizedIndexes();
-      
-      return connection;
+      // Test connection
+      const client = await this.pool.connect();
+      await client.query('SELECT NOW()');
+      client.release();
+
+      this.isInitialized = true;
+      logger.info('Database connection established successfully');
+
+      // Initialize performance optimizations
+      await this.initializePerformanceOptimizations();
+
     } catch (error) {
-      logger.error('Database connection failed:', error);
+      logger.error('Database initialization failed:', error);
       throw error;
     }
   }
 
   /**
-   * Setup connection event handlers
+   * Initialize database performance optimizations
    */
-  setupConnectionHandlers(connection) {
-    connection.on('connected', () => {
-      logger.info('Mongoose connected to MongoDB');
-    });
+  async initializePerformanceOptimizations() {
+    try {
+      const client = await this.pool.connect();
+      
+      // Create partial indexes for frequently queried data
+      await this.createPartialIndexes(client);
+      
+      // Create composite indexes for multi-column queries
+      await this.createCompositeIndexes(client);
+      
+      // Create tenant-specific indexes
+      await this.createTenantIndexes(client);
+      
+      // Optimize table statistics
+      await this.optimizeTableStatistics(client);
+      
+      client.release();
+      logger.info('Database performance optimizations completed');
 
-    connection.on('error', (err) => {
-      logger.error('Mongoose connection error:', err);
-    });
-
-    connection.on('disconnected', () => {
-      logger.warn('Mongoose disconnected from MongoDB');
-    });
-
-    // Graceful shutdown
-    process.on('SIGINT', async () => {
-      await connection.close();
-      logger.info('Mongoose connection closed through app termination');
-      process.exit(0);
-    });
+    } catch (error) {
+      logger.error('Failed to initialize performance optimizations:', error);
+    }
   }
 
   /**
-   * Create optimized indexes for multi-tenant performance
+   * Create partial indexes for better query performance
    */
-  async createOptimizedIndexes() {
+  async createPartialIndexes(client) {
+    const partialIndexes = [
+      // Pending transactions index (reduces index size by ~40%)
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_pending 
+       ON transactions (tenant_id, created_at) 
+       WHERE status = 'PENDING'`,
+      
+      // Active users index
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_active 
+       ON users (tenant_id, last_login_at) 
+       WHERE status = 'ACTIVE'`,
+      
+      // Recent transactions index
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_recent 
+       ON transactions (tenant_id, created_at) 
+       WHERE created_at > NOW() - INTERVAL '30 days'`,
+      
+      // Failed transactions index
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_failed 
+       ON transactions (tenant_id, error_code) 
+       WHERE status = 'FAILED'`,
+      
+      // High-value transactions index
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_high_value 
+       ON transactions (tenant_id, amount) 
+       WHERE amount > 10000`,
+      
+      // P2P pending orders index
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_p2p_orders_pending 
+       ON p2p_orders (tenant_id, created_at) 
+       WHERE status = 'PENDING'`,
+      
+      // Remittance pending index
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_remittances_pending 
+       ON remittances (tenant_id, created_at) 
+       WHERE status = 'PENDING'`
+    ];
+
+    for (const indexQuery of partialIndexes) {
+      try {
+        await client.query(indexQuery);
+        logger.info(`Created partial index: ${indexQuery.split(' ')[2]}`);
+      } catch (error) {
+        if (!error.message.includes('already exists')) {
+          logger.error(`Failed to create partial index: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Create composite indexes for multi-column queries
+   */
+  async createCompositeIndexes(client) {
+    const compositeIndexes = [
+      // Transaction search optimization
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transactions_search 
+       ON transactions (tenant_id, status, created_at DESC)`,
+      
+      // User search optimization
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_users_search 
+       ON users (tenant_id, email, status)`,
+      
+      // P2P order search optimization
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_p2p_orders_search 
+       ON p2p_orders (tenant_id, currency_pair, status, created_at DESC)`,
+      
+      // Audit log search optimization
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_audit_logs_search 
+       ON audit_logs (tenant_id, action, created_at DESC)`,
+      
+      // Financial report optimization
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_financial_reports_search 
+       ON financial_reports (tenant_id, report_type, period_start, period_end)`
+    ];
+
+    for (const indexQuery of compositeIndexes) {
+      try {
+        await client.query(indexQuery);
+        logger.info(`Created composite index: ${indexQuery.split(' ')[2]}`);
+      } catch (error) {
+        if (!error.message.includes('already exists')) {
+          logger.error(`Failed to create composite index: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Create tenant-specific indexes for multi-tenancy
+   */
+  async createTenantIndexes(client) {
+    const tenantIndexes = [
+      // Tenant isolation indexes
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tenant_transactions 
+       ON transactions (tenant_id) WHERE tenant_id IS NOT NULL`,
+      
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tenant_users 
+       ON users (tenant_id) WHERE tenant_id IS NOT NULL`,
+      
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tenant_accounts 
+       ON accounts (tenant_id) WHERE tenant_id IS NOT NULL`,
+      
+      // Tenant hierarchy indexes
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tenant_hierarchy 
+       ON tenants (parent_id, id) WHERE parent_id IS NOT NULL`,
+      
+      // Tenant settings indexes
+      `CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tenant_settings 
+       ON tenant_settings (tenant_id, setting_key)`
+    ];
+
+    for (const indexQuery of tenantIndexes) {
+      try {
+        await client.query(indexQuery);
+        logger.info(`Created tenant index: ${indexQuery.split(' ')[2]}`);
+      } catch (error) {
+        if (!error.message.includes('already exists')) {
+          logger.error(`Failed to create tenant index: ${error.message}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Optimize table statistics for better query planning
+   */
+  async optimizeTableStatistics(client) {
+    const tables = [
+      'transactions', 'users', 'accounts', 'p2p_orders', 
+      'remittances', 'audit_logs', 'financial_reports', 'tenants'
+    ];
+
+    for (const table of tables) {
+      try {
+        await client.query(`ANALYZE ${table}`);
+        logger.info(`Analyzed table statistics for: ${table}`);
+      } catch (error) {
+        logger.error(`Failed to analyze table ${table}: ${error.message}`);
+      }
+    }
+  }
+
+  /**
+   * Get database connection pool
+   */
+  getPool() {
+    if (!this.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+    return this.pool;
+  }
+
+  /**
+   * Execute query with performance monitoring
+   */
+  async query(text, params = []) {
+    if (!this.isInitialized) {
+      throw new Error('Database not initialized');
+    }
+
+    const startTime = Date.now();
     try {
-      const db = mongoose.connection.db;
+      const result = await this.pool.query(text, params);
+      const duration = Date.now() - startTime;
       
-      // Transaction indexes
-      await this.createTransactionIndexes(db);
+      // Log slow queries
+      if (duration > 1000) {
+        logger.warn(`Slow query detected (${duration}ms): ${text.substring(0, 100)}...`);
+      }
       
-      // Account indexes
-      await this.createAccountIndexes(db);
-      
-      // User indexes
-      await this.createUserIndexes(db);
-      
-      // P2P indexes
-      await this.createP2PIndexes(db);
-      
-      // Audit log indexes
-      await this.createAuditIndexes(db);
-      
-      // Tenant indexes
-      await this.createTenantIndexes(db);
-      
-      // Payment indexes
-      await this.createPaymentIndexes(db);
-      
-      // Remittance indexes
-      await this.createRemittanceIndexes(db);
-      
-      logger.info('All optimized indexes created successfully');
+      return result;
     } catch (error) {
-      logger.error('Error creating indexes:', error);
+      const duration = Date.now() - startTime;
+      logger.error(`Query failed (${duration}ms): ${error.message}`, {
+        query: text.substring(0, 200),
+        params: params.length,
+        error: error.message
+      });
       throw error;
     }
   }
 
   /**
-   * Create transaction indexes
+   * Execute transaction with automatic rollback on error
    */
-  async createTransactionIndexes(db) {
-    const collection = db.collection('transactions');
-    
-    // Compound index for tenant + status queries
-    await collection.createIndex(
-      { tenantId: 1, status: 1, createdAt: -1 },
-      { background: true, name: 'idx_transactions_tenant_status_date' }
-    );
-
-    // Compound index for user + tenant queries
-    await collection.createIndex(
-      { userId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_transactions_user_tenant_date' }
-    );
-
-    // Compound index for account queries
-    await collection.createIndex(
-      { fromAccountId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_transactions_from_account' }
-    );
-
-    await collection.createIndex(
-      { toAccountId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_transactions_to_account' }
-    );
-
-    // Index for transaction type queries
-    await collection.createIndex(
-      { transactionType: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_transactions_type_tenant_date' }
-    );
-
-    // Index for currency queries
-    await collection.createIndex(
-      { currency: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_transactions_currency_tenant_date' }
-    );
-  }
-
-  /**
-   * Create account indexes
-   */
-  async createAccountIndexes(db) {
-    const collection = db.collection('accounts');
-    
-    // Compound index for tenant + user queries
-    await collection.createIndex(
-      { tenantId: 1, userId: 1 },
-      { background: true, name: 'idx_accounts_tenant_user', unique: true }
-    );
-
-    // Index for account type queries
-    await collection.createIndex(
-      { accountType: 1, tenantId: 1 },
-      { background: true, name: 'idx_accounts_type_tenant' }
-    );
-
-    // Index for currency queries
-    await collection.createIndex(
-      { currency: 1, tenantId: 1 },
-      { background: true, name: 'idx_accounts_currency_tenant' }
-    );
-
-    // Index for balance queries (for low balance alerts)
-    await collection.createIndex(
-      { balance: 1, tenantId: 1 },
-      { background: true, name: 'idx_accounts_balance_tenant' }
-    );
-  }
-
-  /**
-   * Create user indexes
-   */
-  async createUserIndexes(db) {
-    const collection = db.collection('users');
-    
-    // Compound index for tenant + email queries
-    await collection.createIndex(
-      { email: 1, tenantId: 1 },
-      { background: true, name: 'idx_users_email_tenant', unique: true }
-    );
-
-    // Index for role queries
-    await collection.createIndex(
-      { role: 1, tenantId: 1 },
-      { background: true, name: 'idx_users_role_tenant' }
-    );
-
-    // Index for status queries
-    await collection.createIndex(
-      { status: 1, tenantId: 1 },
-      { background: true, name: 'idx_users_status_tenant' }
-    );
-
-    // Index for phone queries
-    await collection.createIndex(
-      { phone: 1, tenantId: 1 },
-      { background: true, name: 'idx_users_phone_tenant' }
-    );
-  }
-
-  /**
-   * Create P2P indexes
-   */
-  async createP2PIndexes(db) {
-    const collection = db.collection('p2pannouncements');
-    
-    // Compound index for tenant + status queries
-    await collection.createIndex(
-      { tenantId: 1, status: 1, createdAt: -1 },
-      { background: true, name: 'idx_p2p_tenant_status_date' }
-    );
-
-    // Compound index for user + tenant queries
-    await collection.createIndex(
-      { userId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_p2p_user_tenant_date' }
-    );
-
-    // Index for currency pair queries
-    await collection.createIndex(
-      { fromCurrency: 1, toCurrency: 1, tenantId: 1 },
-      { background: true, name: 'idx_p2p_currency_pair_tenant' }
-    );
-
-    // Index for price range queries
-    await collection.createIndex(
-      { minAmount: 1, maxAmount: 1, tenantId: 1 },
-      { background: true, name: 'idx_p2p_amount_range_tenant' }
-    );
-
-    // Index for location queries
-    await collection.createIndex(
-      { location: 1, tenantId: 1 },
-      { background: true, name: 'idx_p2p_location_tenant' }
-    );
-  }
-
-  /**
-   * Create audit log indexes
-   */
-  async createAuditIndexes(db) {
-    const collection = db.collection('auditlogs');
-    
-    // Compound index for tenant + event type queries
-    await collection.createIndex(
-      { tenantId: 1, eventType: 1, createdAt: -1 },
-      { background: true, name: 'idx_audit_tenant_event_date' }
-    );
-
-    // Compound index for user + tenant queries
-    await collection.createIndex(
-      { userId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_audit_user_tenant_date' }
-    );
-
-    // Index for severity queries
-    await collection.createIndex(
-      { severity: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_audit_severity_tenant_date' }
-    );
-
-    // Index for resource queries
-    await collection.createIndex(
-      { resource: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_audit_resource_tenant_date' }
-    );
-
-    // Index for action queries
-    await collection.createIndex(
-      { action: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_audit_action_tenant_date' }
-    );
-  }
-
-  /**
-   * Create tenant indexes
-   */
-  async createTenantIndexes(db) {
-    const collection = db.collection('tenants');
-    
-    // Index for tenant code queries
-    await collection.createIndex(
-      { tenantCode: 1 },
-      { background: true, name: 'idx_tenants_code', unique: true }
-    );
-
-    // Index for parent tenant queries
-    await collection.createIndex(
-      { parentTenantId: 1 },
-      { background: true, name: 'idx_tenants_parent' }
-    );
-
-    // Index for status queries
-    await collection.createIndex(
-      { status: 1 },
-      { background: true, name: 'idx_tenants_status' }
-    );
-
-    // Index for domain queries
-    await collection.createIndex(
-      { domain: 1 },
-      { background: true, name: 'idx_tenants_domain' }
-    );
-  }
-
-  /**
-   * Create payment indexes
-   */
-  async createPaymentIndexes(db) {
-    const collection = db.collection('payments');
-    
-    // Compound index for tenant + status queries
-    await collection.createIndex(
-      { tenantId: 1, status: 1, createdAt: -1 },
-      { background: true, name: 'idx_payments_tenant_status_date' }
-    );
-
-    // Compound index for user + tenant queries
-    await collection.createIndex(
-      { userId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_payments_user_tenant_date' }
-    );
-
-    // Index for payment method queries
-    await collection.createIndex(
-      { paymentMethod: 1, tenantId: 1 },
-      { background: true, name: 'idx_payments_method_tenant' }
-    );
-
-    // Index for amount range queries
-    await collection.createIndex(
-      { amount: 1, tenantId: 1 },
-      { background: true, name: 'idx_payments_amount_tenant' }
-    );
-  }
-
-  /**
-   * Create remittance indexes
-   */
-  async createRemittanceIndexes(db) {
-    const collection = db.collection('remittances');
-    
-    // Compound index for tenant + status queries
-    await collection.createIndex(
-      { tenantId: 1, status: 1, createdAt: -1 },
-      { background: true, name: 'idx_remittances_tenant_status_date' }
-    );
-
-    // Compound index for user + tenant queries
-    await collection.createIndex(
-      { userId: 1, tenantId: 1, createdAt: -1 },
-      { background: true, name: 'idx_remittances_user_tenant_date' }
-    );
-
-    // Index for partner queries
-    await collection.createIndex(
-      { partnerId: 1, tenantId: 1 },
-      { background: true, name: 'idx_remittances_partner_tenant' }
-    );
-
-    // Index for tracking number queries
-    await collection.createIndex(
-      { trackingNumber: 1, tenantId: 1 },
-      { background: true, name: 'idx_remittances_tracking_tenant' }
-    );
-  }
-
-  /**
-   * Get database statistics
-   */
-  async getDatabaseStats() {
+  async transaction(callback) {
+    const client = await this.pool.connect();
     try {
-      const db = mongoose.connection.db;
-      const stats = await db.stats();
-      
-      return {
-        collections: stats.collections,
-        dataSize: stats.dataSize,
-        storageSize: stats.storageSize,
-        indexes: stats.indexes,
-        indexSize: stats.indexSize,
-        avgObjSize: stats.avgObjSize,
-        objects: stats.objects
-      };
+      await client.query('BEGIN');
+      const result = await callback(client);
+      await client.query('COMMIT');
+      return result;
     } catch (error) {
-      logger.error('Error getting database stats:', error);
+      await client.query('ROLLBACK');
       throw error;
+    } finally {
+      client.release();
     }
   }
 
   /**
-   * Get collection statistics
+   * Get database performance metrics
    */
-  async getCollectionStats(collectionName) {
+  async getPerformanceMetrics() {
     try {
-      const db = mongoose.connection.db;
-      const collection = db.collection(collectionName);
-      const stats = await collection.stats();
+      const client = await this.pool.connect();
       
-      return {
-        count: stats.count,
-        size: stats.size,
-        avgObjSize: stats.avgObjSize,
-        storageSize: stats.storageSize,
-        totalIndexSize: stats.totalIndexSize,
-        indexes: stats.nindexes
-      };
+      const metrics = await client.query(`
+        SELECT 
+          schemaname,
+          tablename,
+          attname,
+          n_distinct,
+          correlation
+        FROM pg_stats 
+        WHERE schemaname = 'public'
+        ORDER BY tablename, attname
+      `);
+      
+      client.release();
+      return metrics.rows;
     } catch (error) {
-      logger.error(`Error getting collection stats for ${collectionName}:`, error);
-      throw error;
+      logger.error('Failed to get performance metrics:', error);
+      return [];
     }
   }
 
   /**
-   * Analyze query performance
+   * Close database connections
    */
-  async analyzeQueryPerformance(query, collectionName) {
-    try {
-      const db = mongoose.connection.db;
-      const collection = db.collection(collectionName);
-      
-      // Enable query profiling
-      await db.command({ profile: 2 });
-      
-      // Execute query with explain
-      const explainResult = await collection.find(query).explain('executionStats');
-      
-      // Disable query profiling
-      await db.command({ profile: 0 });
-      
-      return {
-        executionTime: explainResult.executionStats.executionTimeMillis,
-        documentsExamined: explainResult.executionStats.totalDocsExamined,
-        documentsReturned: explainResult.executionStats.nReturned,
-        indexUsage: explainResult.executionStats.executionStages
-      };
-    } catch (error) {
-      logger.error('Error analyzing query performance:', error);
-      throw error;
+  async close() {
+    if (this.pool) {
+      await this.pool.end();
+      logger.info('Database connections closed');
     }
   }
 }
 
-module.exports = new EnhancedDatabaseConfig();
+// Singleton instance
+const databaseManager = new DatabaseManager();
+
+module.exports = databaseManager;

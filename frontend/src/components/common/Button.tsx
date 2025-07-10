@@ -1,81 +1,99 @@
 import React from 'react';
-import { clsx } from 'clsx';
+import styles from './Button.module.css';
 
-export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'success' | 'danger' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
-  loading?: boolean;
-  icon?: React.ReactNode;
-  iconPosition?: 'left' | 'right';
-  fullWidth?: boolean;
+/**
+ * Button component props interface
+ */
+interface ButtonProps {
+  /** The content to display inside the button */
   children: React.ReactNode;
+  /** The type of button (default: 'button') */
+  type?: 'button' | 'submit' | 'reset';
+  /** The variant style of the button */
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  /** The size of the button */
+  size?: 'small' | 'medium' | 'large';
+  /** Whether the button is disabled */
+  disabled?: boolean;
+  /** Whether the button is in loading state */
+  loading?: boolean;
+  /** Whether the button should take full width */
+  fullWidth?: boolean;
+  /** Additional CSS class name */
+  className?: string;
+  /** Click event handler */
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+  /** Icon to display before the text */
+  icon?: React.ReactNode;
+  /** Icon to display after the text */
+  iconRight?: React.ReactNode;
 }
 
+/**
+ * A versatile button component with multiple variants and states
+ * 
+ * @example
+ * ```tsx
+ * <Button variant="primary" onClick={handleClick}>
+ *   Click me
+ * </Button>
+ * 
+ * <Button variant="danger" loading>
+ *   Delete
+ * </Button>
+ * ```
+ * 
+ * @param props - Button component props
+ * @returns A button element with appropriate styling and behavior
+ */
 const Button: React.FC<ButtonProps> = ({
-  variant = 'primary',
-  size = 'md',
-  loading = false,
-  icon,
-  iconPosition = 'left',
-  fullWidth = false,
-  className,
-  disabled,
   children,
-  ...props
+  type = 'button',
+  variant = 'primary',
+  size = 'medium',
+  disabled = false,
+  loading = false,
+  fullWidth = false,
+  className = '',
+  onClick,
+  icon,
+  iconRight
 }) => {
-  const baseClasses = 'btn font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2';
-  
-  const variantClasses = {
-    primary: 'btn-primary',
-    secondary: 'btn-secondary',
-    success: 'btn-success',
-    danger: 'btn-danger',
-    outline: 'btn-outline',
-  };
-
-  const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2',
-    lg: 'px-6 py-3 text-lg',
-  };
-
-  const classes = clsx(
-    baseClasses,
-    variantClasses[variant],
-    sizeClasses[size],
-    fullWidth && 'w-full',
-    loading && 'opacity-75 cursor-not-allowed',
-    disabled && 'opacity-50 cursor-not-allowed',
+  const buttonClasses = [
+    styles.button,
+    styles[variant],
+    styles[size],
+    fullWidth && styles.fullWidth,
+    loading && styles.loading,
     className
-  );
+  ].filter(Boolean).join(' ');
 
   return (
     <button
-      className={classes}
+      type={type}
+      className={buttonClasses}
       disabled={disabled || loading}
-      aria-disabled={disabled || loading}
-      {...props}
+      onClick={onClick}
     >
       {loading && (
-        <span className="loading-spinner mr-2" aria-hidden="true" />
+        <div className={styles.spinner}>
+          <div className={styles.spinnerInner}></div>
+        </div>
       )}
       
-      {!loading && icon && iconPosition === 'left' && (
-        <span className="mr-2" aria-hidden="true">
+      {!loading && icon && (
+        <span className={styles.icon}>
           {icon}
         </span>
       )}
       
-      <span className={clsx(
-        'inline-flex items-center',
-        icon && iconPosition === 'right' && 'mr-2'
-      )}>
+      <span className={styles.content}>
         {children}
       </span>
       
-      {!loading && icon && iconPosition === 'right' && (
-        <span className="ml-2" aria-hidden="true">
-          {icon}
+      {!loading && iconRight && (
+        <span className={styles.iconRight}>
+          {iconRight}
         </span>
       )}
     </button>
