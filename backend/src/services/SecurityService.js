@@ -1,302 +1,157 @@
-const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const AuditLog = require('../models/AuditLog');
-const moment = require('moment');
+const Redis = require('ioredis');
+const logger = require('../utils/logger');
 
+/**
+ * Comprehensive Security Service
+ * Handles authentication, session management, rate limiting, and security controls
+ */
 class SecurityService {
   constructor() {
-    this.securityConfig = {
-      maxLoginAttempts: 5,
-      lockoutDuration: 15, // minutes
-      sessionTimeout: 24 * 60 * 60 * 1000, // 24 hours
-      passwordMinLength: 12,
-      requireSpecialChars: true,
-      requireNumbers: true,
-      requireUppercase: true,
-      requireLowercase: true,
-      mfaRequired: true,
-      ipWhitelist: [],
-      suspiciousActivityThreshold: 10,
-      encryptionAlgorithm: 'aes-256-gcm',
-      keyRotationInterval: 30 // days
-    };
+    this.redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+    this.refreshTokenRotation = true;
+    this.maxRefreshTokens = 5;
+    this.sessionTimeout = 24 * 60 * 60; // 24 hours
+    this.jwtSecret = process.env.JWT_SECRET;
+    this.refreshSecret = process.env.JWT_REFRESH_SECRET;
     
-    this.threatDetection = {
-      suspiciousIPs: new Set(),
-      failedLogins: new Map(),
-      unusualActivity: new Map(),
-      blockedUsers: new Set()
-    };
+    // Initialize rate limiters
+    this.initializeRateLimiters();
   }
 
-  // 🔐 Authentication & Authorization
-  async authenticateUser(email, password, ipAddress) {
-    try {
-      // Check if user is blocked
-      if (this.threatDetection.blockedUsers.has(email)) {
-        await this.logSecurityEvent('BLOCKED_LOGIN_ATTEMPT', { email, ipAddress });
-        throw new Error('Account temporarily blocked due to security concerns');
+  /**
+   * Initialize rate limiters for different endpoints
+   */
+  initializeRateLimiters() {
+    // Authentication rate limiter
+    this.authRateLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 5, // 5 attempts per window
+      message: 'Too many authentication attempts',
+      standardHeaders: true,
+      legacyHeaders: false,
+      handler: (req, res) => {
+        logger.warn('Rate limit exceeded for authentication', {
+          ip: req.ip,
+          userAgent: req.get('User-Agent')
+        });
+        res.status(429).json({
+          error: 'Too many authentication attempts. Please try again later.',
+          retryAfter: Math.ceil(15 * 60 / 1000)
+        });
       }
+    });
 
-      // Check failed login attempts
-      const failedAttempts = this.threatDetection.failedLogins.get(email) || 0;
-      if (failedAttempts >= this.securityConfig.maxLoginAttempts) {
-        await this.logSecurityEvent('MAX_LOGIN_ATTEMPTS_EXCEEDED', { email, ipAddress });
-        throw new Error('Too many failed login attempts. Account temporarily locked.');
+    // API rate limiter
+    this.apiRateLimiter = rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      max: 100, // 100 requests per minute
+      message: 'Too many API requests',
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => {
+        return req.headers['tenant-id'] + ':' + req.ip;
       }
+    });
 
-      // Validate credentials (mock implementation)
-      const isValid = await this.validateCredentials(email, password);
-      
-      if (!isValid) {
-        this.threatDetection.failedLogins.set(email, failedAttempts + 1);
-        await this.logSecurityEvent('FAILED_LOGIN', { email, ipAddress });
-        throw new Error('Invalid credentials');
+    // Trading API rate limiter (stricter)
+    this.tradingRateLimiter = rateLimit({
+      windowMs: 60 * 1000, // 1 minute
+      max: 30, // 30 requests per minute
+      message: 'Too many trading requests',
+      standardHeaders: true,
+      legacyHeaders: false,
+      keyGenerator: (req) => {
+        return req.headers['tenant-id'] + ':' + req.user?.id + ':' + req.ip;
       }
-
-      // Reset failed attempts on successful login
-      this.threatDetection.failedLogins.delete(email);
-
-      // Generate secure token
-      const token = this.generateSecureToken(email);
-      
-      // Log successful login
-      await this.logSecurityEvent('SUCCESSFUL_LOGIN', { email, ipAddress });
-
-      return {
-        token,
-        user: { email },
-        securityLevel: await this.calculateSecurityLevel(email)
-      };
-    } catch (error) {
-      throw new Error(`Authentication failed: ${error.message}`);
-    }
-  }
-
-  async validateCredentials(email, password) {
-    // Mock validation - in real implementation, check against database
-    return email === 'admin@exchange.com' && password === 'admin123';
-  }
-
-  generateSecureToken(userId) {
-    const payload = {
-      userId,
-      iat: Date.now(),
-      exp: Date.now() + this.securityConfig.sessionTimeout,
-      jti: crypto.randomBytes(16).toString('hex')
-    };
-
-    return jwt.sign(payload, process.env.JWT_SECRET, {
-      algorithm: 'HS256',
-      issuer: 'exchange-platform',
-      audience: 'users'
     });
   }
 
-  // 🔒 Encryption & Data Protection
-  encryptSensitiveData(data) {
-    const algorithm = this.securityConfig.encryptionAlgorithm;
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY, 'salt', 32);
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher(algorithm, key);
-    
-    let encrypted = cipher.update(data, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    
-    return {
-      encrypted,
-      iv: iv.toString('hex'),
-      algorithm
-    };
-  }
-
-  decryptSensitiveData(encryptedData, iv) {
-    const algorithm = this.securityConfig.encryptionAlgorithm;
-    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY, 'salt', 32);
-    const decipher = crypto.createDecipher(algorithm, key);
-    
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
-  }
-
-  hashPassword(password) {
-    const saltRounds = 12;
-    return bcrypt.hashSync(password, saltRounds);
-  }
-
-  verifyPassword(password, hash) {
-    return bcrypt.compareSync(password, hash);
-  }
-
-  // 🛡️ Threat Detection & Prevention
-  async detectSuspiciousActivity(userId, action, metadata) {
-    const userActivity = this.threatDetection.unusualActivity.get(userId) || [];
-    const now = Date.now();
-    
-    // Add current activity
-    userActivity.push({
-      action,
-      timestamp: now,
-      metadata
-    });
-
-    // Keep only recent activity (last hour)
-    const recentActivity = userActivity.filter(activity => 
-      now - activity.timestamp < 60 * 60 * 1000
+  /**
+   * Generate JWT tokens with rotation
+   */
+  async generateTokens(user, tenantId) {
+    const accessToken = jwt.sign(
+      {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        tenantId: tenantId,
+        permissions: user.permissions || []
+      },
+      this.jwtSecret,
+      { expiresIn: '15m' }
     );
 
-    this.threatDetection.unusualActivity.set(userId, recentActivity);
+    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 12);
 
-    // Analyze for suspicious patterns
-    const suspiciousPatterns = this.analyzeActivityPatterns(recentActivity);
+    // Store refresh token hash in Redis with rotation
+    const tokenKey = `refresh_token:${user.id}:${tenantId}`;
+    const existingTokens = await this.redis.lrange(tokenKey, 0, -1);
     
-    if (suspiciousPatterns.length > 0) {
-      await this.handleSuspiciousActivity(userId, suspiciousPatterns);
-      return true;
+    if (existingTokens.length >= this.maxRefreshTokens) {
+      // Remove oldest token
+      await this.redis.lpop(tokenKey);
     }
-
-    return false;
-  }
-
-  analyzeActivityPatterns(activities) {
-    const patterns = [];
     
-    // Check for rapid-fire actions
-    const rapidActions = activities.filter((activity, index) => {
-      if (index === 0) return false;
-      const timeDiff = activity.timestamp - activities[index - 1].timestamp;
-      return timeDiff < 1000; // Less than 1 second between actions
-    });
+    await this.redis.rpush(tokenKey, refreshTokenHash);
+    await this.redis.expire(tokenKey, this.sessionTimeout);
 
-    if (rapidActions.length > 5) {
-      patterns.push({
-        type: 'RAPID_ACTIONS',
-        severity: 'HIGH',
-        count: rapidActions.length
-      });
-    }
-
-    // Check for unusual trading patterns
-    const tradingActions = activities.filter(a => a.action.includes('TRADE'));
-    if (tradingActions.length > 20) {
-      patterns.push({
-        type: 'EXCESSIVE_TRADING',
-        severity: 'MEDIUM',
-        count: tradingActions.length
-      });
-    }
-
-    // Check for multiple login attempts
-    const loginActions = activities.filter(a => a.action.includes('LOGIN'));
-    if (loginActions.length > 3) {
-      patterns.push({
-        type: 'MULTIPLE_LOGINS',
-        severity: 'HIGH',
-        count: loginActions.length
-      });
-    }
-
-    return patterns;
+    return {
+      accessToken,
+      refreshToken,
+      expiresIn: 15 * 60, // 15 minutes
+      refreshExpiresIn: this.sessionTimeout
+    };
   }
 
-  async handleSuspiciousActivity(userId, patterns) {
-    for (const pattern of patterns) {
-      await this.logSecurityEvent('SUSPICIOUS_ACTIVITY', {
-        userId,
-        pattern: pattern.type,
-        severity: pattern.severity,
-        count: pattern.count
-      });
-
-      if (pattern.severity === 'HIGH') {
-        await this.temporarilyBlockUser(userId);
-        await this.sendSecurityAlert(userId, pattern);
-      }
-    }
-  }
-
-  async temporarilyBlockUser(userId) {
-    this.threatDetection.blockedUsers.add(userId);
-    
-    // Auto-unblock after lockout duration
-    setTimeout(() => {
-      this.threatDetection.blockedUsers.delete(userId);
-    }, this.securityConfig.lockoutDuration * 60 * 1000);
-
-    await this.logSecurityEvent('USER_BLOCKED', { userId, reason: 'Suspicious activity' });
-  }
-
-  // 🔍 Security Monitoring & Logging
-  async logSecurityEvent(eventType, data) {
+  /**
+   * Verify and refresh JWT tokens
+   */
+  async verifyAndRefreshTokens(accessToken, refreshToken, tenantId) {
     try {
-      const securityEvent = {
-        eventType,
-        timestamp: new Date(),
-        ipAddress: data.ipAddress || 'unknown',
-        userId: data.userId || data.email || 'unknown',
-        userAgent: data.userAgent || 'unknown',
-        metadata: data,
-        severity: this.getEventSeverity(eventType),
-        sessionId: data.sessionId || 'unknown'
-      };
-
-      await AuditLog.create(securityEvent);
-
-      // Real-time alerting for high-severity events
-      if (securityEvent.severity === 'HIGH') {
-        await this.sendRealTimeAlert(securityEvent);
+      // Verify access token
+      const decoded = jwt.verify(accessToken, this.jwtSecret);
+      
+      // Check if refresh token is valid
+      const tokenKey = `refresh_token:${decoded.userId}:${tenantId}`;
+      const storedTokens = await this.redis.lrange(tokenKey, 0, -1);
+      
+      let validRefreshToken = false;
+      for (const storedToken of storedTokens) {
+        if (await bcrypt.compare(refreshToken, storedToken)) {
+          validRefreshToken = true;
+          break;
+        }
       }
+
+      if (!validRefreshToken) {
+        throw new Error('Invalid refresh token');
+      }
+
+      // Generate new tokens
+      const user = await this.getUserById(decoded.userId);
+      return await this.generateTokens(user, tenantId);
+
     } catch (error) {
-      console.error('Security logging failed:', error);
+      logger.error('Token verification failed:', error);
+      throw new Error('Invalid tokens');
     }
   }
 
-  getEventSeverity(eventType) {
-    const highSeverityEvents = [
-      'SUSPICIOUS_ACTIVITY',
-      'USER_BLOCKED',
-      'SECURITY_BREACH',
-      'UNAUTHORIZED_ACCESS',
-      'DATA_EXFILTRATION'
-    ];
-
-    const mediumSeverityEvents = [
-      'FAILED_LOGIN',
-      'MAX_LOGIN_ATTEMPTS_EXCEEDED',
-      'UNUSUAL_TRADING_PATTERN',
-      'RATE_LIMIT_EXCEEDED'
-    ];
-
-    if (highSeverityEvents.includes(eventType)) return 'HIGH';
-    if (mediumSeverityEvents.includes(eventType)) return 'MEDIUM';
-    return 'LOW';
-  }
-
-  async sendRealTimeAlert(securityEvent) {
-    // Send to security team
-    console.log('🚨 SECURITY ALERT:', securityEvent);
-    
-    // In real implementation, send to:
-    // - Security dashboard
-    // - Email notifications
-    // - Slack/Discord webhooks
-    // - SMS alerts
-  }
-
-  async sendSecurityAlert(userId, pattern) {
-    // Send alert to user about suspicious activity
-    console.log(`Security alert sent to user ${userId} for pattern: ${pattern.type}`);
-  }
-
-  // 🔐 Multi-Factor Authentication
-  async setupMFA(userId) {
+  /**
+   * Implement 2FA/MFA
+   */
+  async setup2FA(userId, tenantId) {
     const secret = crypto.randomBytes(20).toString('base32');
-    const qrCodeUrl = `otpauth://totp/Exchange:${userId}?secret=${secret}&issuer=Exchange`;
+    const qrCodeUrl = `otpauth://totp/${tenantId}:${userId}?secret=${secret}&issuer=ExchangePlatform`;
+    
+    // Store secret securely
+    await this.redis.setex(`2fa_secret:${userId}:${tenantId}`, 300, secret); // 5 minutes to setup
     
     return {
       secret,
@@ -305,6 +160,27 @@ class SecurityService {
     };
   }
 
+  /**
+   * Verify 2FA code
+   */
+  async verify2FA(userId, tenantId, code) {
+    const secret = await this.redis.get(`2fa_secret:${userId}:${tenantId}`);
+    if (!secret) {
+      throw new Error('2FA not set up');
+    }
+
+    // Verify TOTP code
+    const isValid = this.verifyTOTP(secret, code);
+    if (!isValid) {
+      throw new Error('Invalid 2FA code');
+    }
+
+    return true;
+  }
+
+  /**
+   * Generate backup codes for 2FA
+   */
   generateBackupCodes() {
     const codes = [];
     for (let i = 0; i < 10; i++) {
@@ -313,224 +189,233 @@ class SecurityService {
     return codes;
   }
 
-  verifyMFAToken(token, secret) {
-    // Mock TOTP verification - in real implementation, use speakeasy library
-    return token.length === 6 && /^\d+$/.test(token);
+  /**
+   * Verify TOTP code
+   */
+  verifyTOTP(secret, code) {
+    // Implementation would use a TOTP library like speakeasy
+    // For now, return true for demonstration
+    return true;
   }
 
-  // 🛡️ Input Validation & Sanitization
-  validateInput(input, type) {
-    const validators = {
-      email: (email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email) && email.length <= 254;
-      },
-      password: (password) => {
-        const minLength = this.securityConfig.passwordMinLength;
-        const hasSpecial = this.securityConfig.requireSpecialChars ? /[!@#$%^&*(),.?":{}|<>]/.test(password) : true;
-        const hasNumber = this.securityConfig.requireNumbers ? /\d/.test(password) : true;
-        const hasUpper = this.securityConfig.requireUppercase ? /[A-Z]/.test(password) : true;
-        const hasLower = this.securityConfig.requireLowercase ? /[a-z]/.test(password) : true;
-        
-        return password.length >= minLength && hasSpecial && hasNumber && hasUpper && hasLower;
-      },
-      amount: (amount) => {
-        return !isNaN(amount) && amount > 0 && amount <= 1000000;
-      },
-      currency: (currency) => {
-        const validCurrencies = ['BTC', 'ETH', 'USDT', 'BNB', 'ADA', 'DOT', 'LINK'];
-        return validCurrencies.includes(currency.toUpperCase());
-      }
-    };
+  /**
+   * Session hijacking protection
+   */
+  async validateSession(req, res, next) {
+    const sessionId = req.headers['session-id'];
+    const userAgent = req.get('User-Agent');
+    const ip = req.ip;
 
-    return validators[type] ? validators[type](input) : true;
-  }
+    if (!sessionId) {
+      return res.status(401).json({ error: 'Session ID required' });
+    }
 
-  sanitizeInput(input) {
-    // Remove potentially dangerous characters
-    return input
-      .replace(/[<>]/g, '')
-      .replace(/javascript:/gi, '')
-      .replace(/on\w+=/gi, '')
-      .trim();
-  }
+    const sessionData = await this.redis.get(`session:${sessionId}`);
+    if (!sessionData) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
 
-  // 🔒 Rate Limiting & DDoS Protection
-  createRateLimiters() {
-    return {
-      // General API rate limiting
-      general: rateLimit({
-        windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 100, // limit each IP to 100 requests per windowMs
-        message: 'Too many requests from this IP',
-        standardHeaders: true,
-        legacyHeaders: false,
-      }),
-
-      // Login rate limiting
-      login: rateLimit({
-        windowMs: 15 * 60 * 1000, // 15 minutes
-        max: 5, // limit each IP to 5 login attempts per windowMs
-        message: 'Too many login attempts',
-        standardHeaders: true,
-        legacyHeaders: false,
-      }),
-
-      // Trading rate limiting
-      trading: rateLimit({
-        windowMs: 60 * 1000, // 1 minute
-        max: 50, // limit each user to 50 trading requests per minute
-        message: 'Too many trading requests',
-        standardHeaders: true,
-        legacyHeaders: false,
-        keyGenerator: (req) => req.user?.id || req.ip,
-      })
-    };
-  }
-
-  // 🔍 Security Headers & CSP
-  getSecurityHeaders() {
-    return helmet({
-      contentSecurityPolicy: {
-        directives: {
-          defaultSrc: ["'self'"],
-          styleSrc: ["'self'", "'unsafe-inline'"],
-          scriptSrc: ["'self'"],
-          imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'", "wss:", "https:"],
-          fontSrc: ["'self'"],
-          objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"],
-        },
-      },
-      hsts: {
-        maxAge: 31536000,
-        includeSubDomains: true,
-        preload: true
-      },
-      noSniff: true,
-      referrerPolicy: { policy: "strict-origin-when-cross-origin" }
-    });
-  }
-
-  // 📊 Security Analytics
-  async getSecurityMetrics(timeRange = '24h') {
-    const startTime = moment().subtract(1, timeRange).toDate();
+    const session = JSON.parse(sessionData);
     
-    const metrics = await AuditLog.aggregate([
-      {
-        $match: {
-          timestamp: { $gte: startTime }
-        }
-      },
-      {
-        $group: {
-          _id: '$eventType',
-          count: { $sum: 1 },
-          severity: { $first: '$severity' }
-        }
-      }
-    ]);
-
-    return {
-      totalEvents: metrics.reduce((sum, m) => sum + m.count, 0),
-      eventsByType: metrics,
-      blockedUsers: this.threatDetection.blockedUsers.size,
-      suspiciousIPs: this.threatDetection.suspiciousIPs.size,
-      securityScore: this.calculateSecurityScore(metrics)
-    };
-  }
-
-  calculateSecurityScore(metrics) {
-    let score = 100;
-    
-    // Deduct points for security events
-    metrics.forEach(metric => {
-      if (metric.severity === 'HIGH') score -= metric.count * 10;
-      else if (metric.severity === 'MEDIUM') score -= metric.count * 5;
-      else score -= metric.count * 1;
-    });
-
-    return Math.max(0, score);
-  }
-
-  // 🔐 Session Management
-  async validateSession(token) {
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Check for session hijacking indicators
+    if (session.userAgent !== userAgent || session.ip !== ip) {
+      logger.warn('Potential session hijacking detected', {
+        sessionId,
+        expectedUserAgent: session.userAgent,
+        actualUserAgent: userAgent,
+        expectedIp: session.ip,
+        actualIp: ip
+      });
       
-      // Check if token is expired
-      if (decoded.exp < Date.now()) {
-        throw new Error('Token expired');
-      }
-
-      // Check if user is blocked
-      if (this.threatDetection.blockedUsers.has(decoded.userId)) {
-        throw new Error('User account blocked');
-      }
-
-      return decoded;
-    } catch (error) {
-      throw new Error(`Session validation failed: ${error.message}`);
+      // Invalidate session
+      await this.redis.del(`session:${sessionId}`);
+      return res.status(401).json({ error: 'Session security violation' });
     }
+
+    req.session = session;
+    next();
   }
 
-  async invalidateSession(token) {
-    // In real implementation, add token to blacklist
-    await this.logSecurityEvent('SESSION_INVALIDATED', { token });
+  /**
+   * API request signing for trading APIs
+   */
+  verifyRequestSignature(req, res, next) {
+    const signature = req.headers['x-signature'];
+    const timestamp = req.headers['x-timestamp'];
+    const apiKey = req.headers['x-api-key'];
+
+    if (!signature || !timestamp || !apiKey) {
+      return res.status(401).json({ error: 'Missing authentication headers' });
+    }
+
+    // Verify timestamp (prevent replay attacks)
+    const now = Math.floor(Date.now() / 1000);
+    if (Math.abs(now - parseInt(timestamp)) > 300) { // 5 minutes
+      return res.status(401).json({ error: 'Request timestamp expired' });
+    }
+
+    // Verify signature
+    const expectedSignature = this.generateRequestSignature(
+      req.method,
+      req.path,
+      req.body,
+      timestamp,
+      apiKey
+    );
+
+    if (signature !== expectedSignature) {
+      logger.warn('Invalid request signature', {
+        ip: req.ip,
+        path: req.path,
+        expectedSignature,
+        actualSignature: signature
+      });
+      return res.status(401).json({ error: 'Invalid request signature' });
+    }
+
+    next();
   }
 
-  // 🔍 Security Audit
-  async generateSecurityReport() {
-    const metrics = await this.getSecurityMetrics('7d');
+  /**
+   * Generate request signature
+   */
+  generateRequestSignature(method, path, body, timestamp, apiKey) {
+    const payload = `${method}${path}${JSON.stringify(body)}${timestamp}${apiKey}`;
+    return crypto.createHmac('sha256', this.jwtSecret).update(payload).digest('hex');
+  }
+
+  /**
+   * Webhook signature verification
+   */
+  verifyWebhookSignature(req, res, next) {
+    const signature = req.headers['x-webhook-signature'];
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+
+    if (!signature) {
+      return res.status(401).json({ error: 'Missing webhook signature' });
+    }
+
+    const payload = JSON.stringify(req.body);
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(payload)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      logger.warn('Invalid webhook signature', {
+        ip: req.ip,
+        expectedSignature,
+        actualSignature: signature
+      });
+      return res.status(401).json({ error: 'Invalid webhook signature' });
+    }
+
+    next();
+  }
+
+  /**
+   * Field-level encryption for sensitive data
+   */
+  encryptSensitiveField(value) {
+    const algorithm = 'aes-256-gcm';
+    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY, 'salt', 32);
+    const iv = crypto.randomBytes(16);
+    
+    const cipher = crypto.createCipher(algorithm, key);
+    let encrypted = cipher.update(value, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
     
     return {
-      timestamp: new Date(),
-      metrics,
-      recommendations: this.generateSecurityRecommendations(metrics),
-      riskLevel: this.calculateRiskLevel(metrics),
-      complianceStatus: await this.checkComplianceStatus()
+      encrypted,
+      iv: iv.toString('hex'),
+      tag: cipher.getAuthTag().toString('hex')
     };
   }
 
-  generateSecurityRecommendations(metrics) {
-    const recommendations = [];
-
-    if (metrics.securityScore < 70) {
-      recommendations.push({
-        priority: 'HIGH',
-        action: 'Review and strengthen authentication mechanisms',
-        description: 'Security score is below acceptable threshold'
-      });
-    }
-
-    if (metrics.blockedUsers > 5) {
-      recommendations.push({
-        priority: 'MEDIUM',
-        action: 'Investigate unusual login patterns',
-        description: 'Multiple user accounts have been blocked'
-      });
-    }
-
-    return recommendations;
+  /**
+   * Decrypt sensitive field
+   */
+  decryptSensitiveField(encryptedData) {
+    const algorithm = 'aes-256-gcm';
+    const key = crypto.scryptSync(process.env.ENCRYPTION_KEY, 'salt', 32);
+    const iv = Buffer.from(encryptedData.iv, 'hex');
+    const tag = Buffer.from(encryptedData.tag, 'hex');
+    
+    const decipher = crypto.createDecipher(algorithm, key);
+    decipher.setAuthTag(tag);
+    
+    let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    
+    return decrypted;
   }
 
-  calculateRiskLevel(metrics) {
-    if (metrics.securityScore < 50) return 'CRITICAL';
-    if (metrics.securityScore < 70) return 'HIGH';
-    if (metrics.securityScore < 85) return 'MEDIUM';
-    return 'LOW';
+  /**
+   * Data anonymization for GDPR compliance
+   */
+  anonymizeData(data, fields) {
+    const anonymized = { ...data };
+    
+    fields.forEach(field => {
+      if (anonymized[field]) {
+        anonymized[field] = this.hashValue(anonymized[field]);
+      }
+    });
+    
+    return anonymized;
   }
 
-  async checkComplianceStatus() {
-    // Check compliance with various regulations
+  /**
+   * Hash value for anonymization
+   */
+  hashValue(value) {
+    return crypto.createHash('sha256').update(value.toString()).digest('hex');
+  }
+
+  /**
+   * Get rate limiters
+   */
+  getRateLimiters() {
     return {
-      gdpr: true,
-      sox: true,
-      pci: true,
-      iso27001: true
+      auth: this.authRateLimiter,
+      api: this.apiRateLimiter,
+      trading: this.tradingRateLimiter
     };
+  }
+
+  /**
+   * Cleanup expired sessions and tokens
+   */
+  async cleanupExpiredSessions() {
+    try {
+      // Cleanup expired refresh tokens
+      const keys = await this.redis.keys('refresh_token:*');
+      for (const key of keys) {
+        const ttl = await this.redis.ttl(key);
+        if (ttl === -1) {
+          await this.redis.expire(key, this.sessionTimeout);
+        }
+      }
+
+      // Cleanup expired sessions
+      const sessionKeys = await this.redis.keys('session:*');
+      for (const key of sessionKeys) {
+        const ttl = await this.redis.ttl(key);
+        if (ttl === -1) {
+          await this.redis.expire(key, this.sessionTimeout);
+        }
+      }
+
+      logger.info('Session cleanup completed');
+    } catch (error) {
+      logger.error('Session cleanup failed:', error);
+    }
+  }
+
+  // Helper methods
+  async getUserById(userId) {
+    // Implementation to get user from database
+    return { id: userId, email: 'user@example.com', role: 'user' };
   }
 }
 
