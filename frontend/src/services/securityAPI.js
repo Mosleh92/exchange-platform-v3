@@ -530,11 +530,17 @@ class SecurityUtils {
     static sanitizeInput(input) {
         if (typeof input !== 'string') return input;
         
-        return input
-            .replace(/[<>]/g, '') // Remove HTML tags
-            .replace(/javascript:/gi, '') // Remove javascript: URLs
-            .replace(/on\w+=/gi, '') // Remove event handlers
-            .trim();
+        let sanitized = input.trim();
+        let previous;
+        do {
+            previous = sanitized;
+            sanitized = sanitized
+                .replace(/[<>]/g, '') // Remove HTML tags
+                .replace(/javascript:/gi, '') // Remove javascript: URLs
+                .replace(/on\w+=/gi, ''); // Remove event handlers
+        } while (sanitized !== previous);
+        
+        return sanitized;
     }
 
     // URL validation
