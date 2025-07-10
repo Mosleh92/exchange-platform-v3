@@ -532,7 +532,7 @@ class SecurityUtils {
         
         return input
             .replace(/[<>]/g, '') // Remove HTML tags
-            .replace(/javascript:/gi, '') // Remove javascript: URLs
+            .replace(/(?:javascript|data|vbscript):/gi, '') // Remove javascript:, data:, and vbscript: URLs
             .replace(/on\w+=/gi, '') // Remove event handlers
             .trim();
     }
