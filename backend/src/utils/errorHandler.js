@@ -11,7 +11,7 @@ class ErrorHandler {
   static handleError(error, req, res, next) {
     // Log error with context
     const errorContext = {
-      error: error.message,
+        error: error.message,
       stack: error.stack,
       url: req?.url,
       method: req?.method,
@@ -26,15 +26,15 @@ class ErrorHandler {
 
     // Determine error type and response
     if (error.name === 'ValidationError') {
-      return res.status(400).json({
+        return res.status(400).json({
         error: 'Validation Error',
         details: error.message,
         code: 'VALIDATION_ERROR'
-      });
+        });
     }
 
     if (error.name === 'MongoError' && error.code === 11000) {
-      return res.status(409).json({
+        return res.status(409).json({
         error: 'Duplicate Entry',
         details: 'A record with this information already exists',
         code: 'DUPLICATE_ENTRY'
@@ -46,19 +46,19 @@ class ErrorHandler {
         error: 'Invalid ID Format',
         details: 'The provided ID is not valid',
         code: 'INVALID_ID'
-      });
+        });
     }
 
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({
+        return res.status(401).json({
         error: 'Invalid Token',
         details: 'Authentication token is invalid',
         code: 'INVALID_TOKEN'
-      });
+        });
     }
 
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({
+        return res.status(401).json({
         error: 'Token Expired',
         details: 'Authentication token has expired',
         code: 'TOKEN_EXPIRED'
