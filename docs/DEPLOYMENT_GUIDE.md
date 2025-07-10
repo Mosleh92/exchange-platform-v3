@@ -382,7 +382,7 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Health check
+# Health check
     location /health {
         proxy_pass http://backend;
         access_log off;

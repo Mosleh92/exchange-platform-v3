@@ -73,8 +73,8 @@ class ErrorHandler {
       error: message,
       code: error.code || 'INTERNAL_ERROR',
       ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-    });
-  }
+        });
+    }
 
   /**
    * Handle async errors

@@ -35,9 +35,9 @@ Content-Type: application/json
   "success": true,
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "refreshToken": "refresh_token_here",
-  "user": {
+    "user": {
     "id": "user_id",
-    "email": "user@example.com",
+      "email": "user@example.com",
     "role": "customer",
     "tenantId": "tenant_id",
     "permissions": ["read", "write"]
@@ -122,7 +122,7 @@ Content-Type: application/json
     "id": "transaction_id",
     "transactionId": "TXN-20241201-001",
     "type": "currency_buy",
-    "status": "pending",
+      "status": "pending",
     "amount": 1000000,
     "exchangeRate": 50000,
     "totalAmount": 1000000,
@@ -160,10 +160,10 @@ x-tenant-id: <tenant_id>
       "exchangeRate": 50000,
       "totalAmount": 1000000,
       "createdAt": "2024-12-01T10:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
+      }
+    ],
+    "pagination": {
+      "page": 1,
     "limit": 20,
     "total": 150,
     "pages": 8
