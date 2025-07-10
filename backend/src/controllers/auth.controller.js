@@ -1,15 +1,16 @@
 const User = require('../models/User');
-// const Tenant = require('../models/Tenant'); // Unused
 const jwt = require('jsonwebtoken');
-// const bcrypt = require('bcryptjs'); // Unused
-// const { validationResult } = require('express-validator'); // Unused in this file
 const i18n = require('../utils/i18n');
 const { checkPlanLimit } = require('../services/planLimitService');
 const RefreshToken = require('../models/RefreshToken');
-const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'accesssecret';
-const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'refreshsecret';
+const tokenBlacklistService = require('../services/tokenBlacklistService');
 const crypto = require('crypto');
 const validator = require('validator');
+
+// Consistent JWT secrets
+const getJWTSecret = () => process.env.JWT_SECRET;
+const getAccessTokenSecret = () => process.env.ACCESS_TOKEN_SECRET || process.env.JWT_SECRET;
+const getRefreshTokenSecret = () => process.env.REFRESH_TOKEN_SECRET || process.env.JWT_SECRET;
 
 // Generate JWT Token - This function is defined but not used in this file.
 // const generateToken = (userId, role, tenantId) => {
@@ -115,25 +116,30 @@ class AuthController {
                 }
             }
 
-            // Generate JWT token
+            // Generate JWT token with consistent structure
+            const tokenPayload = {
+                userId: user._id,
+                email: user.email,
+                role: user.role,
+                tenantId: user.tenantId?._id,
+                username: user.username,
+                iat: Math.floor(Date.now() / 1000)
+            };
+
             const accessToken = jwt.sign(
-                {
-                    userId: user._id,
-                    email: user.email,
-                    role: user.role,
-                    tenantId: user.tenantId?._id,
-                    username: user.username
-                },
-                process.env.JWT_SECRET,
-                { expiresIn: '24h' }
+                tokenPayload,
+                getJWTSecret(),
+                { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '24h' }
             );
 
-            // صدور refresh token
+            // Generate refresh token (store as hash, not JWT)
             const refreshToken = crypto.randomBytes(64).toString('hex');
-            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 روز
+            const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+            
+            // Store refresh token in database
             await RefreshToken.create({
                 userId: user._id,
-                tenantId: user.tenantId,
+                tenantId: user.tenantId?._id,
                 token: refreshToken,
                 expiresAt
             });
@@ -268,44 +274,116 @@ class AuthController {
     async logout(req, res) {
         try {
             const { refreshToken } = req.body;
-            if (!refreshToken) return res.status(400).json({ error: 'Refresh token الزامی است.' });
-            await RefreshToken.deleteOne({ token: refreshToken });
-            res.json({ success: true });
-        } catch (err) {
-            res.status(500).json({ error: 'خطا در خروج.' });
+            const accessToken = req.token; // From auth middleware
+
+            // Validate refresh token is provided
+            if (!refreshToken) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: 'Refresh token is required' 
+                });
+            }
+
+            // Remove refresh token from database
+            const deletedToken = await RefreshToken.deleteOne({ token: refreshToken });
+            
+            if (deletedToken.deletedCount === 0) {
+                console.warn('Refresh token not found during logout:', refreshToken.substring(0, 10) + '...');
+            }
+
+            // Blacklist the access token to prevent further use
+            if (accessToken) {
+                await tokenBlacklistService.blacklistToken(accessToken);
+            }
+
+            res.json({ 
+                success: true,
+                message: 'Logged out successfully' 
+            });
+        } catch (error) {
+            console.error('Logout error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Error during logout' 
+            });
         }
     }
 
     async refreshToken(req, res) {
         try {
             const { refreshToken } = req.body;
-            if (!refreshToken) return res.status(400).json({ error: 'Refresh token الزامی است.' });
-            const stored = await RefreshToken.findOne({ token: refreshToken });
-            if (!stored || stored.expiresAt < new Date()) {
-                if (stored) await stored.deleteOne();
-                return res.status(401).json({ error: 'Refresh token نامعتبر یا منقضی.' });
+            
+            if (!refreshToken) {
+                return res.status(400).json({ 
+                    success: false,
+                    message: 'Refresh token is required' 
+                });
             }
-            // اعتبارسنجی توکن
-            let payload;
-            try {
-                payload = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
-            } catch (err) {
-                await stored.deleteOne();
-                return res.status(401).json({ error: 'Refresh token نامعتبر.' });
+
+            // Find refresh token in database (not JWT verification)
+            const storedToken = await RefreshToken.findOne({ token: refreshToken });
+            
+            if (!storedToken) {
+                return res.status(401).json({ 
+                    success: false,
+                    message: 'Invalid refresh token' 
+                });
             }
-            // صدور access token جدید
-            const user = await User.findById(payload.userId);
-            if (!user) return res.status(401).json({ error: 'کاربر یافت نشد.' });
-            const accessToken = jwt.sign({
-                _id: user._id,
-                tenantId: user.tenantId,
-                branchId: user.branchId,
+
+            // Check if token is expired
+            if (storedToken.expiresAt < new Date()) {
+                await storedToken.deleteOne(); // Clean up expired token
+                return res.status(401).json({ 
+                    success: false,
+                    message: 'Refresh token expired' 
+                });
+            }
+
+            // Get user information
+            const user = await User.findById(storedToken.userId)
+                .populate('tenantId', 'name code status');
+            
+            if (!user || !user.isActive) {
+                await storedToken.deleteOne(); // Clean up token for inactive user
+                return res.status(401).json({ 
+                    success: false,
+                    message: 'User not found or inactive' 
+                });
+            }
+
+            // Generate new access token
+            const tokenPayload = {
+                userId: user._id,
+                email: user.email,
                 role: user.role,
-                tenantAccess: user.tenantAccess
-            }, ACCESS_TOKEN_SECRET, { expiresIn: '15m' });
-            res.json({ accessToken });
-        } catch (err) {
-            res.status(500).json({ error: 'خطا در refresh token.' });
+                tenantId: user.tenantId?._id,
+                username: user.username,
+                iat: Math.floor(Date.now() / 1000)
+            };
+
+            const accessToken = jwt.sign(
+                tokenPayload,
+                getJWTSecret(),
+                { expiresIn: process.env.ACCESS_TOKEN_EXPIRY || '15m' }
+            );
+
+            res.json({ 
+                success: true,
+                accessToken,
+                user: {
+                    id: user._id,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    tenantId: user.tenantId?._id
+                }
+            });
+        } catch (error) {
+            console.error('Refresh token error:', error);
+            res.status(500).json({ 
+                success: false,
+                message: 'Error refreshing token' 
+            });
         }
     }
 
@@ -463,6 +541,59 @@ class AuthController {
     async resetPassword(req, res) {
         // Mock implementation for test
         return res.json({ success: true, message: 'Mock password reset.' });
+    }
+
+    async logoutAllSessions(req, res) {
+        try {
+            const userId = req.user.userId || req.user._id;
+
+            // Blacklist all tokens issued before now
+            await tokenBlacklistService.blacklistUserTokens(userId);
+
+            // Remove all refresh tokens for this user
+            await RefreshToken.deleteMany({ userId });
+
+            res.json({
+                success: true,
+                message: 'All sessions logged out successfully'
+            });
+        } catch (error) {
+            console.error('Logout all sessions error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error logging out all sessions'
+            });
+        }
+    }
+
+    async getActiveSessions(req, res) {
+        try {
+            const userId = req.user.userId || req.user._id;
+
+            // Get active refresh tokens (representing sessions)
+            const activeSessions = await RefreshToken.find({ 
+                userId, 
+                expiresAt: { $gt: new Date() } 
+            }).select('createdAt expiresAt').sort({ createdAt: -1 });
+
+            res.json({
+                success: true,
+                data: {
+                    sessions: activeSessions.map(session => ({
+                        id: session._id,
+                        createdAt: session.createdAt,
+                        expiresAt: session.expiresAt
+                    })),
+                    total: activeSessions.length
+                }
+            });
+        } catch (error) {
+            console.error('Get active sessions error:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Error retrieving active sessions'
+            });
+        }
     }
 }
 

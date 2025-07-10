@@ -2,7 +2,7 @@
 const express = require('express');
 const { body } = require('express-validator');
 const AuthController = require('../controllers/auth.controller');
-const { auth, authorize } = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { validateRequest } = require('../middleware/validators');
 
 const router = express.Router();
@@ -19,8 +19,7 @@ const asyncHandler = (fn) => (req, res, next) => {
 // User Registration
 router.post('/register', 
     [
-        auth,
-        authorize(['superAdmin', 'tenantAdmin']),
+        authMiddleware,
         body('username').notEmpty().withMessage('Username is required'),
         body('email').isEmail().withMessage('A valid email is required'),
         body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
@@ -39,25 +38,37 @@ router.post('/login', [
 
 // User Logout
 router.post('/logout', 
-    auth, 
+    authMiddleware, 
     asyncHandler(authController.logout.bind(authController))
+);
+
+// Logout All Sessions
+router.post('/logout-all', 
+    authMiddleware, 
+    asyncHandler(authController.logoutAllSessions.bind(authController))
+);
+
+// Get Active Sessions
+router.get('/sessions', 
+    authMiddleware, 
+    asyncHandler(authController.getActiveSessions.bind(authController))
 );
 
 // Get Current User Profile
 router.get('/me', 
-    auth, 
+    authMiddleware, 
     asyncHandler(authController.getCurrentUser.bind(authController))
 );
 
 // Validate Token
 router.get('/validate', 
-    auth, 
+    authMiddleware, 
     asyncHandler(authController.validateToken.bind(authController))
 );
 
 // Change Password
 router.put('/change-password',
-    auth,
+    authMiddleware,
     [
         body('currentPassword').notEmpty(),
         body('newPassword').isLength({ min: 6 })
@@ -68,7 +79,7 @@ router.put('/change-password',
 
 // Update Profile
 router.put('/me',
-    auth,
+    authMiddleware,
     [
         body('fullName').optional().isString(),
         body('phone').optional().isString()
@@ -95,6 +106,12 @@ router.post('/reset-password',
 );
 
 // Refresh Token
-router.post('/refresh-token', authController.refreshToken);
+router.post('/refresh', 
+    [
+        body('refreshToken').notEmpty().withMessage('Refresh token is required')
+    ],
+    validateRequest,
+    asyncHandler(authController.refreshToken.bind(authController))
+);
 
 module.exports = router;

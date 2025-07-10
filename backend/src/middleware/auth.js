@@ -1,20 +1,60 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
-const jwt = require('jsonwebtoken');
-const User = require('../modules/user/user.model');
+const tokenBlacklistService = require('../services/tokenBlacklistService');
 
 exports.authorize = (roles = []) => async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
+    if (!token) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized - No token provided' 
+      });
+    }
+
+    // Check if token is blacklisted
+    const isBlacklisted = await tokenBlacklistService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      return res.status(401).json({ 
+        success: false,
+        error: 'Unauthorized - Token revoked' 
+      });
+    }
+
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(payload.id);
-    if (!user || (roles.length && !roles.includes(user.role))) return res.status(403).json({ error: 'Forbidden' });
+    
+    // Check if user tokens are blacklisted
+    if (payload.iat) {
+      const isUserTokenBlacklisted = await tokenBlacklistService.isUserTokenBlacklisted(
+        payload.userId || payload.id, 
+        payload.iat
+      );
+      if (isUserTokenBlacklisted) {
+        return res.status(401).json({ 
+          success: false,
+          error: 'Unauthorized - User tokens revoked' 
+        });
+      }
+    }
+
+    const user = await User.findById(payload.userId || payload.id);
+    if (!user || (roles.length && !roles.includes(user.role))) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Forbidden' 
+      });
+    }
+
     req.user = user;
+    req.token = token;
     next();
   } catch (err) {
-    res.status(401).json({ error: 'Unauthorized' });
+    console.error('Authorization error:', err);
+    res.status(401).json({ 
+      success: false,
+      error: 'Unauthorized' 
+    });
   }
 };
 const authMiddleware = async (req, res, next) => {
@@ -22,41 +62,94 @@ const authMiddleware = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'No token provided' 
+      });
     }
 
+    // Check if token is blacklisted
+    const isBlacklisted = await tokenBlacklistService.isTokenBlacklisted(token);
+    if (isBlacklisted) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Token has been revoked' 
+      });
+    }
+
+    // Verify JWT token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id)
+    
+    // Check if user tokens are blacklisted (for security incidents)
+    if (decoded.iat) {
+      const isUserTokenBlacklisted = await tokenBlacklistService.isUserTokenBlacklisted(
+        decoded.userId || decoded.id, 
+        decoded.iat
+      );
+      if (isUserTokenBlacklisted) {
+        return res.status(401).json({ 
+          success: false,
+          message: 'All user tokens have been revoked for security reasons' 
+        });
+      }
+    }
+
+    // Find user
+    const user = await User.findById(decoded.userId || decoded.id)
       .populate('tenantId')
       .select('-password');
 
     if (!user) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'User not found' 
+      });
     }
 
     if (!user.isActive) {
-      return res.status(401).json({ message: 'Account is deactivated' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Account is deactivated' 
+      });
     }
 
     if (user.isLocked) {
-      return res.status(401).json({ message: 'Account is locked' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Account is locked' 
+      });
     }
 
     // Check tenant status for non-super admins
     if (user.role !== 'super_admin' && user.tenantId && !user.tenantId.isActive) {
-      return res.status(401).json({ message: 'Tenant is inactive' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Tenant is inactive' 
+      });
     }
 
+    // Add token to request for potential blacklisting on logout
+    req.token = token;
     req.user = user;
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ message: 'Invalid token' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid token' 
+      });
     }
     if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expired' });
+      return res.status(401).json({ 
+        success: false,
+        message: 'Token expired' 
+      });
     }
-    res.status(500).json({ message: 'Server error' });
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error in authentication' 
+    });
   }
 };
 

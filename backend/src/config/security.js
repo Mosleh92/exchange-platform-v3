@@ -1,6 +1,16 @@
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
 const mongoSanitize = require('express-mongo-sanitize');
+const EnvironmentValidationService = require('../services/environmentValidationService');
+
+// Validate environment on startup
+const envValidator = new EnvironmentValidationService();
+const isValidConfig = envValidator.logValidationResults();
+
+if (!isValidConfig && process.env.NODE_ENV === 'production') {
+    console.error('❌ Critical JWT configuration errors in production environment');
+    process.exit(1);
+}
 
 const securityConfig = (app) => {
     // Rate limiting
