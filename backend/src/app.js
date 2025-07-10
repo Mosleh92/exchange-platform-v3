@@ -25,6 +25,13 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 
+// Import new services and middleware
+const securityMiddleware = require('./middleware/security');
+const validationMiddleware = require('./middleware/validation');
+const errorHandler = require('./middleware/errorHandler');
+const performanceOptimization = require('./services/performanceOptimization.service');
+const databaseOptimization = require('./services/databaseOptimization.service');
+
 const app = express();
 
 /**
@@ -32,27 +39,20 @@ const app = express();
  * Includes all security, performance, and monitoring features
  */
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
-      objectSrc: ["'none'"],
-      mediaSrc: ["'self'"],
-      frameSrc: ["'none'"]
-    }
-  },
-  hsts: {
-    maxAge: 31536000,
-    includeSubDomains: true,
-    preload: true
-  }
-}));
+// Apply security middleware
+app.use(securityMiddleware.applyAllSecurity());
+
+// Apply validation middleware
+app.use(validationMiddleware.sanitizeRequestData);
+
+// Apply performance optimization
+app.use(performanceOptimization.optimizeResponseCompression);
+
+// Apply error handling
+app.use(errorHandler.handleError);
+
+// Initialize global error handlers
+errorHandler.initializeGlobalHandlers();
 
 // Rate limiting
 const limiter = rateLimit({
@@ -159,7 +159,12 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 
 // API routes with enhanced middleware
 app.use('/api/auth', authRoutes);
-app.use('/api/transactions', transactionRoutes);
+app.use('/api/transaction', (req, res, next) => {
+  req.optimizedQuery = databaseOptimization.executeQuery.bind(databaseOptimization);
+  req.paginatedQuery = databaseOptimization.paginatedQuery.bind(databaseOptimization);
+  req.batchLoad = databaseOptimization.batchLoadUsers.bind(databaseOptimization);
+  next();
+}, transactionRoutes);
 app.use('/api/accounts', accountRoutes);
 app.use('/api/p2p', p2pRoutes);
 app.use('/api/users', userRoutes);
