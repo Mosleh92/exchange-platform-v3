@@ -2,82 +2,143 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
-const mongoose = require('mongoose');
-const path = require('path');
+const compression = require('compression');
+const morgan = require('morgan');
+const swagger = require('./config/swagger');
 
-// Import enhanced middleware
-const { enhancedAuthMiddleware, roleMiddleware, permissionMiddleware, createRateLimiter, validateInput, securityHeaders, csrfProtection } = require('./middleware/security-enhanced');
-const { tenantContextMiddleware, ensureTenantIsolation } = require('./middleware/tenant-context');
-const ErrorHandler = require('./utils/errorHandler');
+// Import enhanced services and middleware
+const EnhancedErrorHandler = require('./middleware/enhancedErrorHandler');
+const EnhancedEventService = require('./services/enhancedEventService');
+const EnhancedTenantConfigService = require('./services/enhancedTenantConfigService');
+const EnhancedAuditService = require('./services/enhancedAuditService');
+const logger = require('./utils/logger');
 
 // Import routes
 const authRoutes = require('./routes/auth');
 const transactionRoutes = require('./routes/transaction');
-const userRoutes = require('./routes/user');
-const reportRoutes = require('./routes/report');
+const accountRoutes = require('./routes/accounts');
 const p2pRoutes = require('./routes/p2p');
-const accountingRoutes = require('./routes/accounting');
-
-// Import services
-const tradingEngine = require('./services/tradingEngine');
-const logger = require('./utils/logger');
+const userRoutes = require('./routes/users');
+const paymentRoutes = require('./routes/payment');
+const remittanceRoutes = require('./routes/remittance');
+const reportRoutes = require('./routes/reports');
+const adminRoutes = require('./routes/admin');
 
 const app = express();
 
-// Enhanced Security Configuration
+/**
+ * Enhanced Express Application Configuration
+ * Includes all security, performance, and monitoring features
+ */
+
+// Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'"],
-      frameSrc: ["'none'"],
-      objectSrc: ["'none'"]
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
     }
   },
   hsts: {
     maxAge: 31536000,
     includeSubDomains: true,
     preload: true
-  },
-  noSniff: true,
-  xssFilter: true,
-  frameguard: { action: 'deny' }
+  }
 }));
 
 // Rate limiting
-const limiter = createRateLimiter(15 * 60 * 1000, 100); // 100 requests per 15 minutes
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: 'RATE_LIMIT_ERROR',
+    message: 'Too many requests from this IP',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Use tenant ID and user ID for more granular rate limiting
+    return `${req.headers['x-tenant-id'] || 'unknown'}-${req.user?.id || req.ip}`;
+  }
+});
+
 app.use('/api/', limiter);
 
-// Stricter rate limiting for auth endpoints
-const authLimiter = createRateLimiter(15 * 60 * 1000, 5); // 5 attempts per 15 minutes
+// Stricter rate limiting for sensitive endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    error: 'AUTH_RATE_LIMIT_ERROR',
+    message: 'Too many authentication attempts',
+    code: 'AUTH_RATE_LIMIT_EXCEEDED'
+  }
+});
+
 app.use('/api/auth/', authLimiter);
 
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Compression
+app.use(compression());
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://exchangeplatform.com'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-tenant-id', 'x-csrf-token']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Tenant-ID',
+    'X-Request-ID',
+    'X-Client-Version'
+  ]
 }));
 
-// Security headers
-app.use(securityHeaders);
+// Body parsing middleware
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
+app.use(morgan('combined', {
+  stream: {
+    write: (message) => {
+      logger.info(message.trim());
+    }
+  }
+}));
+
+// Request ID middleware
 app.use((req, res, next) => {
-  logger.info(`${req.method} ${req.path}`, {
-    ip: req.ip,
-    userAgent: req.headers['user-agent'],
-    timestamp: new Date().toISOString()
-  });
+  req.id = req.headers['x-request-id'] || require('crypto').randomUUID();
+  res.setHeader('X-Request-ID', req.id);
   next();
 });
 
@@ -87,119 +148,181 @@ app.get('/health', (req, res) => {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    environment: process.env.NODE_ENV
+    memory: process.memoryUsage(),
+    version: process.env.npm_package_version || '1.0.0'
   });
 });
 
-// API Routes with enhanced security
+// API documentation
+app.use('/api-docs', swagger.serve, swagger.setup);
+
+// API routes with enhanced middleware
 app.use('/api/auth', authRoutes);
+app.use('/api/transactions', transactionRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/p2p', p2pRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/remittances', remittanceRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/admin', adminRoutes);
 
-// Protected routes with tenant context
-app.use('/api/transactions', 
-  enhancedAuthMiddleware,
-  tenantContextMiddleware,
-  ensureTenantIsolation,
-  transactionRoutes
-);
+// Event-driven architecture initialization
+const eventService = new EnhancedEventService();
+const tenantConfigService = new EnhancedTenantConfigService();
+const auditService = new EnhancedAuditService();
 
-app.use('/api/users',
-  enhancedAuthMiddleware,
-  roleMiddleware(['admin', 'super_admin']),
-  tenantContextMiddleware,
-  ensureTenantIsolation,
-  userRoutes
-);
+// Global event listeners for system monitoring
+eventService.on('TRANSACTION_COMPLETED', async (eventData) => {
+  logger.info('Transaction completed event received', {
+    transactionId: eventData.transactionId,
+    userId: eventData.userId,
+    tenantId: eventData.tenantId
+  });
+});
 
-app.use('/api/reports',
-  enhancedAuthMiddleware,
-  permissionMiddleware(['read_reports']),
-  tenantContextMiddleware,
-  ensureTenantIsolation,
-  reportRoutes
-);
+eventService.on('SECURITY_VIOLATION', async (eventData) => {
+  logger.error('Security violation detected', {
+    violationType: eventData.violationType,
+    userId: eventData.userId,
+    tenantId: eventData.tenantId,
+    details: eventData.details
+  });
+});
 
-app.use('/api/p2p',
-  enhancedAuthMiddleware,
-  tenantContextMiddleware,
-  ensureTenantIsolation,
-  p2pRoutes
-);
+// Tenant configuration cache warming
+app.use(async (req, res, next) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'];
+    if (tenantId) {
+      // Warm up tenant configuration cache
+      await tenantConfigService.getTenantConfig(tenantId, true);
+    }
+    next();
+  } catch (error) {
+    logger.warn('Failed to warm tenant config cache', { error: error.message });
+    next();
+  }
+});
 
-app.use('/api/accounting',
-  enhancedAuthMiddleware,
-  permissionMiddleware(['manage_accounting']),
-  tenantContextMiddleware,
-  ensureTenantIsolation,
-  accountingRoutes
-);
-
-// Error handling middleware (must be last)
-app.use(ErrorHandler.handleError);
+// Enhanced error handling
+app.use(EnhancedErrorHandler.handleError.bind(EnhancedErrorHandler));
 
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
-    error: 'Route not found',
-    code: 'ROUTE_NOT_FOUND',
-    path: req.originalUrl
+    error: 'NOT_FOUND',
+    message: 'Endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  maxPoolSize: 10,
-  serverSelectionTimeoutMS: 5000,
-  socketTimeoutMS: 45000,
-})
-.then(() => {
-  logger.info('Connected to MongoDB');
-  
-  // Start trading engine
-  tradingEngine.start().catch(error => {
-    logger.error('Failed to start trading engine:', error);
-  });
-})
-.catch((error) => {
-  logger.error('MongoDB connection error:', error);
-  ErrorHandler.handleDatabaseError(error);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', async () => {
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   
-  // Stop trading engine
-  tradingEngine.stop();
-  
-  // Close database connection
-  await mongoose.connection.close();
-  
-  process.exit(0);
+  // Close database connections
+  const mongoose = require('mongoose');
+  mongoose.connection.close(() => {
+    logger.info('Database connection closed');
+    process.exit(0);
+  });
 });
 
-process.on('SIGINT', async () => {
+process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
   
-  // Stop trading engine
-  tradingEngine.stop();
-  
-  // Close database connection
-  await mongoose.connection.close();
-  
-  process.exit(0);
+  // Close database connections
+  const mongoose = require('mongoose');
+  mongoose.connection.close(() => {
+    logger.info('Database connection closed');
+    process.exit(0);
+  });
 });
 
 // Unhandled promise rejection handler
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  
+  // Log to audit service
+  auditService.logEvent({
+    eventType: 'SYSTEM_ERROR',
+    userId: null,
+    tenantId: null,
+    action: 'UNHANDLED_REJECTION',
+    resource: 'SYSTEM',
+    resourceId: null,
+    details: {
+      reason: reason?.message || reason,
+      stack: reason?.stack
+    },
+    severity: 'CRITICAL'
+  });
 });
 
 // Uncaught exception handler
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', error);
+  
+  // Log to audit service
+  auditService.logEvent({
+    eventType: 'SYSTEM_ERROR',
+    userId: null,
+    tenantId: null,
+    action: 'UNCAUGHT_EXCEPTION',
+    resource: 'SYSTEM',
+    resourceId: null,
+    details: {
+      error: error.message,
+      stack: error.stack
+    },
+    severity: 'CRITICAL'
+  });
+  
+  // Exit process after logging
   process.exit(1);
 });
 
-module.exports = app;
+// Performance monitoring
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const { method, url, statusCode } = req;
+    
+    // Log slow requests
+    if (duration > 1000) {
+      logger.warn('Slow request detected', {
+        method,
+        url,
+        statusCode,
+        duration,
+        userId: req.user?.id,
+        tenantId: req.headers['x-tenant-id']
+      });
+    }
+    
+    // Log performance metrics
+    logger.info('Request completed', {
+      method,
+      url,
+      statusCode,
+      duration,
+      userId: req.user?.id,
+      tenantId: req.headers['x-tenant-id']
+    });
+  });
+  
+  next();
+});
+
+// Export enhanced app with services
+module.exports = {
+  app,
+  eventService,
+  tenantConfigService,
+  auditService
+};
