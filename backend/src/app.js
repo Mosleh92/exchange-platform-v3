@@ -23,6 +23,7 @@ const paymentRoutes = require('./routes/payment');
 const remittanceRoutes = require('./routes/remittance');
 const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 
@@ -166,6 +167,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/remittances', remittanceRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Event-driven architecture initialization
 const eventService = new EnhancedEventService();
