@@ -268,8 +268,11 @@ class SecurityUtils {
         const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
         let password = '';
         
+        const randomValues = new Uint32Array(length);
+        window.crypto.getRandomValues(randomValues);
+        
         for (let i = 0; i < length; i++) {
-            const randomIndex = Math.floor(Math.random() * charset.length);
+            const randomIndex = randomValues[i] % charset.length;
             password += charset[randomIndex];
         }
         
