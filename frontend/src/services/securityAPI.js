@@ -533,11 +533,25 @@ class SecurityUtils {
     static sanitizeInput(input) {
         if (typeof input !== 'string') return input;
         
+<alert-autofix-327
+        let sanitized = input.trim();
+        let previous;
+        do {
+            previous = sanitized;
+            sanitized = sanitized
+                .replace(/[<>]/g, '') // Remove HTML tags
+                .replace(/javascript:/gi, '') // Remove javascript: URLs
+                .replace(/on\w+=/gi, ''); // Remove event handlers
+        } while (sanitized !== previous);
+        
+        return sanitized;
+      
         return input
             .replace(/[<>]/g, '') // Remove HTML tags
             .replace(/(?:javascript|data|vbscript):/gi, '') // Remove javascript:, data:, and vbscript: URLs
             .replace(/on\w+=/gi, '') // Remove event handlers
             .trim();
+main
     }
 
     // URL validation
