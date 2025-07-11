@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Dashboard - Test</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .rtl { direction: rtl; }
+    </style>
+</head>
+<body class="bg-gray-50 rtl">
+    <div id="root"></div>
+    
+    <script>
+        const { useState, useEffect } = React;
+        
+        // Mock StatCard Component
+        const StatCard = ({ title, value, icon, trend, trendValue, color = 'blue', isLoading = false }) => {
+            if (isLoading) {
+                return React.createElement('div', {
+                    className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse'
+                }, React.createElement('div', {
+                    className: 'h-8 bg-gray-200 rounded w-3/4 mb-2'
+                }));
+            }
+            
+            const getColorClasses = (color) => {
+                const colors = {
+                    blue: 'text-blue-700',
+                    green: 'text-green-700',
+                    yellow: 'text-yellow-700',
+                    red: 'text-red-700',
+                    purple: 'text-purple-700',
+                    indigo: 'text-indigo-700'
+                };
+                return colors[color] || colors.blue;
+            };
+            
+            return React.createElement('div', {
+                className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6'
+            }, [
+                React.createElement('p', {
+                    key: 'title',
+                    className: 'text-sm font-medium text-gray-600 mb-1'
+                }, title),
+                React.createElement('p', {
+                    key: 'value',
+                    className: `text-2xl font-bold ${getColorClasses(color)}`
+                }, typeof value === 'number' ? value.toLocaleString('fa-IR') : value),
+                trend && trendValue && React.createElement('div', {
+                    key: 'trend',
+                    className: 'flex items-center mt-2'
+                }, [
+                    React.createElement('span', {
+                        key: 'trend-value',
+                        className: `text-xs font-medium mr-1 ${trend === 'up' ? 'text-green-500' : 'text-red-500'}`
+                    }, trendValue),
+                    React.createElement('span', {
+                        key: 'trend-text',
+                        className: 'text-xs text-gray-500'
+                    }, 'نسبت به ماه گذشته')
+                ])
+            ]);
+        };
+        
+        // Main Dashboard Component
+        const SuperAdminDashboard = () => {
+            const [loading, setLoading] = useState(true);
+            const [stats, setStats] = useState(null);
+            
+            const mockStats = {
+                totalTenants: 156,
+                totalUsers: 12847,
+                totalTransactions: 1254789,
+                totalRevenue: 2847526000,
+                systemStatus: 'فعال',
+                activeSubscriptions: 142,
+                pendingApprovals: 23,
+                securityAlerts: 5,
+                trends: {
+                    tenants: { value: '+12%', direction: 'up' },
+                    users: { value: '+8.5%', direction: 'up' },
+                    transactions: { value: '+15.2%', direction: 'up' },
+                    revenue: { value: '+22.7%', direction: 'up' }
+                }
+            };
+            
+            useEffect(() => {
+                setTimeout(() => {
+                    setStats(mockStats);
+                    setLoading(false);
+                }, 1500);
+            }, []);
+            
+            return React.createElement('div', {
+                className: 'p-6 space-y-6 bg-gray-50 min-h-screen'
+            }, [
+                // Header
+                React.createElement('div', {
+                    key: 'header',
+                    className: 'flex flex-col sm:flex-row sm:items-center sm:justify-between'
+                }, [
+                    React.createElement('div', { key: 'title' }, [
+                        React.createElement('h1', {
+                            key: 'h1',
+                            className: 'text-3xl font-bold text-gray-900'
+                        }, 'داشبورد سوپر ادمین'),
+                        React.createElement('p', {
+                            key: 'p',
+                            className: 'mt-2 text-gray-600'
+                        }, 'نمای کلی سیستم مدیریت صرافی‌ها')
+                    ]),
+                    React.createElement('button', {
+                        key: 'refresh',
+                        className: 'mt-4 sm:mt-0 flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700'
+                    }, 'بروزرسانی')
+                ]),
+                
+                // Stats Cards
+                React.createElement('div', {
+                    key: 'stats',
+                    className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'
+                }, [
+                    React.createElement(StatCard, {
+                        key: 'tenants',
+                        title: 'تعداد صرافی‌ها',
+                        value: stats?.totalTenants,
+                        trend: stats?.trends?.tenants?.direction,
+                        trendValue: stats?.trends?.tenants?.value,
+                        color: 'blue',
+                        isLoading: loading
+                    }),
+                    React.createElement(StatCard, {
+                        key: 'users',
+                        title: 'کاربران کل',
+                        value: stats?.totalUsers,
+                        trend: stats?.trends?.users?.direction,
+                        trendValue: stats?.trends?.users?.value,
+                        color: 'green',
+                        isLoading: loading
+                    }),
+                    React.createElement(StatCard, {
+                        key: 'transactions',
+                        title: 'تراکنش‌های کل',
+                        value: stats?.totalTransactions,
+                        trend: stats?.trends?.transactions?.direction,
+                        trendValue: stats?.trends?.transactions?.value,
+                        color: 'purple',
+                        isLoading: loading
+                    }),
+                    React.createElement(StatCard, {
+                        key: 'revenue',
+                        title: 'درآمد کل (ریال)',
+                        value: stats?.totalRevenue,
+                        trend: stats?.trends?.revenue?.direction,
+                        trendValue: stats?.trends?.revenue?.value,
+                        color: 'yellow',
+                        isLoading: loading
+                    })
+                ]),
+                
+                // Secondary Stats
+                React.createElement('div', {
+                    key: 'secondary-stats',
+                    className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6'
+                }, [
+                    React.createElement(StatCard, {
+                        key: 'status',
+                        title: 'وضعیت سیستم',
+                        value: stats?.systemStatus,
+                        color: 'green',
+                        isLoading: loading
+                    }),
+                    React.createElement(StatCard, {
+                        key: 'subscriptions',
+                        title: 'اشتراکهای فعال',
+                        value: stats?.activeSubscriptions,
+                        color: 'indigo',
+                        isLoading: loading
+                    }),
+                    React.createElement(StatCard, {
+                        key: 'pending',
+                        title: 'درخواست‌های در انتظار',
+                        value: stats?.pendingApprovals,
+                        color: 'yellow',
+                        isLoading: loading
+                    }),
+                    React.createElement(StatCard, {
+                        key: 'security',
+                        title: 'هشدارهای امنیتی',
+                        value: stats?.securityAlerts,
+                        color: 'red',
+                        isLoading: loading
+                    })
+                ]),
+                
+                // Features Demo
+                React.createElement('div', {
+                    key: 'demo',
+                    className: 'bg-white rounded-lg shadow-sm border border-gray-200 p-6'
+                }, [
+                    React.createElement('h3', {
+                        key: 'demo-title',
+                        className: 'text-lg font-semibold text-gray-900 mb-4'
+                    }, '✨ ویژگی‌های پیاده‌سازی شده'),
+                    React.createElement('div', {
+                        key: 'demo-grid',
+                        className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'
+                    }, [
+                        React.createElement('div', {
+                            key: 'feature-1',
+                            className: 'p-4 bg-blue-50 rounded-lg'
+                        }, [
+                            React.createElement('h4', {
+                                key: 'f1-title',
+                                className: 'font-medium text-blue-900'
+                            }, 'مدیریت صرافی‌ها'),
+                            React.createElement('p', {
+                                key: 'f1-desc',
+                                className: 'text-sm text-blue-700 mt-1'
+                            }, 'CRUD کامل، فیلتر، جستجو، مدیریت وضعیت')
+                        ]),
+                        React.createElement('div', {
+                            key: 'feature-2',
+                            className: 'p-4 bg-green-50 rounded-lg'
+                        }, [
+                            React.createElement('h4', {
+                                key: 'f2-title',
+                                className: 'font-medium text-green-900'
+                            }, 'مدیریت اشتراکها'),
+                            React.createElement('p', {
+                                key: 'f2-desc',
+                                className: 'text-sm text-green-700 mt-1'
+                            }, 'نظارت، تمدید، هشدار انقضا، آمار درآمد')
+                        ]),
+                        React.createElement('div', {
+                            key: 'feature-3',
+                            className: 'p-4 bg-purple-50 rounded-lg'
+                        }, [
+                            React.createElement('h4', {
+                                key: 'f3-title',
+                                className: 'font-medium text-purple-900'
+                            }, 'گزارشات مالی'),
+                            React.createElement('p', {
+                                key: 'f3-desc',
+                                className: 'text-sm text-purple-700 mt-1'
+                            }, 'نمودارهای تعاملی، تحلیل روند، خروجی')
+                        ]),
+                        React.createElement('div', {
+                            key: 'feature-4',
+                            className: 'p-4 bg-yellow-50 rounded-lg'
+                        }, [
+                            React.createElement('h4', {
+                                key: 'f4-title',
+                                className: 'font-medium text-yellow-900'
+                            }, 'مدیریت کاربران'),
+                            React.createElement('p', {
+                                key: 'f4-desc',
+                                className: 'text-sm text-yellow-700 mt-1'
+                            }, 'نقش‌ها، مجوزها، 2FA، بازنشانی رمز')
+                        ]),
+                        React.createElement('div', {
+                            key: 'feature-5',
+                            className: 'p-4 bg-red-50 rounded-lg'
+                        }, [
+                            React.createElement('h4', {
+                                key: 'f5-title',
+                                className: 'font-medium text-red-900'
+                            }, 'نظارت P2P'),
+                            React.createElement('p', {
+                                key: 'f5-desc',
+                                className: 'text-sm text-red-700 mt-1'
+                            }, 'تأیید معاملات، تحلیل ریسک، آمار')
+                        ]),
+                        React.createElement('div', {
+                            key: 'feature-6',
+                            className: 'p-4 bg-indigo-50 rounded-lg'
+                        }, [
+                            React.createElement('h4', {
+                                key: 'f6-title',
+                                className: 'font-medium text-indigo-900'
+                            }, 'گزارشات امنیتی'),
+                            React.createElement('p', {
+                                key: 'f6-desc',
+                                className: 'text-sm text-indigo-700 mt-1'
+                            }, 'لاگ‌ها، تهدیدات، هشدارها، تحلیل')
+                        ])
+                    ])
+                ])
+            ]);
+        };
+        
+        // Render the app
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(React.createElement(SuperAdminDashboard));
+    </script>
+</body>
+</html>
