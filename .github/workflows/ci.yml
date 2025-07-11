@@ -18,32 +18,34 @@ jobs:
   lint:
     name: 🔍 Lint and Code Quality
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: Install root dependencies
         run: npm ci
-        
+
       - name: Install backend dependencies
         run: cd backend && npm ci
-        
+
       - name: Install frontend dependencies
         run: cd frontend && npm ci
-        
+
       - name: Lint backend
         run: cd backend && npm run lint
-        
+
       - name: Lint frontend
         run: cd frontend && npm run lint
-        
+
       - name: Check code formatting
         run: |
           cd backend && npx prettier --check "src/**/*.js"
@@ -53,36 +55,38 @@ jobs:
   security:
     name: 🔐 Security Audit
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: |
           npm ci
           cd backend && npm ci
           cd ../frontend && npm ci
-          
+
       - name: Run security audit - Backend
         run: cd backend && npm audit --audit-level=moderate
         continue-on-error: true
-        
+
       - name: Run security audit - Frontend
         run: cd frontend && npm audit --audit-level=moderate
         continue-on-error: true
-        
-      - name: Run CodeQL Analysis
+
+      - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: javascript
-          
+
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
 
@@ -90,7 +94,7 @@ jobs:
   test-unit:
     name: 🧪 Unit Tests
     runs-on: ubuntu-latest
-    
+
     services:
       mongodb:
         image: mongo:6.0
@@ -100,11 +104,11 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd mongosh
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          
+
       redis:
         image: redis:7-alpine
         ports:
@@ -114,23 +118,25 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: |
           npm ci
           cd backend && npm ci
           cd ../frontend && npm ci
-          
+
       - name: Create test environment file
         run: |
           cd backend
@@ -143,24 +149,24 @@ jobs:
           REDIS_URL=redis://localhost:6379
           BCRYPT_ROUNDS=4
           EOF
-          
+
       - name: Run backend unit tests
         run: cd backend && npm test -- --coverage --testPathPattern="unit"
         env:
           NODE_ENV: test
-          
+
       - name: Run frontend unit tests
         run: cd frontend && npm test -- --coverage --watchAll=false
         env:
           CI: true
-          
+
       - name: Upload backend coverage
         uses: codecov/codecov-action@v3
         with:
           files: ./backend/coverage/lcov.info
           flags: backend
           name: backend-coverage
-          
+
       - name: Upload frontend coverage
         uses: codecov/codecov-action@v3
         with:
@@ -173,7 +179,7 @@ jobs:
     name: 🔗 Integration Tests
     runs-on: ubuntu-latest
     needs: [lint, security]
-    
+
     services:
       mongodb:
         image: mongo:6.0
@@ -183,11 +189,11 @@ jobs:
         ports:
           - 27017:27017
         options: >-
-          --health-cmd mongosh
+          --health-cmd "mongosh --eval 'db.runCommand({ ping: 1 })'"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-          
+
       redis:
         image: redis:7-alpine
         ports:
@@ -197,23 +203,25 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: |
           npm ci
           cd backend && npm ci
           cd ../frontend && npm ci
-          
+
       - name: Create test environment file
         run: |
           cd backend
@@ -226,12 +234,12 @@ jobs:
           REDIS_URL=redis://localhost:6379
           BCRYPT_ROUNDS=4
           EOF
-          
+
       - name: Run integration tests
         run: cd backend && npm test -- --testPathPattern="integration" --runInBand
         env:
           NODE_ENV: test
-          
+
       - name: Upload integration test results
         uses: actions/upload-artifact@v3
         if: always()
@@ -244,42 +252,46 @@ jobs:
     name: 🌐 E2E Tests
     runs-on: ubuntu-latest
     needs: [test-unit]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: |
           npm ci
           cd backend && npm ci
           cd ../frontend && npm ci
-          
+
       - name: Start services with Docker Compose
         run: |
           docker-compose -f docker-compose.test.yml up -d
-          
-      - name: Wait for services to be ready
+
+      - name: Wait for backend service to be ready
         run: |
           timeout 60 bash -c 'until curl -f http://localhost:5000/health; do sleep 2; done'
+      - name: Wait for frontend service to be ready
+        run: |
           timeout 60 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
-          
+
       - name: Run E2E tests
         run: cd frontend && npm run test:e2e
-        
+
       - name: Upload E2E test screenshots
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: e2e-screenshots
           path: frontend/cypress/screenshots/
-          
+
       - name: Stop services
         if: always()
         run: docker-compose -f docker-compose.test.yml down
@@ -289,29 +301,31 @@ jobs:
     name: 🏗️ Build
     runs-on: ubuntu-latest
     needs: [test-unit, test-integration]
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-          
+
       - name: Install dependencies
         run: |
           npm ci
           cd backend && npm ci
           cd ../frontend && npm ci
-          
+
       - name: Build backend
         run: cd backend && npm run build
-        
+
       - name: Build frontend
         run: cd frontend && npm run build
-        
+
       - name: Upload build artifacts
         uses: actions/upload-artifact@v3
         with:
@@ -325,25 +339,27 @@ jobs:
     name: 🐳 Docker Build
     runs-on: ubuntu-latest
     needs: [build]
-    
+
     outputs:
       image-tag: ${{ steps.meta.outputs.tags }}
-      image-digest: ${{ steps.build.outputs.digest }}
-    
+      image-digest: ${{ steps.build-backend.outputs.digest }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-          
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -354,7 +370,7 @@ jobs:
             type=ref,event=pr
             type=sha,prefix={{branch}}-
             type=raw,value=latest,enable={{is_default_branch}}
-            
+
       - name: Build and push backend image
         id: build-backend
         uses: docker/build-push-action@v5
@@ -367,7 +383,7 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          
+
       - name: Build and push frontend image
         id: build-frontend
         uses: docker/build-push-action@v5
@@ -386,7 +402,7 @@ jobs:
     name: 🛡️ Security Scan
     runs-on: ubuntu-latest
     needs: [docker-build]
-    
+
     steps:
       - name: Run Trivy vulnerability scanner - Backend
         uses: aquasecurity/trivy-action@master
@@ -394,20 +410,20 @@ jobs:
           image-ref: ${{ needs.docker-build.outputs.image-tag }}-backend
           format: 'sarif'
           output: 'trivy-backend-results.sarif'
-          
+
       - name: Run Trivy vulnerability scanner - Frontend
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ needs.docker-build.outputs.image-tag }}-frontend
           format: 'sarif'
           output: 'trivy-frontend-results.sarif'
-          
-      - name: Upload Trivy scan results to GitHub Security tab
+
+      - name: Upload Trivy scan results (backend)
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-backend-results.sarif'
-          
-      - name: Upload Trivy scan results to GitHub Security tab
+
+      - name: Upload Trivy scan results (frontend)
         uses: github/codeql-action/upload-sarif@v3
         with:
           sarif_file: 'trivy-frontend-results.sarif'
@@ -419,11 +435,13 @@ jobs:
     needs: [docker-build, security-scan]
     if: github.ref == 'refs/heads/develop'
     environment: staging
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Deploy to staging server
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -435,12 +453,12 @@ jobs:
             docker-compose -f docker-compose.staging.yml pull
             docker-compose -f docker-compose.staging.yml up -d
             docker system prune -f
-            
+
       - name: Run health check
         run: |
           sleep 30
           curl -f ${{ secrets.STAGING_URL }}/health || exit 1
-          
+
       - name: Run smoke tests
         run: |
           cd backend && npm run test:smoke -- --env=staging
@@ -452,11 +470,13 @@ jobs:
     needs: [docker-build, security-scan]
     if: github.event_name == 'release'
     environment: production
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Deploy to production server
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -469,16 +489,16 @@ jobs:
             docker-compose -f docker-compose.production.yml pull
             docker-compose -f docker-compose.production.yml up -d
             docker system prune -f
-            
+
       - name: Run health check
         run: |
           sleep 60
           curl -f ${{ secrets.PRODUCTION_URL }}/health || exit 1
-          
+
       - name: Run smoke tests
         run: |
           cd backend && npm run test:smoke -- --env=production
-          
+
       - name: Notify deployment success
         uses: 8398a7/action-slack@v3
         with:
@@ -493,18 +513,20 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-staging]
     if: github.ref == 'refs/heads/develop'
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run k6 performance tests
         uses: grafana/k6-action@v0.3.1
         with:
           filename: scripts/performance-test.js
         env:
           BASE_URL: ${{ secrets.STAGING_URL }}
-          
+
       - name: Upload performance results
         uses: actions/upload-artifact@v3
         with:
@@ -517,7 +539,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [deploy-staging, deploy-production]
     if: always()
-    
+
     steps:
       - name: Notify on Slack
         uses: 8398a7/action-slack@v3
