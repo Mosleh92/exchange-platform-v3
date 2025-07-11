@@ -46,8 +46,10 @@
     "@typescript-eslint/parser": "^6.10.0",
     "@vitest/coverage-v8": "^0.34.6",
     "@vitest/ui": "^0.34.6",
+    "autoprefixer": "^10.4.21",
     "husky": "^8.0.3",
-    "lint-staged": "^15.5.2"
+    "lint-staged": "^15.5.2",
+    "tailwindcss": "^4.1.11"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
