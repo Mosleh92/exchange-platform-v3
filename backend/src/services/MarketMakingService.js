@@ -523,4 +523,8 @@ class MarketMakingService {
   }
 }
 
+<<<<<<< HEAD
 module.exports = new MarketMakingService(); 
+=======
+module.exports = new MarketMakingService(); 
+>>>>>>> 9bbf1ecc9d48877375d9c66279f02298925b488d

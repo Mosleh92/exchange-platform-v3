@@ -1,185 +1,335 @@
-// اضافه کردن route های امنیتی
-const twoFactorAuthRoutes = require('./routes/twoFactorAuth');
-const securityRoutes = require('./routes/security');
-
-// استفاده از middleware های امنیتی
-const SecurityMiddleware = require('./middleware/securityMiddleware');
-const AuditLogService = require('./services/auditLogService');
-
-// اعمال middleware های کلی
-app.use(SecurityMiddleware.createSecurityStack());
-app.use(AuditLogService.createMiddleware());
-
-// Route ها
-app.use('/api/2fa', twoFactorAuthRoutes);
-app.use('/api/security', securityRoutes);
-const securityRoutes = require('./routes/security');
-app.use('/api/security', securityRoutes);
 const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const express = require('express');
-const mongoose = require('mongoose');
-const redis = require('redis');
 const cors = require('cors');
 const helmet = require('helmet');
-const compression = require('compression');
 const rateLimit = require('express-rate-limit');
-const session = require('express-session');
-const RedisStore = require('connect-redis')(session);
-const { createServer } = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+const compression = require('compression');
+const morgan = require('morgan');
+const swagger = require('./config/swagger');
+
+// Import enhanced services and middleware
+const EnhancedErrorHandler = require('./middleware/enhancedErrorHandler');
+const EnhancedEventService = require('./services/enhancedEventService');
+const EnhancedTenantConfigService = require('./services/enhancedTenantConfigService');
+const EnhancedAuditService = require('./services/enhancedAuditService');
+const logger = require('./utils/logger');
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const tenantRoutes = require('./routes/tenants');
-const accountingRoutes = require('./routes/accounting');
-const paymentRoutes = require('./routes/payments');
+const transactionRoutes = require('./routes/transaction');
+const accountRoutes = require('./routes/accounts');
 const p2pRoutes = require('./routes/p2p');
+const userRoutes = require('./routes/users');
+const paymentRoutes = require('./routes/payment');
 const remittanceRoutes = require('./routes/remittance');
+const reportRoutes = require('./routes/reports');
+const adminRoutes = require('./routes/admin');
+const analyticsRoutes = require('./routes/analytics');
 
-// Import middleware
+// Import new services and middleware
+const securityMiddleware = require('./middleware/security');
+const validationMiddleware = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
-const logger = require('./utils/logger');
+const performanceOptimization = require('./services/performanceOptimization.service');
+const databaseOptimization = require('./services/databaseOptimization.service');
 
 const app = express();
-const server = createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
-});
 
-// Redis client
-const redisClient = redis.createClient({
-  url: process.env.REDIS_URL || 'redis://localhost:6379'
-});
+/**
+ * Enhanced Express Application Configuration
+ * Includes all security, performance, and monitoring features
+ */
 
-redisClient.on('error', (err) => {
-  logger.error('Redis Client Error', err);
-});
+// Apply security middleware
+app.use(securityMiddleware.applyAllSecurity());
 
-redisClient.connect();
+// Apply validation middleware
+app.use(validationMiddleware.sanitizeRequestData);
 
-// Security middleware
-app.use(helmet());
-app.use(compression());
+// Apply performance optimization
+app.use(performanceOptimization.optimizeResponseCompression);
 
-// CORS configuration
-app.use(cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:5173",
-  credentials: true
-}));
+// Apply error handling
+app.use(errorHandler.handleError);
+
+// Initialize global error handlers
+errorHandler.initializeGlobalHandlers();
 
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'تعداد درخواست‌های شما از حد مجاز بیشتر است'
+  message: {
+    error: 'RATE_LIMIT_ERROR',
+    message: 'Too many requests from this IP',
+    code: 'RATE_LIMIT_EXCEEDED'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => {
+    // Use tenant ID and user ID for more granular rate limiting
+    return `${req.headers['x-tenant-id'] || 'unknown'}-${req.user?.id || req.ip}`;
+  }
 });
+
 app.use('/api/', limiter);
 
-// Session configuration
-app.use(session({
-  store: new RedisStore({ client: redisClient }),
-  secret: process.env.SESSION_SECRET || 'your-session-secret',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+// Stricter rate limiting for sensitive endpoints
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: {
+    error: 'AUTH_RATE_LIMIT_ERROR',
+    message: 'Too many authentication attempts',
+    code: 'AUTH_RATE_LIMIT_EXCEEDED'
   }
+});
+
+app.use('/api/auth/', authLimiter);
+
+// Compression
+app.use(compression());
+
+// CORS configuration
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://exchangeplatform.com'
+    ];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Tenant-ID',
+    'X-Request-ID',
+    'X-Client-Version'
+  ]
 }));
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf;
+  }
+}));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Request logging
+app.use(morgan('combined', {
+  stream: {
+    write: (message) => {
+      logger.info(message.trim());
+    }
+  }
+}));
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
-// API Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/tenants', tenantRoutes);
-app.use('/api/accounting', accountingRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/p2p', p2pRoutes);
-app.use('/api/remittance', remittanceRoutes);
-
-// Socket.IO for real-time features
-io.on('connection', (socket) => {
-  logger.info(`User connected: ${socket.id}`);
-  
-  socket.on('join_tenant', (tenantId) => {
-    socket.join(`tenant_${tenantId}`);
-    logger.info(`User ${socket.id} joined tenant ${tenantId}`);
-  });
-
-  socket.on('disconnect', () => {
-    logger.info(`User disconnected: ${socket.id}`);
-  });
-});
-
-// Make io available in request object
+// Request ID middleware
 app.use((req, res, next) => {
-  req.io = io;
+  req.id = req.headers['x-request-id'] || require('crypto').randomUUID();
+  res.setHeader('X-Request-ID', req.id);
   next();
 });
 
-// Error handling middleware
-app.use(errorHandler);
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    version: process.env.npm_package_version || '1.0.0'
+  });
+});
+
+// API documentation
+app.use('/api-docs', swagger.serve, swagger.setup);
+
+// API routes with enhanced middleware
+app.use('/api/auth', authRoutes);
+app.use('/api/transaction', (req, res, next) => {
+  req.optimizedQuery = databaseOptimization.executeQuery.bind(databaseOptimization);
+  req.paginatedQuery = databaseOptimization.paginatedQuery.bind(databaseOptimization);
+  req.batchLoad = databaseOptimization.batchLoadUsers.bind(databaseOptimization);
+  next();
+}, transactionRoutes);
+app.use('/api/accounts', accountRoutes);
+app.use('/api/p2p', p2pRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/remittances', remittanceRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/analytics', analyticsRoutes);
+
+// Event-driven architecture initialization
+const eventService = new EnhancedEventService();
+const tenantConfigService = new EnhancedTenantConfigService();
+const auditService = new EnhancedAuditService();
+
+// Global event listeners for system monitoring
+eventService.on('TRANSACTION_COMPLETED', async (eventData) => {
+  logger.info('Transaction completed event received', {
+    transactionId: eventData.transactionId,
+    userId: eventData.userId,
+    tenantId: eventData.tenantId
+  });
+});
+
+eventService.on('SECURITY_VIOLATION', async (eventData) => {
+  logger.error('Security violation detected', {
+    violationType: eventData.violationType,
+    userId: eventData.userId,
+    tenantId: eventData.tenantId,
+    details: eventData.details
+  });
+});
+
+// Tenant configuration cache warming
+app.use(async (req, res, next) => {
+  try {
+    const tenantId = req.headers['x-tenant-id'];
+    if (tenantId) {
+      // Warm up tenant configuration cache
+      await tenantConfigService.getTenantConfig(tenantId, true);
+    }
+    next();
+  } catch (error) {
+    logger.warn('Failed to warm tenant config cache', { error: error.message });
+    next();
+  }
+});
+
+// Enhanced error handling
+app.use(EnhancedErrorHandler.handleError.bind(EnhancedErrorHandler));
 
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
-    success: false,
-    message: 'مسیر درخواستی یافت نشد'
+    error: 'NOT_FOUND',
+    message: 'Endpoint not found',
+    path: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
   });
 });
 
-// Database connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/exchange_platform', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-.then(() => {
-  logger.info('Connected to MongoDB successfully');
-})
-.catch((error) => {
-  logger.error('MongoDB connection error:', error);
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  
+  // Close database connections
+  const mongoose = require('mongoose');
+  mongoose.connection.close(() => {
+    logger.info('Database connection closed');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  
+  // Close database connections
+  const mongoose = require('mongoose');
+  mongoose.connection.close(() => {
+    logger.info('Database connection closed');
+    process.exit(0);
+  });
+});
+
+// Unhandled promise rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  
+  // Log to audit service
+  auditService.logEvent({
+    eventType: 'SYSTEM_ERROR',
+    userId: null,
+    tenantId: null,
+    action: 'UNHANDLED_REJECTION',
+    resource: 'SYSTEM',
+    resourceId: null,
+    details: {
+      reason: reason?.message || reason,
+      stack: reason?.stack
+    },
+    severity: 'CRITICAL'
+  });
+});
+
+// Uncaught exception handler
+process.on('uncaughtException', (error) => {
+  logger.error('Uncaught Exception:', error);
+  
+  // Log to audit service
+  auditService.logEvent({
+    eventType: 'SYSTEM_ERROR',
+    userId: null,
+    tenantId: null,
+    action: 'UNCAUGHT_EXCEPTION',
+    resource: 'SYSTEM',
+    resourceId: null,
+    details: {
+      error: error.message,
+      stack: error.stack
+    },
+    severity: 'CRITICAL'
+  });
+  
+  // Exit process after logging
   process.exit(1);
 });
 
-// Graceful shutdown
-process.on('SIGTERM', async () => {
-  logger.info('SIGTERM received, shutting down gracefully');
+// Performance monitoring
+app.use((req, res, next) => {
+  const start = Date.now();
   
-  server.close(() => {
-    logger.info('HTTP server closed');
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    const { method, url, statusCode } = req;
+    
+    // Log slow requests
+    if (duration > 1000) {
+      logger.warn('Slow request detected', {
+        method,
+        url,
+        statusCode,
+        duration,
+        userId: req.user?.id,
+        tenantId: req.headers['x-tenant-id']
+      });
+    }
+    
+    // Log performance metrics
+    logger.info('Request completed', {
+      method,
+      url,
+      statusCode,
+      duration,
+      userId: req.user?.id,
+      tenantId: req.headers['x-tenant-id']
+    });
   });
   
-  await mongoose.connection.close();
-  await redisClient.quit();
-  
-  process.exit(0);
+  next();
 });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  logger.info(`Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-});
-
-module.exports = app;
+// Export enhanced app with services
+module.exports = {
+  app,
+  eventService,
+  tenantConfigService,
+  auditService
+};

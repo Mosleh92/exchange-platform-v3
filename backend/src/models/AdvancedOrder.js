@@ -159,4 +159,8 @@ advancedOrderSchema.statics.findByCurrencyPair = function(currency, baseCurrency
   }).sort({ createdAt: -1 });
 };
 
+<<<<<<< HEAD
 module.exports = mongoose.model('AdvancedOrder', advancedOrderSchema); 
+=======
+module.exports = mongoose.model('AdvancedOrder', advancedOrderSchema); 
+>>>>>>> 9bbf1ecc9d48877375d9c66279f02298925b488d

@@ -443,4 +443,8 @@ const AdvancedOrderForm = ({ onOrderCreated, onCancel }) => {
   );
 };
 
+<<<<<<< HEAD
 export default AdvancedOrderForm; 
+=======
+export default AdvancedOrderForm; 
+>>>>>>> 9bbf1ecc9d48877375d9c66279f02298925b488d

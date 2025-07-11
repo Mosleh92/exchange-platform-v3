@@ -268,8 +268,11 @@ class SecurityUtils {
         const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
         let password = '';
         
+        const randomValues = new Uint32Array(length);
+        window.crypto.getRandomValues(randomValues);
+        
         for (let i = 0; i < length; i++) {
-            const randomIndex = Math.floor(Math.random() * charset.length);
+            const randomIndex = randomValues[i] % charset.length;
             password += charset[randomIndex];
         }
         
@@ -530,6 +533,7 @@ class SecurityUtils {
     static sanitizeInput(input) {
         if (typeof input !== 'string') return input;
         
+<alert-autofix-327
         let sanitized = input.trim();
         let previous;
         do {
@@ -541,6 +545,13 @@ class SecurityUtils {
         } while (sanitized !== previous);
         
         return sanitized;
+      
+        return input
+            .replace(/[<>]/g, '') // Remove HTML tags
+            .replace(/(?:javascript|data|vbscript):/gi, '') // Remove javascript:, data:, and vbscript: URLs
+            .replace(/on\w+=/gi, '') // Remove event handlers
+            .trim();
+main
     }
 
     // URL validation
