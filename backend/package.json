@@ -159,19 +159,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Mosleh92/exchange-platform-v3.git"
-  },
-  "keywords": [
-    "exchange",
-    "cryptocurrency",
-    "trading",
-    "platform",
-    "backend",
-    "api"
-  ],
-  "author": "CodeOverlord",
-  "license": "MIT"
+  }
 }
