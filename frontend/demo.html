@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نمایش ویژگی‌های جدید پلتفرم صرافی</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Vazir:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Vazir', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 py-6">
+            <h1 class="text-3xl font-bold text-gray-900">
+                پلتفرم صرافی نسخه 3 - نمایش ویژگی‌های جدید
+            </h1>
+            <p class="text-gray-600 mt-2">
+                ویژگی‌های امنیتی، تحلیلی و مدیریتی پیشرفته
+            </p>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Feature Showcase Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <!-- Security Features -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    🔐 ویژگی‌های امنیتی
+                </h2>
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>محافظت CSRF با token-based validation</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>احراز هویت دو مرحله‌ای (2FA) با QR Code</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>Rate Limiting هوشمند برای endpoint های مختلف</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>Security Headers پیشرفته با Helmet</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-green-500 rounded-full"></div>
+                        <span>Request Sanitization و XSS Protection</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Analytics Features -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    📊 ویژگی‌های تحلیلی
+                </h2>
+                <div class="space-y-3">
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>نمودارهای تعاملی با Chart.js</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>آنالیز حجم معاملات روزانه/ماهانه</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>گزارش فعالیت کاربران و درآمد شعبات</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>نمودار روند نرخ ارز و تحلیل سود/زیان</span>
+                    </div>
+                    <div class="flex items-center space-x-3 space-x-reverse">
+                        <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
+                        <span>داشبورد مدیریتی جامع</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sample Charts -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+            <!-- Transaction Volume Chart -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">حجم معاملات هفتگی</h3>
+                <canvas id="transactionChart" width="400" height="200"></canvas>
+            </div>
+
+            <!-- User Activity Chart -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">فعالیت کاربران</h3>
+                <canvas id="userChart" width="400" height="200"></canvas>
+            </div>
+        </div>
+
+        <!-- Advanced Features -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Tenant Automation -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    🏢 اتوماسیون Tenant
+                </h2>
+                <div class="space-y-3 text-sm">
+                    <p>• ساخت خودکار tenant + شعبات + کاربران</p>
+                    <p>• تنظیم دسترسی‌ها بر اساس نقش</p>
+                    <p>• ایجاد داده‌های پیش‌فرض</p>
+                    <p>• API جامع برای مدیریت</p>
+                </div>
+                <div class="mt-4 p-3 bg-gray-50 rounded-md">
+                    <code class="text-xs text-gray-600">
+                        POST /api/tenants<br>
+                        POST /api/tenants/bulk<br>
+                        GET /api/tenants/:id/status
+                    </code>
+                </div>
+            </div>
+
+            <!-- Activity Logging -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    📝 ثبت فعالیت‌ها
+                </h2>
+                <div class="space-y-3 text-sm">
+                    <p>• لاگ جامع همه فعالیت‌های کاربران</p>
+                    <p>• ردیابی امنیتی و audit trail</p>
+                    <p>• گزارش‌گیری پیشرفته</p>
+                    <p>• فیلتر و جست‌وجوی هوشمند</p>
+                </div>
+                <div class="mt-4 text-xs text-gray-600">
+                    <div class="flex justify-between">
+                        <span>امروز:</span>
+                        <span class="font-semibold">1,247 فعالیت</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>امنیتی:</span>
+                        <span class="font-semibold text-yellow-600">3 هشدار</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment Receipts -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4 flex items-center">
+                    💳 رسید پرداخت چندمرحله‌ای
+                </h2>
+                <div class="space-y-3 text-sm">
+                    <p>• آپلود چندین رسید</p>
+                    <p>• بررسی اتوماتیک تکمیل</p>
+                    <p>• تایید مراحل پرداخت</p>
+                    <p>• اعلان‌های خودکار</p>
+                </div>
+                <div class="mt-4 p-2 bg-green-50 rounded-md text-xs">
+                    <div class="text-green-800 font-semibold">وضعیت: آماده استفاده</div>
+                    <div class="text-green-600">تست‌های امنیتی: ✓ گذرانده</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quality Metrics -->
+        <div class="mt-12 bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold text-gray-900 mb-6 text-center">
+                📈 اهداف کیفی پروژه
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-green-600">A+</div>
+                    <div class="text-sm text-gray-600">امتیاز امنیتی</div>
+                    <div class="mt-2 bg-green-100 text-green-800 text-xs px-2 py-1 rounded">
+                        هدف: A+ Security Scan
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-blue-600">&lt;3s</div>
+                    <div class="text-sm text-gray-600">زمان بارگذاری</div>
+                    <div class="mt-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                        هدف: کمتر از 3 ثانیه
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-purple-600">80%+</div>
+                    <div class="text-sm text-gray-600">پوشش تست</div>
+                    <div class="mt-2 bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded">
+                        پیکربندی شده
+                    </div>
+                </div>
+                <div class="text-center">
+                    <div class="text-3xl font-bold text-orange-600">90%+</div>
+                    <div class="text-sm text-gray-600">رضایت کاربری</div>
+                    <div class="mt-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded">
+                        هدف: UX بهینه
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Technical Stack -->
+        <div class="mt-8 bg-gray-900 text-white rounded-lg p-6">
+            <h2 class="text-xl font-semibold mb-4 text-center">
+                🛠️ تکنولوژی‌های استفاده شده
+            </h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <div class="font-semibold text-green-400">امنیت:</div>
+                    <div>• Express Rate Limit</div>
+                    <div>• Helmet</div>
+                    <div>• CSRF Protection</div>
+                    <div>• Speakeasy (2FA)</div>
+                </div>
+                <div>
+                    <div class="font-semibold text-blue-400">تست:</div>
+                    <div>• Jest</div>
+                    <div>• Supertest</div>
+                    <div>• Vitest</div>
+                    <div>• Coverage Config</div>
+                </div>
+                <div>
+                    <div class="font-semibold text-purple-400">UI/UX:</div>
+                    <div>• TailwindCSS</div>
+                    <div>• Chart.js</div>
+                    <div>• React Components</div>
+                    <div>• Persian Fonts</div>
+                </div>
+                <div>
+                    <div class="font-semibold text-yellow-400">Backend:</div>
+                    <div>• Node.js</div>
+                    <div>• Express.js</div>
+                    <div>• MongoDB</div>
+                    <div>• Redis</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Sample Transaction Chart
+        const ctx1 = document.getElementById('transactionChart').getContext('2d');
+        new Chart(ctx1, {
+            type: 'line',
+            data: {
+                labels: ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه'],
+                datasets: [{
+                    label: 'حجم معاملات',
+                    data: [45000, 52000, 48000, 61000, 55000, 67000, 58000],
+                    borderColor: '#1746A2',
+                    backgroundColor: 'rgba(23, 70, 162, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: true,
+                        text: 'روند معاملات هفتگی'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Sample User Activity Chart
+        const ctx2 = document.getElementById('userChart').getContext('2d');
+        new Chart(ctx2, {
+            type: 'doughnut',
+            data: {
+                labels: ['فعال', 'غیرفعال', 'جدید'],
+                datasets: [{
+                    data: [156, 24, 18],
+                    backgroundColor: [
+                        '#10B981',
+                        '#EF4444',
+                        '#3B82F6'
+                    ],
+                    borderColor: [
+                        '#059669',
+                        '#DC2626',
+                        '#2563EB'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    },
+                    title: {
+                        display: true,
+                        text: 'وضعیت کاربران'
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+</html>
