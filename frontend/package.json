@@ -14,9 +14,7 @@
     "test:frontend": "cd frontend && npm test",
     "lint": "npm run lint:backend && npm run lint:frontend",
     "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint",
-    "install:all": "npm install && cd frontend && npm install && cd ../backend && npm install",
-    "postinstall": "npm run install:all"
+    "lint:frontend": "cd frontend && npm run lint"
   },
   "repository": {
     "type": "git",
