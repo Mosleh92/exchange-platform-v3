@@ -1,10 +1,8 @@
 import React from 'react';
+import BranchDashboard from '../components/dashboards/BranchDashboard';
 
-const BranchDashboard = () => (
-  <div>
-    <h2>داشبورد شعبه</h2>
-    <p>مدیریت عملیات شعبه، ثبت معاملات، حواله داخلی و گزارشات شعبه.</p>
-  </div>
+const BranchDashboardPage = () => (
+  <BranchDashboard />
 );
 
-export default BranchDashboard;
+export default BranchDashboardPage;
