@@ -65,6 +65,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           roles: ['super_admin']
         },
         {
+          title: 'هوش تجاری پیشرفته',
+          icon: TrendingUp,
+          path: '/business-intelligence',
+          roles: ['super_admin']
+        },
+        {
           title: 'تنظیمات سیستم',
           icon: Settings,
           path: '/system-settings',
@@ -119,6 +125,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           roles: ['tenant_admin', 'branch_manager']
         },
         {
+          title: 'هوش تجاری',
+          icon: TrendingUp,
+          path: '/business-intelligence',
+          roles: ['tenant_admin', 'branch_manager']
+        },
+        {
           title: 'تنظیمات',
           icon: Settings,
           path: '/settings',
@@ -164,6 +176,12 @@ const Sidebar = ({ isOpen, toggleSidebar }) => {
           title: 'گزارشات شعبه',
           icon: BarChart3,
           path: '/branch-reports',
+          roles: ['branch_manager']
+        },
+        {
+          title: 'آنالیز هوشمند',
+          icon: TrendingUp,
+          path: '/business-intelligence',
           roles: ['branch_manager']
         }
       ];

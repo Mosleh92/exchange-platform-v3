@@ -21,6 +21,7 @@ import TenantManagement from './pages/admin/TenantManagement';
 import AccountingDashboard from './pages/accounting/AccountingDashboard';
 import PaymentsPage from './pages/payments/PaymentsPage';
 import P2PPage from './pages/p2p/P2PPage';
+import BIDashboard from './pages/BusinessIntelligence/BIDashboard';
 
 // Styles
 import './index.css';
@@ -57,6 +58,7 @@ function App() {
                       <Route path="accounting" element={<AccountingDashboard />} />
                       <Route path="payments" element={<PaymentsPage />} />
                       <Route path="p2p" element={<P2PPage />} />
+                      <Route path="business-intelligence" element={<BIDashboard />} />
                     </Route>
                   </Routes>
                 </div>
