@@ -1,0 +1,53 @@
+{
+  "baseUrl": "http://localhost:5173",
+  "viewportWidth": 1280,
+  "viewportHeight": 720,
+  "video": true,
+  "screenshotOnRunFailure": true,
+  "defaultCommandTimeout": 10000,
+  "requestTimeout": 10000,
+  "responseTimeout": 10000,
+  "pageLoadTimeout": 30000,
+  "retries": {
+    "runMode": 2,
+    "openMode": 0
+  },
+  "e2e": {
+    "setupNodeEvents": "cypress/support/e2e.js",
+    "specPattern": "cypress/e2e/**/*.cy.{js,jsx,ts,tsx}",
+    "supportFile": "cypress/support/e2e.js",
+    "fixturesFolder": "cypress/fixtures",
+    "videosFolder": "cypress/videos",
+    "screenshotsFolder": "cypress/screenshots",
+    "downloadsFolder": "cypress/downloads"
+  },
+  "component": {
+    "devServer": {
+      "framework": "react",
+      "bundler": "vite"
+    },
+    "specPattern": "src/**/*.cy.{js,jsx,ts,tsx}",
+    "supportFile": "cypress/support/component.js"
+  },
+  "env": {
+    "apiUrl": "http://localhost:3000/api",
+    "testUser": {
+      "superAdmin": {
+        "email": "superadmin@test.com",
+        "password": "SuperAdmin@123"
+      },
+      "tenantAdmin": {
+        "email": "tenantadmin@test.com",
+        "password": "TenantAdmin@123"
+      },
+      "branchAdmin": {
+        "email": "branchadmin@test.com",
+        "password": "BranchAdmin@123"
+      },
+      "branchStaff": {
+        "email": "branchstaff@test.com",
+        "password": "BranchStaff@123"
+      }
+    }
+  }
+}

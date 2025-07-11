@@ -74,13 +74,18 @@ global.testUtils = {
   // Create test user with specific role and tenant
   createTestUser: async (userData = {}) => {
     const User = require('../models/User');
+    const bcrypt = require('bcryptjs');
+    
+    const defaultPassword = 'SecurePass@123';
+    const hashedPassword = await bcrypt.hash(defaultPassword, 4);
+    
     const defaultData = {
       username: `testuser_${Date.now()}`,
       email: `test_${Date.now()}@example.com`,
-      password: 'Test@123456',
+      password: hashedPassword,
       fullName: 'Test User',
       phone: '09123456789',
-      nationalId: '1234567890',
+      nationalId: String(Math.floor(Math.random() * 9000000000) + 1000000000),
       role: 'customer',
       status: 'active',
       ...userData
@@ -100,7 +105,14 @@ global.testUtils = {
       settings: {
         allowedCurrencies: ['USD', 'EUR', 'IRR'],
         maxDailyTransactionAmount: 10000,
-        requiresDocumentVerification: true
+        requiresDocumentVerification: true,
+        baseCurrency: 'IRR',
+        timezone: 'Asia/Tehran',
+        features: {
+          p2p: true,
+          crypto: false,
+          remittance: true
+        }
       },
       ...tenantData
     };
@@ -108,20 +120,86 @@ global.testUtils = {
     return await Tenant.create(defaultData);
   },
 
+  // Create test branch
+  createTestBranch: async (branchData = {}) => {
+    const Branch = require('../models/Branch');
+    const defaultData = {
+      name: 'Test Branch',
+      code: `BR_${Date.now()}`,
+      address: 'Test Address',
+      phone: '02123456789',
+      status: 'active',
+      ...branchData
+    };
+    
+    return await Branch.create(defaultData);
+  },
+
+  // Create test customer
+  createTestCustomer: async (customerData = {}) => {
+    const Customer = require('../models/Customer');
+    const defaultData = {
+      firstName: 'Test',
+      lastName: 'Customer',
+      email: `customer_${Date.now()}@example.com`,
+      phone: '09123456789',
+      nationalId: String(Math.floor(Math.random() * 9000000000) + 1000000000),
+      dateOfBirth: new Date('1990-01-01'),
+      address: 'Test Address',
+      status: 'active',
+      ...customerData
+    };
+    
+    return await Customer.create(defaultData);
+  },
+
   // Create test transaction
   createTestTransaction: async (transactionData = {}) => {
     const Transaction = require('../models/Transaction');
     const defaultData = {
       type: 'exchange',
-      amount: 100,
       sourceCurrency: 'USD',
-      targetCurrency: 'EUR',
-      exchangeRate: 0.85,
+      targetCurrency: 'IRR',
+      sourceAmount: 100,
+      targetAmount: 4200000,
+      rate: 42000,
       status: 'pending',
       ...transactionData
     };
     
     return await Transaction.create(defaultData);
+  },
+
+  // Create test account
+  createTestAccount: async (accountData = {}) => {
+    const Account = require('../models/Account');
+    const defaultData = {
+      accountNumber: `ACC_${Date.now()}`,
+      accountType: 'current',
+      currency: 'IRR',
+      balance: 0,
+      status: 'active',
+      ...accountData
+    };
+    
+    return await Account.create(defaultData);
+  },
+
+  // Create test exchange rate
+  createTestExchangeRate: async (rateData = {}) => {
+    const ExchangeRate = require('../models/ExchangeRate');
+    const defaultData = {
+      fromCurrency: 'USD',
+      toCurrency: 'IRR',
+      buyRate: 42000,
+      sellRate: 42500,
+      isActive: true,
+      validFrom: new Date(),
+      validTo: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+      ...rateData
+    };
+    
+    return await ExchangeRate.create(defaultData);
   },
 
   // Generate JWT token for testing
@@ -130,11 +208,128 @@ global.testUtils = {
     const defaultData = {
       userId: new mongoose.Types.ObjectId(),
       role: 'customer',
-      tenantId: new mongoose.Types.ObjectId(),
       ...userData
     };
     
     return jwt.sign(defaultData, process.env.JWT_SECRET, { expiresIn: '1h' });
+  },
+
+  // Create complete test scenario with tenant, users, branches
+  createTestScenario: async (tenantData = {}) => {
+    // Create tenant
+    const tenant = await global.testUtils.createTestTenant(tenantData);
+
+    // Create branch
+    const branch = await global.testUtils.createTestBranch({
+      tenantId: tenant._id
+    });
+
+    // Create users with different roles
+    const superAdmin = await global.testUtils.createTestUser({
+      role: 'super_admin',
+      email: 'superadmin@test.com'
+    });
+
+    const tenantAdmin = await global.testUtils.createTestUser({
+      tenantId: tenant._id,
+      branchId: branch._id,
+      role: 'tenant_admin',
+      email: 'tenantadmin@test.com'
+    });
+
+    const branchAdmin = await global.testUtils.createTestUser({
+      tenantId: tenant._id,
+      branchId: branch._id,
+      role: 'branch_admin',
+      email: 'branchadmin@test.com'
+    });
+
+    const branchStaff = await global.testUtils.createTestUser({
+      tenantId: tenant._id,
+      branchId: branch._id,
+      role: 'branch_staff',
+      email: 'branchstaff@test.com'
+    });
+
+    const customer = await global.testUtils.createTestCustomer({
+      tenantId: tenant._id,
+      email: 'customer@test.com'
+    });
+
+    // Create exchange rates
+    const usdRate = await global.testUtils.createTestExchangeRate({
+      tenantId: tenant._id,
+      fromCurrency: 'USD',
+      toCurrency: 'IRR',
+      buyRate: 42000,
+      sellRate: 42500
+    });
+
+    return {
+      tenant,
+      branch,
+      users: {
+        superAdmin,
+        tenantAdmin,
+        branchAdmin,
+        branchStaff
+      },
+      customer,
+      exchangeRates: {
+        usd: usdRate
+      }
+    };
+  },
+
+  // Generate tokens for all users in scenario
+  generateTokensForScenario: (scenario) => {
+    return {
+      superAdminToken: global.testUtils.generateTestToken({
+        userId: scenario.users.superAdmin._id,
+        role: 'super_admin'
+      }),
+      tenantAdminToken: global.testUtils.generateTestToken({
+        userId: scenario.users.tenantAdmin._id,
+        tenantId: scenario.tenant._id,
+        role: 'tenant_admin'
+      }),
+      branchAdminToken: global.testUtils.generateTestToken({
+        userId: scenario.users.branchAdmin._id,
+        tenantId: scenario.tenant._id,
+        branchId: scenario.branch._id,
+        role: 'branch_admin'
+      }),
+      branchStaffToken: global.testUtils.generateTestToken({
+        userId: scenario.users.branchStaff._id,
+        tenantId: scenario.tenant._id,
+        branchId: scenario.branch._id,
+        role: 'branch_staff'
+      }),
+      customerToken: global.testUtils.generateTestToken({
+        userId: scenario.customer._id,
+        tenantId: scenario.tenant._id,
+        role: 'customer'
+      })
+    };
+  },
+
+  // Assert response structure
+  expectSuccessResponse: (response, expectedData = {}) => {
+    expect(response.body).toHaveProperty('success', true);
+    expect(response.body).toHaveProperty('data');
+    
+    if (Object.keys(expectedData).length > 0) {
+      expect(response.body.data).toMatchObject(expectedData);
+    }
+  },
+
+  expectErrorResponse: (response, expectedMessage = null) => {
+    expect(response.body).toHaveProperty('success', false);
+    expect(response.body).toHaveProperty('message');
+    
+    if (expectedMessage) {
+      expect(response.body.message).toContain(expectedMessage);
+    }
   },
 
   // Mock external API responses

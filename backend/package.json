@@ -8,6 +8,17 @@
     "dev": "nodemon src/app.js",
     "build": "echo 'No build step required'",
     "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:unit": "jest src/tests/unit",
+    "test:integration": "jest src/tests/integration",
+    "test:qa": "jest src/tests/qa",
+    "test:qa:roles": "jest src/tests/qa/role-based",
+    "test:qa:e2e": "jest src/tests/qa/e2e",
+    "test:qa:security": "jest src/tests/qa/security",
+    "test:performance": "k6 run src/tests/qa/performance/load-test.js",
+    "test:smoke": "jest --testPathPattern=smoke",
+    "test:ci": "jest --coverage --ci --watchAll=false",
     "setup": "node scripts/setup.js"
   },
   "dependencies": {
