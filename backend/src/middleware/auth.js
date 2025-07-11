@@ -1,4 +1,6 @@
 const jwt = require('jsonwebtoken');
+const config = require('../config');
+const { UnauthorizedError } = require('../utils/errors');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 const jwt = require('jsonwebtoken');
@@ -25,6 +27,56 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'No token provided' });
     }
 
+ copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
+const authMiddleware = async (req, res, next) => {
+  try {
+    const token = req.headers.authorization?.split(' ')[1];
+    if (!token) {
+      throw new UnauthorizedError('توکن ارائه نشده است');
+    }
+    
+    const decoded = jwt.verify(token, config.app.jwtSecret);
+    
+    // Check if user still exists
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      throw new UnauthorizedError('کاربر یافت نشد');
+    }
+
+    // Check if user is active (status === 'active')
+    if (user.status !== 'active') {
+      throw new UnauthorizedError('حساب کاربری غیرفعال شده است');
+    }
+
+    // بررسی وضعیت Tenant
+    const tenant = await Tenant.findById(user.tenantId);
+    if (!tenant || tenant.status !== 'active') {
+      return res.status(403).json({
+        success: false,
+        message: 'سازمان شما غیرفعال شده است'
+      });
+    }
+
+    req.user = decoded;
+    
+    // اضافه کردن tenant_id به تمام درخواستها
+    req.tenantId = decoded.tenantId;
+    
+    // تنظیم اطلاعات کاربر در request (فقط یک بار)
+    req.user = {
+      userId: user._id,
+      tenantId: user.tenantId,
+      role: user.role,
+      permissions: user.permissions,
+      branchId: user.branchId,
+      status: user.status
+    };
+    req.userData = user;
+    
+    next();
+  } catch (error) {
+    next(new UnauthorizedError('توکن نامعتبر است'));
+=======
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const user = await User.findById(decoded.id)
       .populate('tenantId')
@@ -57,6 +109,7 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'Token expired' });
     }
     res.status(500).json({ message: 'Server error' });
+main
   }
 };
 
@@ -96,7 +149,18 @@ const tenantMiddleware = async (req, res, next) => {
 };
 
 module.exports = {
+ copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
+    auth: authMiddleware,
+    authMiddleware, // alias
+    authenticate: authMiddleware, // alias for compatibility
+    protect: authMiddleware, // alias for compatibility  
+    authorize,
+    tenantAccess,
+    superAdmin: authorize('super_admin') // helper for super admin role
+};
+=======
   authMiddleware,
   roleMiddleware,
   tenantMiddleware
 };
+ main
