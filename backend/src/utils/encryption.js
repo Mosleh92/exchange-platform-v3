@@ -7,12 +7,11 @@ const crypto = require('crypto');
  */
 class EncryptionService {
     constructor() {
-        this.algorithm = 'aes-256-gcm';
+        this.algorithm = 'aes-256-cbc';
         this.keyDerivationAlgorithm = 'pbkdf2';
         this.keyLength = 32;
         this.ivLength = 16;
         this.saltLength = 64;
-        this.tagLength = 16;
         this.iterations = 100000;
         
         // Get encryption key from environment
@@ -45,15 +44,13 @@ class EncryptionService {
 
         try {
             const iv = crypto.randomBytes(this.ivLength);
-            const cipher = crypto.createCipherGCM(this.algorithm, this.encryptionKey.key, iv);
+            const cipher = crypto.createCipher(this.algorithm, this.encryptionKey.key);
             
             let encrypted = cipher.update(text, 'utf8', 'hex');
             encrypted += cipher.final('hex');
             
-            const tag = cipher.getAuthTag();
-            
-            // Combine IV, encrypted data, and auth tag
-            return iv.toString('hex') + ':' + encrypted + ':' + tag.toString('hex');
+            // Combine IV and encrypted data
+            return iv.toString('hex') + ':' + encrypted;
         } catch (error) {
             console.error('Encryption error:', error);
             throw new Error('Failed to encrypt data');
@@ -70,16 +67,14 @@ class EncryptionService {
 
         try {
             const parts = encryptedData.split(':');
-            if (parts.length !== 3) {
+            if (parts.length !== 2) {
                 throw new Error('Invalid encrypted data format');
             }
 
             const iv = Buffer.from(parts[0], 'hex');
             const encrypted = parts[1];
-            const tag = Buffer.from(parts[2], 'hex');
 
-            const decipher = crypto.createDecipherGCM(this.algorithm, this.encryptionKey.key, iv);
-            decipher.setAuthTag(tag);
+            const decipher = crypto.createDecipher(this.algorithm, this.encryptionKey.key);
             
             let decrypted = decipher.update(encrypted, 'hex', 'utf8');
             decrypted += decipher.final('utf8');

@@ -60,7 +60,7 @@
     "stripe": "^18.3.0",
     "technicalindicators": "^3.1.0",
     "uuid": "^11.1.0",
-    "validator": "^13.12.0",
+    "validator": "^13.15.15",
     "web3": "^4.16.0",
     "winston": "^3.17.0",
     "ws": "^8.18.3",
