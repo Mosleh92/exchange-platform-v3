@@ -4,6 +4,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const swagger = require('./config/swagger');
 
 // Import enhanced services and middleware
@@ -15,6 +16,7 @@ const logger = require('./utils/logger');
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const enhancedAuthRoutes = require('./routes/enhancedAuth');
 const transactionRoutes = require('./routes/transaction');
 const accountRoutes = require('./routes/accounts');
 const p2pRoutes = require('./routes/p2p');
@@ -31,6 +33,10 @@ const validationMiddleware = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
 const performanceOptimization = require('./services/performanceOptimization.service');
 const databaseOptimization = require('./services/databaseOptimization.service');
+const securityHeaders = require('./middleware/securityHeaders');
+const advancedRateLimit = require('./middleware/advancedRateLimit');
+const tokenCleanupService = require('./services/tokenCleanup');
+const { enhancedAuth } = require('./middleware/enhancedAuth');
 
 const app = express();
 
@@ -40,6 +46,8 @@ const app = express();
  */
 
 // Apply security middleware
+app.use(securityHeaders.applyAllSecurityHeaders());
+app.use(securityHeaders.apiSecurityHeaders());
 app.use(securityMiddleware.applyAllSecurity());
 
 // Apply validation middleware
@@ -54,71 +62,22 @@ app.use(errorHandler.handleError);
 // Initialize global error handlers
 errorHandler.initializeGlobalHandlers();
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: 'RATE_LIMIT_ERROR',
-    message: 'Too many requests from this IP',
-    code: 'RATE_LIMIT_EXCEEDED'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-  keyGenerator: (req) => {
-    // Use tenant ID and user ID for more granular rate limiting
-    return `${req.headers['x-tenant-id'] || 'unknown'}-${req.user?.id || req.ip}`;
-  }
-});
-
-app.use('/api/', limiter);
+// Rate limiting - Use advanced rate limiter
+app.use('/api/', advancedRateLimit.generalUserLimiter());
 
 // Stricter rate limiting for sensitive endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: {
-    error: 'AUTH_RATE_LIMIT_ERROR',
-    message: 'Too many authentication attempts',
-    code: 'AUTH_RATE_LIMIT_EXCEEDED'
-  }
-});
-
-app.use('/api/auth/', authLimiter);
+app.use('/api/auth/', advancedRateLimit.authLimiter());
+app.use('/api/admin/', advancedRateLimit.adminLimiter());
+app.use('/api/transactions/', advancedRateLimit.transactionLimiter());
 
 // Compression
 app.use(compression());
 
-// CORS configuration
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'https://exchangeplatform.com'
-    ];
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'X-Tenant-ID',
-    'X-Request-ID',
-    'X-Client-Version'
-  ]
-}));
+// CORS configuration - Use secure CORS config
+app.use(cors(securityHeaders.getSecureCORSConfig()));
 
 // Body parsing middleware
+app.use(cookieParser()); // Add cookie parser before body parsing
 app.use(express.json({ 
   limit: '10mb',
   verify: (req, res, buf) => {
@@ -154,11 +113,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+// CSP violation reporting endpoint
+app.post('/api/security/csp-report', express.json(), securityHeaders.cspReportHandler());
+
 // API documentation
 app.use('/api-docs', swagger.serve, swagger.setup);
 
 // API routes with enhanced middleware
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', enhancedAuthRoutes); // New enhanced auth routes
+app.use('/api/auth-legacy', authRoutes); // Keep legacy auth for backward compatibility
 app.use('/api/transaction', (req, res, next) => {
   req.optimizedQuery = databaseOptimization.executeQuery.bind(databaseOptimization);
   req.paginatedQuery = databaseOptimization.paginatedQuery.bind(databaseOptimization);
@@ -171,13 +134,16 @@ app.use('/api/users', userRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/remittances', remittanceRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', securityHeaders.adminSecurityHeaders(), adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 // Event-driven architecture initialization
 const eventService = new EnhancedEventService();
 const tenantConfigService = new EnhancedTenantConfigService();
 const auditService = new EnhancedAuditService();
+
+// Start background services
+tokenCleanupService.start();
 
 // Global event listeners for system monitoring
 eventService.on('TRANSACTION_COMPLETED', async (eventData) => {
@@ -230,6 +196,9 @@ app.use('*', (req, res) => {
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   
+  // Stop background services
+  tokenCleanupService.stop();
+  
   // Close database connections
   const mongoose = require('mongoose');
   mongoose.connection.close(() => {
@@ -240,6 +209,9 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
+  
+  // Stop background services
+  tokenCleanupService.stop();
   
   // Close database connections
   const mongoose = require('mongoose');

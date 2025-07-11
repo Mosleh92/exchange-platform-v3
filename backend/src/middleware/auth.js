@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
-const jwt = require('jsonwebtoken');
-const User = require('../modules/user/user.model');
 
 exports.authorize = (roles = []) => async (req, res, next) => {
   try {
@@ -17,6 +15,7 @@ exports.authorize = (roles = []) => async (req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
   }
 };
+
 const authMiddleware = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
