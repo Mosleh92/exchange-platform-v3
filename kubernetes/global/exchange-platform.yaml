@@ -1,0 +1,652 @@
+# Global Exchange Platform Deployment
+# Phase 3: Multi-Region Kubernetes Configuration
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: exchange-platform
+  labels:
+    name: exchange-platform
+    environment: production
+    tier: application
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: global-config
+  namespace: exchange-platform
+data:
+  # Global configuration
+  NODE_ENV: "production"
+  LOG_LEVEL: "info"
+  
+  # Multi-region configuration
+  REGION: "us-east-1"  # Will be overridden per region
+  ENABLE_GLOBAL_LOAD_BALANCING: "true"
+  ENABLE_CROSS_REGION_REPLICATION: "true"
+  
+  # Database configuration
+  DB_POOL_SIZE: "20"
+  DB_CONNECTION_TIMEOUT: "30000"
+  DB_ENABLE_SSL: "true"
+  
+  # Redis configuration
+  REDIS_CLUSTER_MODE: "true"
+  REDIS_MAX_RETRIES: "3"
+  REDIS_RETRY_DELAY: "100"
+  
+  # Security configuration
+  ENABLE_RATE_LIMITING: "true"
+  ENABLE_DDoS_PROTECTION: "true"
+  JWT_ALGORITHM: "RS256"
+  
+  # Trading engine configuration
+  TRADING_ENGINE_MODE: "high_performance"
+  MAX_ORDERS_PER_SECOND: "10000"
+  ENABLE_MARKET_MAKING: "true"
+  
+  # Compliance configuration
+  ENABLE_GLOBAL_COMPLIANCE: "true"
+  COMPLIANCE_JURISDICTION: "multi"
+  ENABLE_AUDIT_LOGGING: "true"
+  
+  # Monitoring configuration
+  ENABLE_METRICS: "true"
+  ENABLE_TRACING: "true"
+  PROMETHEUS_ENDPOINT: "/metrics"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: exchange-api
+  namespace: exchange-platform
+  labels:
+    app: exchange-api
+    tier: backend
+    component: api-server
+spec:
+  replicas: 6
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 2
+      maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: exchange-api
+  template:
+    metadata:
+      labels:
+        app: exchange-api
+        tier: backend
+        component: api-server
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "3000"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: exchange-api-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 2000
+      containers:
+      - name: api-server
+        image: exchange-platform/api:v3.0.0
+        ports:
+        - containerPort: 3000
+          name: http
+          protocol: TCP
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
+        env:
+        - name: PORT
+          value: "3000"
+        - name: METRICS_PORT
+          value: "8080"
+        envFrom:
+        - configMapRef:
+            name: global-config
+        - secretRef:
+            name: exchange-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 2
+        volumeMounts:
+        - name: app-logs
+          mountPath: /app/logs
+        - name: ssl-certs
+          mountPath: /app/ssl
+          readOnly: true
+      volumes:
+      - name: app-logs
+        emptyDir: {}
+      - name: ssl-certs
+        secret:
+          secretName: ssl-certificates
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                  - exchange-api
+              topologyKey: kubernetes.io/hostname
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: exchange-api
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trading-engine
+  namespace: exchange-platform
+  labels:
+    app: trading-engine
+    tier: backend
+    component: trading
+spec:
+  replicas: 4
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: trading-engine
+  template:
+    metadata:
+      labels:
+        app: trading-engine
+        tier: backend
+        component: trading
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      serviceAccountName: exchange-api-sa
+      containers:
+      - name: trading-engine
+        image: exchange-platform/trading-engine:v3.0.0
+        ports:
+        - containerPort: 4000
+          name: trading
+        - containerPort: 8080
+          name: metrics
+        env:
+        - name: TRADING_PORT
+          value: "4000"
+        - name: ENGINE_MODE
+          value: "high_frequency"
+        envFrom:
+        - configMapRef:
+            name: global-config
+        - secretRef:
+            name: exchange-secrets
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "4000m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 4000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            preference:
+              matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - compute-optimized
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: websocket-server
+  namespace: exchange-platform
+  labels:
+    app: websocket-server
+    tier: backend
+    component: realtime
+spec:
+  replicas: 8
+  selector:
+    matchLabels:
+      app: websocket-server
+  template:
+    metadata:
+      labels:
+        app: websocket-server
+        tier: backend
+        component: realtime
+    spec:
+      serviceAccountName: exchange-api-sa
+      containers:
+      - name: websocket-server
+        image: exchange-platform/websocket:v3.0.0
+        ports:
+        - containerPort: 5000
+          name: websocket
+        env:
+        - name: WS_PORT
+          value: "5000"
+        - name: MAX_CONNECTIONS
+          value: "10000"
+        envFrom:
+        - configMapRef:
+            name: global-config
+        - secretRef:
+            name: exchange-secrets
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-ml-service
+  namespace: exchange-platform
+  labels:
+    app: ai-ml-service
+    tier: backend
+    component: ml
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ai-ml-service
+  template:
+    metadata:
+      labels:
+        app: ai-ml-service
+        tier: backend
+        component: ml
+    spec:
+      serviceAccountName: exchange-api-sa
+      containers:
+      - name: ai-ml-service
+        image: exchange-platform/ai-ml:v3.0.0
+        ports:
+        - containerPort: 6000
+          name: ml-api
+        env:
+        - name: ML_PORT
+          value: "6000"
+        - name: MODEL_CACHE_SIZE
+          value: "2048"
+        envFrom:
+        - configMapRef:
+            name: global-config
+        - secretRef:
+            name: exchange-secrets
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+            nvidia.com/gpu: 1
+          limits:
+            memory: "8Gi"
+            cpu: "4000m"
+            nvidia.com/gpu: 1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-type
+                operator: In
+                values:
+                - gpu-enabled
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: compliance-service
+  namespace: exchange-platform
+  labels:
+    app: compliance-service
+    tier: backend
+    component: compliance
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: compliance-service
+  template:
+    metadata:
+      labels:
+        app: compliance-service
+        tier: backend
+        component: compliance
+    spec:
+      serviceAccountName: exchange-api-sa
+      containers:
+      - name: compliance-service
+        image: exchange-platform/compliance:v3.0.0
+        ports:
+        - containerPort: 7000
+          name: compliance
+        env:
+        - name: COMPLIANCE_PORT
+          value: "7000"
+        - name: AUDIT_RETENTION_DAYS
+          value: "2555"  # 7 years
+        envFrom:
+        - configMapRef:
+            name: global-config
+        - secretRef:
+            name: exchange-secrets
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: exchange-api-service
+  namespace: exchange-platform
+  labels:
+    app: exchange-api
+spec:
+  selector:
+    app: exchange-api
+  ports:
+  - name: http
+    port: 80
+    targetPort: 3000
+    protocol: TCP
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: trading-engine-service
+  namespace: exchange-platform
+  labels:
+    app: trading-engine
+spec:
+  selector:
+    app: trading-engine
+  ports:
+  - name: trading
+    port: 4000
+    targetPort: 4000
+    protocol: TCP
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: websocket-service
+  namespace: exchange-platform
+  labels:
+    app: websocket-server
+spec:
+  selector:
+    app: websocket-server
+  ports:
+  - name: websocket
+    port: 5000
+    targetPort: 5000
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-ml-service
+  namespace: exchange-platform
+  labels:
+    app: ai-ml-service
+spec:
+  selector:
+    app: ai-ml-service
+  ports:
+  - name: ml-api
+    port: 6000
+    targetPort: 6000
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: compliance-service
+  namespace: exchange-platform
+  labels:
+    app: compliance-service
+spec:
+  selector:
+    app: compliance-service
+  ports:
+  - name: compliance
+    port: 7000
+    targetPort: 7000
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: exchange-platform-ingress
+  namespace: exchange-platform
+  annotations:
+    kubernetes.io/ingress.class: "alb"
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:region:account:certificate/certificate-id"
+    alb.ingress.kubernetes.io/wafv2-acl-arn: "arn:aws:wafv2:region:account:webacl/exchange-platform-waf"
+    alb.ingress.kubernetes.io/shield-advanced-protection: "true"
+spec:
+  rules:
+  - host: api.exchange.com
+    http:
+      paths:
+      - path: /api/v1
+        pathType: Prefix
+        backend:
+          service:
+            name: exchange-api-service
+            port:
+              number: 80
+      - path: /trading
+        pathType: Prefix
+        backend:
+          service:
+            name: trading-engine-service
+            port:
+              number: 4000
+      - path: /ws
+        pathType: Prefix
+        backend:
+          service:
+            name: websocket-service
+            port:
+              number: 5000
+      - path: /ml
+        pathType: Prefix
+        backend:
+          service:
+            name: ai-ml-service
+            port:
+              number: 6000
+      - path: /compliance
+        pathType: Prefix
+        backend:
+          service:
+            name: compliance-service
+            port:
+              number: 7000
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: exchange-api-sa
+  namespace: exchange-platform
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::account:role/ExchangePlatformServiceRole"
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: exchange-api-hpa
+  namespace: exchange-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: exchange-api
+  minReplicas: 6
+  maxReplicas: 50
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 15
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: trading-engine-hpa
+  namespace: exchange-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: trading-engine
+  minReplicas: 4
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 60
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 70
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: exchange-api-pdb
+  namespace: exchange-platform
+spec:
+  minAvailable: 4
+  selector:
+    matchLabels:
+      app: exchange-api
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: trading-engine-pdb
+  namespace: exchange-platform
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: trading-engine
