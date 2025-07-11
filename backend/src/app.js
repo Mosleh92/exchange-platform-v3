@@ -25,6 +25,10 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 
+// Import financial system routes and services
+const financialRoutes = require('./routes/financial');
+const FinancialController = require('./controllers/financial.controller');
+
 // Import new services and middleware
 const securityMiddleware = require('./middleware/security');
 const validationMiddleware = require('./middleware/validation');
@@ -174,6 +178,9 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+// Financial system routes (ACID-compliant)
+app.use('/api/financial', financialRoutes);
+
 // Event-driven architecture initialization
 const eventService = new EnhancedEventService();
 const tenantConfigService = new EnhancedTenantConfigService();
@@ -227,26 +234,44 @@ app.use('*', (req, res) => {
 });
 
 // Graceful shutdown handling
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
   
-  // Close database connections
-  const mongoose = require('mongoose');
-  mongoose.connection.close(() => {
-    logger.info('Database connection closed');
+  try {
+    // Close financial database connections
+    const financialDB = require('./config/financial-database');
+    await financialDB.close();
+    
+    // Close MongoDB connections
+    const mongoose = require('mongoose');
+    await mongoose.connection.close();
+    
+    logger.info('All database connections closed');
     process.exit(0);
-  });
+  } catch (error) {
+    logger.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
   
-  // Close database connections
-  const mongoose = require('mongoose');
-  mongoose.connection.close(() => {
-    logger.info('Database connection closed');
+  try {
+    // Close financial database connections
+    const financialDB = require('./config/financial-database');
+    await financialDB.close();
+    
+    // Close MongoDB connections
+    const mongoose = require('mongoose');
+    await mongoose.connection.close();
+    
+    logger.info('All database connections closed');
     process.exit(0);
-  });
+  } catch (error) {
+    logger.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
 });
 
 // Unhandled promise rejection handler
@@ -331,5 +356,16 @@ module.exports = {
   app,
   eventService,
   tenantConfigService,
-  auditService
+  auditService,
+  // Financial system initialization
+  initializeFinancialSystem: async () => {
+    try {
+      logger.info('Initializing financial system...');
+      await FinancialController.initialize();
+      logger.info('Financial system initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize financial system:', error);
+      throw error;
+    }
+  }
 };
