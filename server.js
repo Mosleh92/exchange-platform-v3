@@ -247,4 +247,6 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Exchange Platform V3 running on port ${PORT}`)
+  console.log(`🔧 For full backend functionality, run: cd backend && npm start`)
+  console.log(`📊 Backend with enhanced security runs on port 3001`)
 })
