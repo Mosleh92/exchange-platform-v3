@@ -2,7 +2,21 @@
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
-const logger = require('../utils/logger');
+
+// Fallback logger if winston logger fails
+const logger = (() => {
+  try {
+    return require('../utils/logger');
+  } catch (error) {
+    console.warn('Using fallback logger');
+    return {
+      error: console.error,
+      warn: console.warn,
+      info: console.info,
+      debug: console.debug
+    };
+  }
+})();
 
 /**
  * Enhanced Secrets Manager

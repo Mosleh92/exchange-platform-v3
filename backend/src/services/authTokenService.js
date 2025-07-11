@@ -2,7 +2,21 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const redis = require('redis');
-const logger = require('../utils/logger');
+
+// Fallback logger if winston logger fails
+const logger = (() => {
+  try {
+    return require('../utils/logger');
+  } catch (error) {
+    console.warn('Using fallback logger');
+    return {
+      error: console.error,
+      warn: console.warn,
+      info: console.info,
+      debug: console.debug
+    };
+  }
+})();
 
 /**
  * Enhanced Authentication Token Service

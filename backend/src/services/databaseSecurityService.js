@@ -1,7 +1,21 @@
 // backend/src/services/databaseSecurityService.js
 const crypto = require('crypto');
 const mongoose = require('mongoose');
-const logger = require('../utils/logger');
+
+// Fallback logger if winston logger fails
+const logger = (() => {
+  try {
+    return require('../utils/logger');
+  } catch (error) {
+    console.warn('Using fallback logger');
+    return {
+      error: console.error,
+      warn: console.warn,
+      info: console.info,
+      debug: console.debug
+    };
+  }
+})();
 
 /**
  * Database Security Service
@@ -14,7 +28,7 @@ class DatabaseSecurityService {
     this.auditCollection = 'audit_logs';
     
     if (!this.encryptionKey) {
-      logger.warn('DB_ENCRYPTION_KEY not set, encryption features disabled');
+      console.warn('DB_ENCRYPTION_KEY not set, encryption features disabled');
     }
 
     this.sensitiveFields = [

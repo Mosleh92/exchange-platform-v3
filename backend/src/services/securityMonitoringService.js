@@ -1,6 +1,20 @@
 // backend/src/services/securityMonitoringService.js
 const EventEmitter = require('events');
-const logger = require('../utils/logger');
+
+// Fallback logger if winston logger fails
+const logger = (() => {
+  try {
+    return require('../utils/logger');
+  } catch (error) {
+    console.warn('Using fallback logger');
+    return {
+      error: console.error,
+      warn: console.warn,
+      info: console.info,
+      debug: console.debug
+    };
+  }
+})();
 
 /**
  * Security Monitoring and Alerting Service
