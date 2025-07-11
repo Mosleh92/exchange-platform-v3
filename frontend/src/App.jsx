@@ -10,13 +10,13 @@ import { TenantProvider } from './contexts/TenantContext';
 import { StateSyncProvider } from './contexts/StateSyncContext';
 
 // Components
-import Layout from './components/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
+import Layout from './components/Layout/Layout';
+import ProtectedRoute from './router/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
 
 // Pages
-import Login from './pages/auth/Login';
-import Dashboard from './pages/Dashboard';
+import Login from './pages/Auth/Login';
+import Dashboard from './pages/Dashboard/Dashboard';
 import TenantManagement from './pages/admin/TenantManagement';
 import AccountingDashboard from './pages/accounting/AccountingDashboard';
 import PaymentsPage from './pages/payments/PaymentsPage';
