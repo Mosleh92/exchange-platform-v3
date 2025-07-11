@@ -1,14 +1,19 @@
 {
-  "name": "exchange-platform-backend",
-  "version": "3.0.0",
-  "description": "Multi-tenant Exchange Platform Backend",
+  "name": "exchange-platform-enterprise",
+  "version": "4.0.0",
+  "description": "Enterprise Multi-tenant Exchange Platform with PostgreSQL, Enhanced Security, and 25+ Financial Modules",
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "build": "echo 'No build step required'",
     "test": "jest",
-    "setup": "node scripts/setup.js"
+    "setup": "node scripts/setup.js",
+    "db:init": "node -e \"require('./src/services/DatabaseService').initialize()\"",
+    "db:health": "node -e \"require('./src/services/DatabaseService').healthCheck().then(console.log)\"",
+    "migrate": "sequelize db:migrate",
+    "migrate:undo": "sequelize db:migrate:undo",
+    "seed": "sequelize db:seed:all"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",
@@ -27,6 +32,7 @@
     "country-list": "^2.3.0",
     "crypto": "^1.0.1",
     "crypto-js": "^4.2.0",
+    "dotenv": "^17.2.0",
     "express": "^4.18.2",
     "express-rate-limit": "^6.11.2",
     "express-session": "^1.17.3",

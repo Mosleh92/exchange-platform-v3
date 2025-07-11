@@ -1,8 +1,8 @@
 {
-  "name": "exchange-platform-v3",
-  "version": "1.0.0",
+  "name": "exchange-platform-enterprise",
+  "version": "4.0.0",
   "private": true,
-  "description": "Multi-tenant exchange platform built with Node.js, React, and MongoDB",
+  "description": "Enterprise Multi-tenant Exchange Platform with PostgreSQL, Enhanced Security, 25+ Financial Modules, and 4-Level Multi-tenant SaaS Architecture",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
@@ -22,11 +22,23 @@
   },
   "keywords": [
     "exchange",
+    "enterprise",
+    "multi-tenant", 
+    "saas",
+    "postgresql",
+    "financial",
     "trading",
-    "multi-tenant",
+    "p2p",
+    "remittance",
+    "accounting",
+    "double-entry",
+    "security",
+    "2fa",
+    "jwt",
+    "rate-limiting",
+    "compliance",
     "nodejs",
-    "react",
-    "mongodb"
+    "react"
   ],
   "author": "Exchange Platform Team",
   "license": "MIT",
