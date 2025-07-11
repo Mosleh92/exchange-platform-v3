@@ -4,7 +4,6 @@ const slowDown = require('express-slow-down');
 const xss = require('xss-clean');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
-const validator = require('validator');
 const { SecurityLogger } = require('../utils/securityLogger');
 
 /**
@@ -377,20 +376,17 @@ class SecurityHardenedMiddleware {
     if (typeof input !== 'string') {
       return input;
     }
-
-    // Remove null bytes
-    input = input.replace(/\0/g, '');
-
-    // Remove control characters
-    input = input.replace(/[\x00-\x1F\x7F]/g, '');
-
-    // HTML encode
-    input = validator.escape(input);
-
-    // Remove script tags
-    input = input.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
-
-    return input.trim();
+    let sanitized = input.trim();
+    let previous;
+    do {
+      previous = sanitized;
+      sanitized = sanitized
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+        .replace(/<[^>]*>/g, '') // Remove HTML tags
+        .replace(/(?:javascript|data|vbscript):/gi, '') // Remove dangerous protocols
+        .replace(/on\w+=/gi, ''); // Remove event handlers
+    } while (sanitized !== previous);
+    return sanitized.trim();
   }
 
   /**
