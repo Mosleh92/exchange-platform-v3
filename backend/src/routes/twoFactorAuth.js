@@ -75,4 +75,23 @@ router.post('/regenerate-backup-codes',
     TwoFactorAuthController.regenerateBackupCodes
 );
 
+// Generate SMS 2FA code
+router.post('/generate-sms',
+    rateLimiter('2fa_sms_generate', 5, 15 * 60 * 1000), // 5 requests per 15 minutes
+    TwoFactorAuthController.generateSMSCode
+);
+
+// Verify SMS 2FA code
+router.post('/verify-sms',
+    rateLimiter('2fa_sms_verify', 10, 15 * 60 * 1000), // 10 requests per 15 minutes
+    [
+        body('code')
+            .isLength({ min: 6, max: 6 })
+            .withMessage('کد SMS باید 6 رقم باشد')
+            .isNumeric()
+            .withMessage('کد SMS باید عددی باشد')
+    ],
+    TwoFactorAuthController.verifySMSCode
+);
+
 module.exports = router;

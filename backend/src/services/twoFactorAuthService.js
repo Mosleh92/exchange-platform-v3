@@ -3,6 +3,7 @@ const speakeasy = require('speakeasy');
 const QRCode = require('qrcode');
 const User = require('../models/User');
 const crypto = require('crypto');
+const { sendSMS } = require('./external/smsService');
 
 class TwoFactorAuthService {
     /**
@@ -196,6 +197,125 @@ class TwoFactorAuthService {
             };
         } catch (error) {
             throw new Error(`خطا در دریافت وضعیت 2FA: ${error.message}`);
+        }
+    }
+
+    /**
+     * Generate SMS 2FA code and send to user's phone
+     */
+    async generateSMSCode(userId) {
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                throw new Error('کاربر یافت نشد');
+            }
+
+            if (!user.phone) {
+                throw new Error('شماره تلفن کاربر یافت نشد');
+            }
+
+            // Generate 6-digit code
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            const expiry = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+            // Store code temporarily (you might want to use Redis for this)
+            user.smsCode = this.hashSMSCode(code);
+            user.smsCodeExpiry = expiry;
+            await user.save();
+
+            // Send SMS
+            const smsConfig = {
+                provider: process.env.SMS_PROVIDER || 'kavenegar',
+                apiKey: process.env.SMS_API_KEY,
+                apiSecret: process.env.SMS_API_SECRET,
+                fromNumber: process.env.SMS_FROM_NUMBER
+            };
+
+            const message = `کد تایید صرافی: ${code}\nاین کد تا 5 دقیقه معتبر است.`;
+            
+            await sendSMS({
+                to: user.phone,
+                text: message,
+                provider: smsConfig.provider,
+                config: smsConfig
+            });
+
+            return {
+                success: true,
+                message: 'کد تایید به شماره شما ارسال شد',
+                expiresAt: expiry
+            };
+        } catch (error) {
+            throw new Error(`خطا در ارسال کد SMS: ${error.message}`);
+        }
+    }
+
+    /**
+     * Verify SMS 2FA code
+     */
+    async verifySMSCode(userId, code) {
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                throw new Error('کاربر یافت نشد');
+            }
+
+            if (!user.smsCode || !user.smsCodeExpiry) {
+                throw new Error('کد SMS یافت نشد');
+            }
+
+            if (new Date() > user.smsCodeExpiry) {
+                throw new Error('کد SMS منقضی شده است');
+            }
+
+            const hashedInput = this.hashSMSCode(code);
+            if (hashedInput !== user.smsCode) {
+                throw new Error('کد SMS نامعتبر است');
+            }
+
+            // Clear used code
+            user.smsCode = null;
+            user.smsCodeExpiry = null;
+            await user.save();
+
+            return true;
+        } catch (error) {
+            throw new Error(`خطا در تایید کد SMS: ${error.message}`);
+        }
+    }
+
+    /**
+     * Hash SMS code
+     */
+    hashSMSCode(code) {
+        return crypto.createHash('sha256').update(code + process.env.SMS_SALT).digest('hex');
+    }
+
+    /**
+     * Check if 2FA is required for user role
+     */
+    is2FARequired(userRole) {
+        const requiredRoles = ['super_admin', 'tenant_admin'];
+        return requiredRoles.includes(userRole);
+    }
+
+    /**
+     * Enforce 2FA for admin users
+     */
+    async enforce2FAForUser(userId) {
+        try {
+            const user = await User.findById(userId);
+            if (!user) {
+                throw new Error('کاربر یافت نشد');
+            }
+
+            if (this.is2FARequired(user.role) && !user.twoFactorEnabled) {
+                throw new Error('کاربران مدیر باید 2FA را فعال کنند');
+            }
+
+            return true;
+        } catch (error) {
+            throw new Error(`خطا در بررسی الزام 2FA: ${error.message}`);
         }
     }
 

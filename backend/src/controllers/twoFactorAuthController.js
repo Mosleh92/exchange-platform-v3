@@ -174,6 +174,75 @@ class TwoFactorAuthController {
     }
 
     /**
+     * Generate SMS 2FA code
+     */
+    async generateSMSCode(req, res) {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'اطلاعات ورودی نامعتبر است',
+                    errors: errors.array()
+                });
+            }
+
+            const userId = req.user.id;
+            const result = await TwoFactorAuthService.generateSMSCode(userId);
+
+            res.json({
+                success: true,
+                message: 'کد SMS با موفقیت ارسال شد',
+                data: result
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+    /**
+     * Verify SMS 2FA code
+     */
+    async verifySMSCode(req, res) {
+        try {
+            const errors = validationResult(req);
+            if (!errors.isEmpty()) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'اطلاعات ورودی نامعتبر است',
+                    errors: errors.array()
+                });
+            }
+
+            const userId = req.user.id;
+            const { code } = req.body;
+
+            const isValid = await TwoFactorAuthService.verifySMSCode(userId, code);
+
+            if (!isValid) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'کد SMS نامعتبر است'
+                });
+            }
+
+            res.json({
+                success: true,
+                message: 'کد SMS معتبر است',
+                data: { valid: true }
+            });
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
+    /**
      * Regenerate backup codes
      */
     async regenerateBackupCodes(req, res) {

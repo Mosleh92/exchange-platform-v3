@@ -113,6 +113,16 @@ const userSchema = new mongoose.Schema({
     }],
     twoFactorLastUsed: Date,
     
+    // SMS 2FA
+    smsCode: {
+        type: String,
+        select: false
+    },
+    smsCodeExpiry: {
+        type: Date,
+        select: false
+    },
+    
     // Security settings
     ipWhitelist: [{
         ip: String,

@@ -77,6 +77,19 @@ class SecurityAPI {
         return apiClient.post('/2fa/regenerate-backup-codes', { token });
     }
 
+    // SMS 2FA
+    async generateSMSCode() {
+        return apiClient.post('/2fa/generate-sms');
+    }
+
+    async verifySMSCode(code) {
+        return apiClient.post('/2fa/verify-sms', { code });
+    }
+
+    async verify2FAToken(token) {
+        return apiClient.post('/2fa/verify', { token });
+    }
+
     // IP Whitelist
     async getIPWhitelist() {
         return apiClient.get('/ip-whitelist');
