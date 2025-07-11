@@ -1,0 +1,87 @@
+# Secure Docker Configuration
+# backend/Dockerfile.secure
+
+# Use specific version instead of 'latest' for better security
+FROM node:18.17.0-alpine3.18
+
+# Create non-root user for running the application
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001 -G nodejs
+
+# Set security-focused environment variables
+ENV NODE_ENV=production
+ENV NPM_CONFIG_CACHE=/tmp/.npm
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false
+ENV NPM_CONFIG_FUND=false
+ENV NPM_CONFIG_AUDIT_LEVEL=moderate
+
+# Install security updates and required packages
+RUN apk update && \
+    apk upgrade && \
+    apk add --no-cache \
+        dumb-init \
+        curl \
+        ca-certificates && \
+    rm -rf /var/cache/apk/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files first for better layer caching
+COPY package*.json ./
+
+# Install dependencies with security configurations
+RUN npm ci --only=production --ignore-scripts && \
+    npm cache clean --force && \
+    rm -rf /tmp/.npm
+
+# Copy application code
+COPY --chown=nextjs:nodejs . .
+
+# Remove development files and sensitive information
+RUN rm -rf \
+    .env.development \
+    .env.example \
+    tests/ \
+    docs/ \
+    *.md \
+    .git* \
+    Dockerfile* \
+    docker-compose* && \
+    # Set proper file permissions
+    chmod -R 755 /app && \
+    chmod -R 644 /app/*.json /app/*.js
+
+# Create necessary directories with proper permissions
+RUN mkdir -p /app/uploads/temp /app/uploads/quarantine /app/logs && \
+    chown -R nextjs:nodejs /app/uploads /app/logs && \
+    chmod 750 /app/uploads /app/logs
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-3000}/health || exit 1
+
+# Security configurations
+# Drop all capabilities and add only what's needed
+# Run as non-root user
+# Set read-only root filesystem
+# Use dumb-init for proper signal handling
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port (non-privileged)
+EXPOSE 3000
+
+# Use dumb-init for proper signal handling
+ENTRYPOINT ["dumb-init", "--"]
+
+# Start the application
+CMD ["node", "src/app.js"]
+
+# Security Labels
+LABEL security.scan="required" \
+      security.vulnerability-scan="required" \
+      security.non-root="true" \
+      security.read-only-root="preferred" \
+      maintainer="security@exchange-platform.com"

@@ -1,0 +1,346 @@
+# Secure Docker Compose Configuration
+# docker-compose.secure.yml
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.secure
+    container_name: exchange-backend-secure
+    restart: unless-stopped
+    
+    # Security configurations
+    read_only: true
+    user: "1001:1001"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+      - seccomp:default
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Temporary filesystems for security
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100M
+      - /var/run:noexec,nosuid,size=50M
+      - /app/logs:noexec,nosuid,size=200M
+    
+    # Volume mounts with security options
+    volumes:
+      - backend_uploads:/app/uploads:rw,noexec,nosuid
+      - backend_secrets:/app/secrets:ro,noexec,nosuid
+    
+    # Environment variables
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=mongodb
+      - REDIS_HOST=redis
+      - LOG_LEVEL=info
+      - TRUST_PROXY=true
+    
+    # Environment file (should contain secrets)
+    env_file:
+      - ./backend/.env.production
+    
+    # Network configuration
+    networks:
+      - backend_network
+      - database_network
+    
+    # Dependencies
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=backend,environment=production"
+
+  mongodb:
+    image: mongo:6.0.6-jammy
+    container_name: exchange-mongodb-secure
+    restart: unless-stopped
+    
+    # Security configurations
+    user: "999:999"
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+      - CHOWN
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    
+    # Environment variables
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME_FILE=/run/secrets/mongodb_root_username
+      - MONGO_INITDB_ROOT_PASSWORD_FILE=/run/secrets/mongodb_root_password
+      - MONGO_INITDB_DATABASE=exchange_platform
+    
+    # Secrets
+    secrets:
+      - mongodb_root_username
+      - mongodb_root_password
+    
+    # Volume mounts
+    volumes:
+      - mongodb_data:/data/db:rw,noexec,nosuid
+      - mongodb_config:/data/configdb:rw,noexec,nosuid
+      - ./mongodb/mongod.conf:/etc/mongod.conf:ro
+      - ./mongodb/init-scripts:/docker-entrypoint-initdb.d:ro
+    
+    # Network configuration
+    networks:
+      - database_network
+    
+    # Custom command for security
+    command: mongod --config /etc/mongod.conf
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=mongodb,environment=production"
+
+  redis:
+    image: redis:7.0.11-alpine3.18
+    container_name: exchange-redis-secure
+    restart: unless-stopped
+    
+    # Security configurations
+    user: "999:999"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Volume mounts
+    volumes:
+      - redis_data:/data:rw,noexec,nosuid
+      - ./redis/redis.conf:/etc/redis/redis.conf:ro
+    
+    # Network configuration
+    networks:
+      - backend_network
+    
+    # Custom command with configuration
+    command: redis-server /etc/redis/redis.conf
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=redis,environment=production"
+
+  nginx:
+    image: nginx:1.24.0-alpine3.17
+    container_name: exchange-nginx-secure
+    restart: unless-stopped
+    
+    # Security configurations
+    user: "101:101"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    
+    # Port mapping
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    # Volume mounts
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_cache:/var/cache/nginx:rw,noexec,nosuid
+      - nginx_logs:/var/log/nginx:rw,noexec,nosuid
+    
+    # Network configuration
+    networks:
+      - backend_network
+      - frontend_network
+    
+    # Dependencies
+    depends_on:
+      - backend
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=nginx,environment=production"
+
+# Networks with security configurations
+networks:
+  backend_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "127.0.0.1"
+  
+  database_network:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+  
+  frontend_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.22.0.0/24
+
+# Volumes with security configurations
+volumes:
+  mongodb_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,noexec,nosuid
+      device: ./data/mongodb
+  
+  mongodb_config:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,noexec,nosuid
+      device: ./data/mongodb-config
+  
+  redis_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,noexec,nosuid
+      device: ./data/redis
+  
+  backend_uploads:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,noexec,nosuid
+      device: ./data/uploads
+  
+  backend_secrets:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind,ro,noexec,nosuid
+      device: ./secrets
+  
+  nginx_cache:
+    driver: local
+  
+  nginx_logs:
+    driver: local
+
+# Secrets management
+secrets:
+  mongodb_root_username:
+    file: ./secrets/mongodb_root_username.txt
+  mongodb_root_password:
+    file: ./secrets/mongodb_root_password.txt

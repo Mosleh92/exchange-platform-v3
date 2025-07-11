@@ -6,7 +6,18 @@ const compression = require('compression');
 const morgan = require('morgan');
 const swagger = require('./config/swagger');
 
-// Import enhanced services and middleware
+// Import enhanced security services and middleware
+const secretsManager = require('./config/secretsManager');
+const authTokenService = require('./services/authTokenService');
+const mfaService = require('./services/mfaService');
+const databaseSecurityService = require('./services/databaseSecurityService');
+const securityMonitoringService = require('./services/securityMonitoringService');
+const enhancedAuth = require('./middleware/enhancedAuth');
+const inputValidation = require('./middleware/inputValidation');
+const secureFileUpload = require('./middleware/secureFileUpload');
+const websocketSecurity = require('./middleware/websocketSecurity');
+
+// Import existing enhanced services and middleware
 const EnhancedErrorHandler = require('./middleware/enhancedErrorHandler');
 const EnhancedEventService = require('./services/enhancedEventService');
 const EnhancedTenantConfigService = require('./services/enhancedTenantConfigService');
@@ -36,14 +47,96 @@ const app = express();
 
 /**
  * Enhanced Express Application Configuration
- * Includes all security, performance, and monitoring features
+ * Includes comprehensive security, performance, and monitoring features
  */
 
-// Apply security middleware
-app.use(securityMiddleware.applyAllSecurity());
+// Initialize security services
+async function initializeSecurityServices() {
+  try {
+    // Initialize secrets manager first
+    await secretsManager.initialize();
+    
+    // Initialize database security
+    databaseSecurityService.setupMongooseMiddleware();
+    
+    // Setup security monitoring
+    securityMonitoringService.registerAlertHandler('email', (alert) => {
+      // Email notification handler
+      logger.error('Security Alert - Email notification', alert);
+    });
+    
+    securityMonitoringService.registerAlertHandler('slack', (alert) => {
+      // Slack notification handler  
+      logger.error('Security Alert - Slack notification', alert);
+    });
+    
+    logger.info('Security services initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize security services:', error);
+    process.exit(1);
+  }
+}
 
-// Apply validation middleware
-app.use(validationMiddleware.sanitizeRequestData);
+// Initialize security services
+initializeSecurityServices();
+
+// Enhanced security middleware stack
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"]
+    }
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// Enhanced input validation and sanitization
+app.use(inputValidation.sanitizeRequest);
+app.use(inputValidation.contentBasedRateLimit);
+
+// Security monitoring middleware
+app.use((req, res, next) => {
+  // Log security events
+  if (req.path.includes('admin') || req.path.includes('api/auth')) {
+    const eventType = req.path.includes('admin') ? 'admin_access' : 'auth_attempt';
+    securityMonitoringService.logSecurityEvent(eventType, {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      path: req.path,
+      method: req.method
+    });
+  }
+  next();
+});
+
+// IP blocking middleware
+app.use((req, res, next) => {
+  if (securityMonitoringService.isIPBlocked(req.ip)) {
+    securityMonitoringService.logSecurityEvent('blocked_ip_attempt', {
+      ip: req.ip,
+      path: req.path,
+      userAgent: req.get('User-Agent')
+    });
+    
+    return res.status(403).json({
+      error: 'ACCESS_DENIED',
+      message: 'Access denied from this IP address'
+    });
+  }
+  next();
+});
 
 // Apply performance optimization
 app.use(performanceOptimization.optimizeResponseCompression);
@@ -54,10 +147,10 @@ app.use(errorHandler.handleError);
 // Initialize global error handlers
 errorHandler.initializeGlobalHandlers();
 
-// Rate limiting
-const limiter = rateLimit({
+// Enhanced rate limiting with better security
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  max: 100,
   message: {
     error: 'RATE_LIMIT_ERROR',
     message: 'Too many requests from this IP',
@@ -66,25 +159,30 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
-    // Use tenant ID and user ID for more granular rate limiting
     return `${req.headers['x-tenant-id'] || 'unknown'}-${req.user?.id || req.ip}`;
+  },
+  handler: (req, res) => {
+    securityMonitoringService.logSecurityEvent('rate_limit_violation', {
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      path: req.path
+    });
+    
+    res.status(429).json({
+      error: 'RATE_LIMIT_ERROR',
+      message: 'Too many requests from this IP',
+      code: 'RATE_LIMIT_EXCEEDED'
+    });
   }
 });
 
-app.use('/api/', limiter);
+app.use('/api/', generalLimiter);
 
-// Stricter rate limiting for sensitive endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: {
-    error: 'AUTH_RATE_LIMIT_ERROR',
-    message: 'Too many authentication attempts',
-    code: 'AUTH_RATE_LIMIT_EXCEEDED'
-  }
-});
-
-app.use('/api/auth/', authLimiter);
+// Enhanced authentication rate limiting
+const authLimiters = enhancedAuth.getRateLimiters();
+app.use('/api/auth/login', authLimiters.login);
+app.use('/api/auth/forgot-password', authLimiters.passwordReset);
+app.use('/api/auth/refresh', authLimiters.refresh);
 
 // Compression
 app.use(compression());
@@ -143,36 +241,59 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint
+// Enhanced health check endpoint with security metrics
 app.get('/health', (req, res) => {
-  res.status(200).json({
+  const healthData = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     memory: process.memoryUsage(),
-    version: process.env.npm_package_version || '1.0.0'
-  });
+    version: process.env.npm_package_version || '1.0.0',
+    security: {
+      secretsInitialized: secretsManager.getSecretsStatus().initialized,
+      encryptionEnabled: !!process.env.DB_ENCRYPTION_KEY,
+      monitoringActive: true
+    }
+  };
+  
+  res.status(200).json(healthData);
+});
+
+// Security status endpoint (admin only)
+app.get('/api/security/status', enhancedAuth.authenticate, enhancedAuth.authorize(['admin', 'super_admin']), (req, res) => {
+  const securityStatus = {
+    secrets: secretsManager.getSecretsStatus(),
+    monitoring: securityMonitoringService.getSecurityMetrics(),
+    alerts: securityMonitoringService.getRecentAlerts(10),
+    database: {
+      encryptionEnabled: !!process.env.DB_ENCRYPTION_KEY,
+      auditingEnabled: true
+    }
+  };
+  
+  res.json(securityStatus);
 });
 
 // API documentation
 app.use('/api-docs', swagger.serve, swagger.setup);
 
-// API routes with enhanced middleware
+// API routes with enhanced security middleware
 app.use('/api/auth', authRoutes);
-app.use('/api/transaction', (req, res, next) => {
+app.use('/api/transaction', enhancedAuth.authenticate, enhancedAuth.requireTenant, (req, res, next) => {
   req.optimizedQuery = databaseOptimization.executeQuery.bind(databaseOptimization);
   req.paginatedQuery = databaseOptimization.paginatedQuery.bind(databaseOptimization);
   req.batchLoad = databaseOptimization.batchLoadUsers.bind(databaseOptimization);
   next();
 }, transactionRoutes);
-app.use('/api/accounts', accountRoutes);
-app.use('/api/p2p', p2pRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/remittances', remittanceRoutes);
-app.use('/api/reports', reportRoutes);
-app.use('/api/admin', adminRoutes);
-app.use('/api/analytics', analyticsRoutes);
+
+app.use('/api/accounts', enhancedAuth.authenticate, enhancedAuth.requireTenant, accountRoutes);
+app.use('/api/p2p', enhancedAuth.authenticate, enhancedAuth.requireTenant, p2pRoutes);
+app.use('/api/users', enhancedAuth.authenticate, userRoutes);
+app.use('/api/payments', enhancedAuth.authenticate, enhancedAuth.requireTenant, paymentRoutes);
+app.use('/api/remittances', enhancedAuth.authenticate, enhancedAuth.requireTenant, remittanceRoutes);
+app.use('/api/reports', enhancedAuth.authenticate, enhancedAuth.authorize(['admin', 'super_admin']), reportRoutes);
+app.use('/api/admin', enhancedAuth.authenticate, enhancedAuth.authorize(['admin', 'super_admin']), enhancedAuth.requireMFA, adminRoutes);
+app.use('/api/analytics', enhancedAuth.authenticate, enhancedAuth.authorize(['admin', 'super_admin']), analyticsRoutes);
 
 // Event-driven architecture initialization
 const eventService = new EnhancedEventService();
@@ -226,30 +347,52 @@ app.use('*', (req, res) => {
   });
 });
 
-// Graceful shutdown handling
-process.on('SIGTERM', () => {
+// Enhanced graceful shutdown handling
+process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
   
-  // Close database connections
-  const mongoose = require('mongoose');
-  mongoose.connection.close(() => {
-    logger.info('Database connection closed');
+  try {
+    // Close database connections
+    const mongoose = require('mongoose');
+    await mongoose.connection.close();
+    
+    // Close token service connections
+    await authTokenService.close();
+    
+    // Clear secrets from memory
+    secretsManager.clearSecrets();
+    
+    logger.info('Graceful shutdown completed');
     process.exit(0);
-  });
+  } catch (error) {
+    logger.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
 });
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
   
-  // Close database connections
-  const mongoose = require('mongoose');
-  mongoose.connection.close(() => {
-    logger.info('Database connection closed');
+  try {
+    // Close database connections
+    const mongoose = require('mongoose');
+    await mongoose.connection.close();
+    
+    // Close token service connections
+    await authTokenService.close();
+    
+    // Clear secrets from memory
+    secretsManager.clearSecrets();
+    
+    logger.info('Graceful shutdown completed');
     process.exit(0);
-  });
+  } catch (error) {
+    logger.error('Error during graceful shutdown:', error);
+    process.exit(1);
+  }
 });
 
-// Unhandled promise rejection handler
+// Enhanced unhandled promise rejection handler
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   
@@ -267,9 +410,16 @@ process.on('unhandledRejection', (reason, promise) => {
     },
     severity: 'CRITICAL'
   });
+  
+  // Log to security monitoring
+  securityMonitoringService.logSecurityEvent('system_error', {
+    ip: 'localhost',
+    error: reason?.message || reason,
+    type: 'unhandled_rejection'
+  });
 });
 
-// Uncaught exception handler
+// Enhanced uncaught exception handler
 process.on('uncaughtException', (error) => {
   logger.error('Uncaught Exception:', error);
   
@@ -288,11 +438,18 @@ process.on('uncaughtException', (error) => {
     severity: 'CRITICAL'
   });
   
+  // Log to security monitoring
+  securityMonitoringService.logSecurityEvent('system_error', {
+    ip: 'localhost',
+    error: error.message,
+    type: 'uncaught_exception'
+  });
+  
   // Exit process after logging
   process.exit(1);
 });
 
-// Performance monitoring
+// Enhanced performance monitoring with security events
 app.use((req, res, next) => {
   const start = Date.now();
   
@@ -300,7 +457,7 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     const { method, url, statusCode } = req;
     
-    // Log slow requests
+    // Log slow requests as potential performance issues
     if (duration > 1000) {
       logger.warn('Slow request detected', {
         method,
@@ -310,26 +467,57 @@ app.use((req, res, next) => {
         userId: req.user?.id,
         tenantId: req.headers['x-tenant-id']
       });
+      
+      // Log to security monitoring
+      securityMonitoringService.logSecurityEvent('performance_issue', {
+        ip: req.ip,
+        userId: req.user?.id,
+        duration,
+        path: url,
+        method
+      });
     }
     
-    // Log performance metrics
+    // Log performance metrics with security context
     logger.info('Request completed', {
       method,
       url,
       statusCode,
       duration,
       userId: req.user?.id,
-      tenantId: req.headers['x-tenant-id']
+      tenantId: req.headers['x-tenant-id'],
+      ip: req.ip
     });
+    
+    // Check for suspicious activity patterns
+    if (statusCode === 401 || statusCode === 403) {
+      securityMonitoringService.logSecurityEvent('unauthorized_access', {
+        ip: req.ip,
+        userId: req.user?.id,
+        path: url,
+        statusCode,
+        userAgent: req.get('User-Agent')
+      });
+    }
   });
   
   next();
 });
 
-// Export enhanced app with services
+// Export enhanced app with all security services
 module.exports = {
   app,
   eventService,
   tenantConfigService,
-  auditService
+  auditService,
+  // New security services
+  secretsManager,
+  authTokenService,
+  mfaService,
+  databaseSecurityService,
+  securityMonitoringService,
+  enhancedAuth,
+  inputValidation,
+  secureFileUpload,
+  websocketSecurity
 };
