@@ -3,7 +3,7 @@ import { toast } from 'react-hot-toast';
 
 // Unified API configuration
 const API_CONFIG = {
-  BASE_URL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+const API_BASE_URL = process.env.VITE_API_URL || '/api';
   TIMEOUT: 30000,
   RETRY_ATTEMPTS: 3,
   RETRY_DELAY: 1000
@@ -126,7 +126,10 @@ const apiWithRetry = async (config, retries = API_CONFIG.RETRY_ATTEMPTS) => {
   }
 };
 
-// Export enhanced API methods
+export const authAPI = {
+  login: (data) => axios.post(`${API_BASE_URL}/auth/login`, data),
+  register: (data) => axios.post(`${API_BASE_URL}/auth/register`, data),
+};
 export const apiClient = {
   get: (url, config = {}) => apiWithRetry({ ...config, method: 'get', url }),
   post: (url, data, config = {}) => apiWithRetry({ ...config, method: 'post', url, data }),
