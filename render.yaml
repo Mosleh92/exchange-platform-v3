@@ -1,9 +1,656 @@
+# render.yaml - کنفیگریشن کامل برای Render.com
 services:
+  # Backend Service
   - type: web
-    name: exchange-platform-backend
-    runtime: node
-    buildCommand: npm install && npm run build:backend
-    startCommand: npm start
+    name: exchange-backend
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: |
+      cd backend
+      npm install
+      npm run build
+    startCommand: |
+      cd backend
+      npm start
     envVars:
       - key: NODE_ENV
-        value: production 
+        value: production
+      - key: PORT
+        value: 3000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: exchange-mongodb
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: exchange-redis
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: exchange-frontend
+          property: url
+    
+  # Frontend Service  
+  - type: web
+    name: exchange-frontend
+    env: static
+    region: oregon
+    plan: starter
+    buildCommand: |
+      cd frontend
+      npm install
+      npm run build
+    staticPublishPath: ./frontend/dist
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: exchange-backend
+          property: url
+      - key: VITE_WS_URL
+        fromService:
+          type: web
+          name: exchange-backend
+          property: url
+      - key: VITE_APP_NAME
+        value: "پلتفرم صرافی همیار"
+
+# Databases
+databases:
+  - name: exchange-mongodb
+    databaseName: exchange_platform
+    user: exchange_user
+    plan: starter
+
+# Redis
+services:
+  - type: redis
+    name: exchange-redis
+    plan: starter
+    region: oregon
+
+---
+
+# docker-compose.yml - برای Development و Production
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: exchange_mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-admin123}
+      MONGO_INITDB_DATABASE: exchange_platform
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - exchange_network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: exchange_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - exchange_network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: exchange_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      PORT: 3000
+      MONGODB_URI: mongodb://admin:${MONGO_PASSWORD:-admin123}@mongodb:27017/exchange_platform?authSource=admin
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
+      SESSION_SECRET: ${SESSION_SECRET:-your-super-secret-session-key}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+    depends_on:
+      - mongodb
+      - redis
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    networks:
+      - exchange_network
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000}
+        VITE_WS_URL: ${VITE_WS_URL:-ws://localhost:3000}
+        VITE_APP_NAME: "پلتفرم صرافی همیار"
+    container_name: exchange_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - backend
+    networks:
+      - exchange_network
+
+  # Nginx Load Balancer (اختیاری)
+  nginx:
+    image: nginx:alpine
+    container_name: exchange_nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - exchange_network
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  exchange_network:
+    driver: bridge
+
+---
+
+# backend/Dockerfile
+FROM node:18-alpine AS base
+WORKDIR /app
+
+# Install dependencies
+COPY package*.json ./
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY . .
+
+# Create uploads directory
+RUN mkdir -p uploads/receipts uploads/documents logs
+
+# Set permissions
+RUN chown -R node:node /app
+USER node
+
+# Expose port
+EXPOSE 3000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/api/health || exit 1
+
+# Start the application
+CMD ["npm", "start"]
+
+---
+
+# frontend/Dockerfile
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci
+
+# Copy source code
+COPY . .
+
+# Build arguments
+ARG VITE_API_URL
+ARG VITE_WS_URL
+ARG VITE_APP_NAME
+
+# Set environment variables
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_WS_URL=$VITE_WS_URL
+ENV VITE_APP_NAME=$VITE_APP_NAME
+
+# Build the application
+RUN npm run build
+
+# Production stage
+FROM nginx:alpine
+
+# Copy built files
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# Copy nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# Expose port
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
+
+---
+
+# frontend/nginx.conf
+events {
+    worker_connections 1024;
+}
+
+http {
+    include       /etc/nginx/mime.types;
+    default_type  application/octet-stream;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
+
+    server {
+        listen 80;
+        server_name localhost;
+        root /usr/share/nginx/html;
+        index index.html;
+
+        # Handle client-side routing
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # API proxy to backend
+        location /api/ {
+            proxy_pass http://backend:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_cache_bypass $http_upgrade;
+        }
+
+        # WebSocket proxy
+        location /socket.io/ {
+            proxy_pass http://backend:3000;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+        }
+
+        # Static assets caching
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+        }
+    }
+}
+
+---
+
+# scripts/init-mongo.js
+// MongoDB initialization script
+db = db.getSiblingDB('exchange_platform');
+
+// Create collections
+db.createCollection('users');
+db.createCollection('tenants');
+db.createCollection('sub_tenants');
+db.createCollection('accounts');
+db.createCollection('transactions');
+db.createCollection('transaction_entries');
+db.createCollection('general_ledgers');
+db.createCollection('multi_account_payments');
+db.createCollection('payment_receipts');
+
+// Create indexes for performance
+db.users.createIndex({ "email": 1 }, { unique: true });
+db.users.createIndex({ "tenantId": 1 });
+db.tenants.createIndex({ "superAdminId": 1 });
+db.accounts.createIndex({ "tenantId": 1, "accountCode": 1 });
+db.transactions.createIndex({ "tenantId": 1, "transactionDate": -1 });
+db.general_ledgers.createIndex({ "tenantId": 1, "accountId": 1, "transactionDate": -1 });
+
+// Create Super Admin user
+db.users.insertOne({
+  email: 'admin@exchange.com',
+  password: '$2b$10$YourHashedPasswordHere', // باید hash شود
+  role: 'super_admin',
+  profile: {
+    firstName: 'سوپر',
+    lastName: 'ادمین',
+    phone: '+989123456789'
+  },
+  isActive: true,
+  isEmailVerified: true,
+  createdAt: new Date(),
+  updatedAt: new Date()
+});
+
+print('MongoDB initialized successfully!');
+
+---
+
+# .env.example
+# Environment variables template
+
+# Application
+NODE_ENV=production
+PORT=3000
+FRONTEND_URL=https://your-domain.com
+
+# Database
+MONGODB_URI=mongodb://localhost:27017/exchange_platform
+REDIS_URL=redis://localhost:6379
+
+# Security
+JWT_SECRET=your-super-secret-jwt-key-minimum-32-characters
+SESSION_SECRET=your-super-secret-session-key-minimum-32-characters
+
+# File Upload
+MAX_FILE_SIZE=5242880
+UPLOAD_PATH=./uploads
+
+# Email (اختیاری)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+
+# SMS (اختیاری)
+SMS_API_KEY=your-sms-api-key
+SMS_SENDER=+989123456789
+
+# External APIs
+CURRENCY_API_KEY=your-currency-api-key
+
+---
+
+# package.json - Backend
+{
+  "name": "exchange-platform-backend",
+  "version": "3.0.0",
+  "description": "Multi-tenant Exchange Platform Backend",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "build": "echo 'No build step required'",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "setup": "node scripts/setup.js",
+    "seed": "node scripts/seed.js",
+    "migrate": "node scripts/migrate.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "mongoose": "^7.5.0",
+    "redis": "^4.6.7",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "express-rate-limit": "^6.8.1",
+    "socket.io": "^4.7.2",
+    "nodemailer": "^6.9.4",
+    "joi": "^17.9.2",
+    "moment-jalaali": "^0.10.0",
+    "winston": "^3.10.0",
+    "compression": "^1.7.4",
+    "express-session": "^1.17.3",
+    "connect-redis": "^7.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "jest": "^29.6.2",
+    "supertest": "^6.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+---
+
+# package.json - Frontend
+{
+  "name": "exchange-platform-frontend",
+  "version": "3.0.0",
+  "description": "Multi-tenant Exchange Platform Frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.15.0",
+    "axios": "^1.5.0",
+    "socket.io-client": "^4.7.2",
+    "lucide-react": "^0.263.1",
+    "recharts": "^2.8.0",
+    "react-hook-form": "^7.45.4",
+    "react-query": "^3.39.3",
+    "zustand": "^4.4.1",
+    "date-fns-jalali": "^2.30.0-1",
+    "react-hot-toast": "^2.4.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "vite": "^4.4.5",
+    "eslint": "^8.45.0",
+    "eslint-plugin-react": "^7.32.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.3",
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.28",
+    "tailwindcss": "^3.3.3",
+    "vitest": "^0.34.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+---
+
+# scripts/deploy.sh
+#!/bin/bash
+
+# Deployment script for Exchange Platform
+
+echo "🚀 شروع deployment پلتفرم صرافی..."
+
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo "❌ Docker نصب نیست. لطفاً ابتدا Docker را نصب کنید."
+    exit 1
+fi
+
+# Check if Docker Compose is installed
+if ! command -v docker-compose &> /dev/null; then
+    echo "❌ Docker Compose نصب نیست. لطفاً ابتدا Docker Compose را نصب کنید."
+    exit 1
+fi
+
+# Create necessary directories
+echo "📁 ایجاد پوشه‌های مورد نیاز..."
+mkdir -p uploads/receipts uploads/documents logs nginx/ssl
+
+# Copy environment file if it doesn't exist
+if [ ! -f .env ]; then
+    echo "📄 کپی فایل environment..."
+    cp .env.example .env
+    echo "⚠️  لطفاً فایل .env را ویرایش کنید و مقادیر مناسب را وارد نمایید."
+fi
+
+# Build and start services
+echo "🔨 Build و راه‌اندازی سرویس‌ها..."
+docker-compose down
+docker-compose build --no-cache
+docker-compose up -d
+
+# Wait for services to be ready
+echo "⏳ انتظار برای آماده شدن سرویس‌ها..."
+sleep 30
+
+# Check if services are running
+echo "🔍 بررسی وضعیت سرویس‌ها..."
+docker-compose ps
+
+# Test API health
+echo "🏥 تست سلامت API..."
+if curl -f http://localhost:3000/api/health; then
+    echo "✅ API سالم است"
+else
+    echo "❌ مشکل در API"
+fi
+
+# Test frontend
+echo "🌐 تست frontend..."
+if curl -f http://localhost:80; then
+    echo "✅ Frontend سالم است"
+else
+    echo "❌ مشکل در Frontend"
+fi
+
+echo "🎉 Deployment تکمیل شد!"
+echo "🌐 Frontend: http://localhost"
+echo "🔧 API: http://localhost:3000"
+echo "📊 MongoDB: localhost:27017"
+echo "🔄 Redis: localhost:6379"
+
+echo "📝 برای مشاهده logs:"
+echo "docker-compose logs -f backend"
+echo "docker-compose logs -f frontend"
+
+---
+
+# scripts/backup.sh
+#!/bin/bash
+
+# Database backup script
+
+echo "💾 شروع backup پایگاه داده..."
+
+# Create backup directory
+BACKUP_DIR="./backups/$(date +%Y%m%d_%H%M%S)"
+mkdir -p $BACKUP_DIR
+
+# MongoDB backup
+echo "📦 Backup MongoDB..."
+docker exec exchange_mongodb mongodump --db exchange_platform --out /backup
+docker cp exchange_mongodb:/backup $BACKUP_DIR/mongodb
+
+# Redis backup
+echo "📦 Backup Redis..."
+docker exec exchange_redis redis-cli --rdb /backup/dump.rdb
+docker cp exchange_redis:/backup/dump.rdb $BACKUP_DIR/redis/
+
+# Uploads backup
+echo "📦 Backup uploads..."
+cp -r uploads $BACKUP_DIR/
+
+# Compress backup
+echo "🗜️  فشرده‌سازی backup..."
+tar -czf "$BACKUP_DIR.tar.gz" -C "./backups" "$(basename $BACKUP_DIR)"
+rm -rf $BACKUP_DIR
+
+echo "✅ Backup تکمیل شد: $BACKUP_DIR.tar.gz"
+
+---
+
+# Makefile
+.PHONY: help install dev build start stop restart logs backup
+
+# Default target
+help:
+	@echo "دستورات موجود:"
+	@echo "  install    - نصب dependencies"
+	@echo "  dev        - راه‌اندازی محیط development"
+	@echo "  build      - Build پروژه"
+	@echo "  start      - راه‌اندازی production"
+	@echo "  stop       - توقف سرویس‌ها"
+	@echo "  restart    - راه‌اندازی مجدد"
+	@echo "  logs       - مشاهده logs"
+	@echo "  backup     - تهیه backup"
+
+install:
+	@echo "📦 نصب dependencies..."
+	cd backend && npm install
+	cd frontend && npm install
+
+dev:
+	@echo "🚀 راه‌اندازی محیط development..."
+	docker-compose -f docker-compose.dev.yml up -d
+	cd backend && npm run dev &
+	cd frontend && npm run dev
+
+build:
+	@echo "🔨 Build پروژه..."
+	docker-compose build
+
+start:
+	@echo "🚀 راه‌اندازی production..."
+	docker-compose up -d
+
+stop:
+	@echo "⏹️  توقف سرویس‌ها..."
+	docker-compose down
+
+restart:
+	@echo "🔄 راه‌اندازی مجدد..."
+	docker-compose restart
+
+logs:
+	@echo "📋 مشاهده logs..."
+	docker-compose logs -f
+
+backup:
+	@echo "💾 تهیه backup..."
+	./scripts/backup.sh

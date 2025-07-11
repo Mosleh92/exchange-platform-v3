@@ -1,0 +1,353 @@
+/* Enhanced P2P Transaction Component Styles */
+
+.enhanced-p2p-transaction {
+  @apply bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden;
+  direction: rtl;
+}
+
+/* Transaction Header */
+.transaction-header {
+  @apply p-6 border-b border-gray-200;
+}
+
+.transaction-header h3 {
+  @apply text-xl font-bold mb-1;
+}
+
+.transaction-header p {
+  @apply text-sm opacity-80;
+}
+
+/* Transaction Details */
+.transaction-details {
+  @apply p-6;
+}
+
+.detail-card {
+  @apply bg-gray-50 rounded-lg p-4 border border-gray-200;
+}
+
+.detail-card h4 {
+  @apply text-base font-semibold mb-3;
+}
+
+.detail-card .space-y-2 > div {
+  @apply flex justify-between items-center py-1;
+}
+
+.detail-card .font-mono {
+  @apply text-sm bg-gray-100 px-2 py-1 rounded;
+}
+
+/* Payments Section */
+.payments-section {
+  @apply p-6 border-t border-gray-200 bg-gray-50;
+}
+
+.payments-section h4 {
+  @apply text-lg font-semibold mb-4;
+}
+
+.payments-list {
+  @apply bg-white rounded-lg border border-gray-200;
+}
+
+.payment-item {
+  @apply p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors;
+}
+
+.payment-item:last-child {
+  @apply border-b-0;
+}
+
+.payment-status {
+  @apply flex items-center justify-center w-8 h-8 rounded-full bg-gray-100;
+}
+
+/* Action Buttons */
+.action-buttons {
+  @apply p-6 border-t border-gray-200 bg-white;
+}
+
+.payment-upload-section {
+  @apply mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200;
+}
+
+.payment-upload-section h5 {
+  @apply text-base font-semibold mb-3 text-blue-800;
+}
+
+/* Form Elements */
+.form-input {
+  @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors;
+}
+
+.form-input:disabled {
+  @apply bg-gray-100 cursor-not-allowed;
+}
+
+/* Buttons */
+.btn {
+  @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+}
+
+.btn:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+
+.btn-success {
+  @apply bg-green-600 text-white hover:bg-green-700 focus:ring-green-500;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+}
+
+.btn-secondary {
+  @apply bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500;
+}
+
+.btn-sm {
+  @apply px-3 py-1 text-sm;
+}
+
+/* Status Colors */
+.text-yellow-600 {
+  color: #d97706;
+}
+
+.text-orange-600 {
+  color: #ea580c;
+}
+
+.text-blue-600 {
+  color: #2563eb;
+}
+
+.text-green-600 {
+  color: #16a34a;
+}
+
+.text-red-600 {
+  color: #dc2626;
+}
+
+.text-gray-600 {
+  color: #4b5563;
+}
+
+.bg-yellow-50 {
+  background-color: #fefce8;
+}
+
+.bg-orange-50 {
+  background-color: #fff7ed;
+}
+
+.bg-blue-50 {
+  background-color: #eff6ff;
+}
+
+.bg-green-50 {
+  background-color: #f0fdf4;
+}
+
+.bg-red-50 {
+  background-color: #fef2f2;
+}
+
+.bg-gray-50 {
+  background-color: #f9fafb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .transaction-details .grid {
+    @apply grid-cols-1;
+  }
+  
+  .action-buttons .flex {
+    @apply flex-col space-y-3 space-y-reverse;
+  }
+  
+  .payment-upload-section .grid {
+    @apply grid-cols-1;
+  }
+}
+
+/* Print Styles */
+@media print {
+  .enhanced-p2p-transaction {
+    @apply shadow-none border-none;
+  }
+  
+  .action-buttons {
+    @apply hidden;
+  }
+  
+  .payments-section {
+    @apply bg-white;
+  }
+}
+
+/* Animation Classes */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Hover Effects */
+.detail-card:hover {
+  @apply shadow-md transition-shadow duration-200;
+}
+
+.payment-item:hover {
+  @apply bg-blue-50;
+}
+
+/* Focus States */
+.form-input:focus {
+  @apply ring-2 ring-blue-500 border-blue-500;
+}
+
+.btn:focus {
+  @apply ring-2 ring-offset-2;
+}
+
+/* Loading States */
+.loading-overlay {
+  @apply absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center;
+}
+
+/* Error States */
+.error-message {
+  @apply text-red-600 text-sm mt-2;
+}
+
+/* Success States */
+.success-message {
+  @apply text-green-600 text-sm mt-2;
+}
+
+/* Warning States */
+.warning-message {
+  @apply text-yellow-600 text-sm mt-2;
+}
+
+/* Custom Scrollbar */
+.payments-list {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.payments-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.payments-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+
+.payments-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.payments-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* RTL Specific Styles */
+[dir="rtl"] .space-x-3 > * + * {
+  margin-right: 0.75rem;
+  margin-left: 0;
+}
+
+[dir="rtl"] .space-x-2 > * + * {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+[dir="rtl"] .space-x-reverse > * + * {
+  margin-right: 0;
+  margin-left: 0.75rem;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .enhanced-p2p-transaction {
+    @apply bg-gray-900 border-gray-700;
+  }
+  
+  .transaction-header {
+    @apply border-gray-700;
+  }
+  
+  .detail-card {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .payments-section {
+    @apply bg-gray-800 border-gray-700;
+  }
+  
+  .payments-list {
+    @apply bg-gray-900 border-gray-700;
+  }
+  
+  .payment-item {
+    @apply border-gray-700 hover:bg-gray-800;
+  }
+  
+  .action-buttons {
+    @apply bg-gray-900 border-gray-700;
+  }
+  
+  .payment-upload-section {
+    @apply bg-blue-900 border-blue-700;
+  }
+  
+  .form-input {
+    @apply bg-gray-800 border-gray-600 text-white;
+  }
+  
+  .form-input:focus {
+    @apply border-blue-500;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin {
+    animation: none;
+  }
+  
+  .transition-all,
+  .transition-colors,
+  .transition-shadow {
+    transition: none;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .btn {
+    @apply border-2;
+  }
+  
+  .detail-card {
+    @apply border-2;
+  }
+  
+  .payment-item {
+    @apply border-2;
+  }
+} 

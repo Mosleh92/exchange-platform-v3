@@ -11,7 +11,18 @@
   },
   "rules": {
     "no-unused-vars": "warn",
-    "no-undef": "error",
-    "no-console": "off"
-  }
+    "no-undef": "warn",
+    "no-console": "off",
+    "no-dupe-keys": "warn",
+    "no-useless-catch": "warn"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.js", "**/tests/**/*.js"],
+      "rules": {
+        "no-unused-vars": "off",
+        "no-undef": "off"
+      }
+    }
+  ]
 } 

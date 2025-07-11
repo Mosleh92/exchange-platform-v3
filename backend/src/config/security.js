@@ -1,9 +1,74 @@
+const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
-const cors = require('cors');
-const validator = require('validator');
+const mongoSanitize = require('express-mongo-sanitize');
 
-// **اصلاح شده**: Secure CORS configuration
+const securityConfig = (app) => {
+    // Rate limiting
+    app.use(rateLimit({
+        windowMs: 15 * 60 * 1000, // 15 دقیقه
+        max: 100, // حداکثر 100 درخواست
+        message: {
+            success: false,
+            message: 'تعداد درخواست‌های شما از حد مجاز گذشته است، لطفاً بعداً تلاش کنید'
+        },
+        standardHeaders: true,
+        legacyHeaders: false
+    }));
+
+    // امنیت Headers
+    app.use(helmet({
+        contentSecurityPolicy: {
+            directives: {
+                defaultSrc: ["'self'"],
+                styleSrc: ["'self'", "'unsafe-inline'"],
+                scriptSrc: ["'self'"],
+                imgSrc: ["'self'", "data:", "https:"],
+                connectSrc: ["'self'"],
+                fontSrc: ["'self'"],
+                objectSrc: ["'none'"],
+                mediaSrc: ["'self'"],
+                frameSrc: ["'none'"]
+            }
+        },
+        crossOriginEmbedderPolicy: false
+    }));
+
+    // جلوگیری از NoSQL Injection
+    app.use(mongoSanitize());
+
+    // CORS
+    app.use((req, res, next) => {
+        const allowedOrigins = process.env.FRONTEND_URL?.split(',') || ['http://localhost:3000'];
+        const origin = req.headers.origin;
+        
+        if (allowedOrigins.includes(origin)) {
+            res.header('Access-Control-Allow-Origin', origin);
+        }
+        
+        res.header('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Requested-With');
+        res.header('Access-Control-Allow-Credentials', 'true');
+        
+        if (req.method === 'OPTIONS') {
+            res.sendStatus(200);
+        } else {
+            next();
+        }
+    });
+
+    // Security headers
+    app.use((req, res, next) => {
+        res.header('X-Content-Type-Options', 'nosniff');
+        res.header('X-Frame-Options', 'DENY');
+        res.header('X-XSS-Protection', '1; mode=block');
+        res.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+        next();
+    });
+};
+
+// Export both new and existing configurations for backward compatibility
 const configureCors = () => {
+    const cors = require('cors');
     // Parse and validate allowed origins
     const rawOrigins = process.env.ALLOWED_ORIGINS;
     let allowedOrigins = [];
@@ -232,6 +297,7 @@ const sanitizeObject = (obj) => {
 */
 
 module.exports = {
+    securityConfig, // New main function
     configureCors,
     configureCSP,
     configureRateLimit,

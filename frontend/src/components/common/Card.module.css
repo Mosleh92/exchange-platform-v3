@@ -1,0 +1,128 @@
+.card {
+  background: var(--card-bg, #ffffff);
+  border-radius: var(--card-radius, 12px);
+  box-shadow: var(--card-shadow, 0 1px 3px rgba(0, 0, 0, 0.1));
+  transition: all 0.2s ease-in-out;
+  overflow: hidden;
+}
+
+.card:hover {
+  box-shadow: var(--card-shadow-hover, 0 4px 12px rgba(0, 0, 0, 0.15));
+}
+
+/* Variants */
+.variant-default {
+  border: 1px solid var(--card-border, #e5e7eb);
+}
+
+.variant-elevated {
+  border: none;
+  box-shadow: var(--card-shadow-elevated, 0 8px 25px rgba(0, 0, 0, 0.12));
+}
+
+.variant-outlined {
+  border: 2px solid var(--card-border-outlined, #d1d5db);
+  box-shadow: none;
+}
+
+/* Padding variants */
+.padding-none {
+  padding: 0;
+}
+
+.padding-small {
+  padding: 12px;
+}
+
+.padding-medium {
+  padding: 20px;
+}
+
+.padding-large {
+  padding: 32px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 20px 0 20px;
+  border-bottom: 1px solid var(--card-header-border, #f3f4f6);
+  margin-bottom: 16px;
+}
+
+.headerContent {
+  flex: 1;
+}
+
+.title {
+  margin: 0 0 4px 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--card-title-color, #111827);
+  line-height: 1.4;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--card-subtitle-color, #6b7280);
+  line-height: 1.4;
+}
+
+.headerAction {
+  margin-left: 16px;
+  flex-shrink: 0;
+}
+
+/* Content */
+.content {
+  flex: 1;
+}
+
+/* Footer */
+.footer {
+  padding: 16px 20px 20px 20px;
+  border-top: 1px solid var(--card-footer-border, #f3f4f6);
+  margin-top: 16px;
+  background: var(--card-footer-bg, #fafafa);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  
+  .headerAction {
+    margin-left: 0;
+  }
+  
+  .padding-medium {
+    padding: 16px;
+  }
+  
+  .padding-large {
+    padding: 24px;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .card {
+    --card-bg: #1f2937;
+    --card-border: #374151;
+    --card-title-color: #f9fafb;
+    --card-subtitle-color: #d1d5db;
+    --card-header-border: #374151;
+    --card-footer-border: #374151;
+    --card-footer-bg: #111827;
+  }
+  
+  .variant-outlined {
+    --card-border-outlined: #4b5563;
+  }
+} 
