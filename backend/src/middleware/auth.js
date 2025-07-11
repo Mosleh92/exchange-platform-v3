@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
-const jwt = require('jsonwebtoken');
-const User = require('../modules/user/user.model');
 
 exports.authorize = (roles = []) => async (req, res, next) => {
   try {

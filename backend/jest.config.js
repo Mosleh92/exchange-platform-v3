@@ -3,7 +3,7 @@ module.exports = {
   testEnvironment: 'node',
   
   // Setup files
-  setupFilesAfterEnv: ['<rootDir>/src/tests/setup.js'],
+  setupFilesAfterEnv: ['<rootDir>/src/tests/testSetup.js'],
   
   // Test patterns
   testMatch: [
@@ -24,26 +24,32 @@ module.exports = {
     '!**/node_modules/**'
   ],
   
-  // Coverage thresholds - temporarily lowered for development
+  // Coverage thresholds - targeting 80% as per requirements
   coverageThreshold: {
     global: {
-      branches: 10,
-      functions: 10,
-      lines: 10,
-      statements: 10
+      branches: 60,
+      functions: 70,
+      lines: 80,
+      statements: 80
     },
-    // Critical modules require higher coverage
-    './src/middleware/auth.js': {
-      branches: 20,
-      functions: 20,
-      lines: 20,
-      statements: 20
+    // Critical security modules require high coverage
+    './src/middleware/enhancedSecurity.js': {
+      branches: 80,
+      functions: 90,
+      lines: 90,
+      statements: 90
     },
-    './src/controllers/auth.controller.js': {
-      branches: 20,
-      functions: 20,
-      lines: 20,
-      statements: 20
+    './src/middleware/csrfProtection.js': {
+      branches: 80,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    },
+    './src/services/twoFactorAuth.js': {
+      branches: 80,
+      functions: 85,
+      lines: 85,
+      statements: 85
     }
   },
   
@@ -71,11 +77,6 @@ module.exports = {
     '^@services/(.*)$': '<rootDir>/src/services/$1',
     '^@middleware/(.*)$': '<rootDir>/src/middleware/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1'
-  },
-  
-  // Transform configuration
-  transform: {
-    '^.+\\.js$': 'babel-jest'
   },
   
   // Ignore patterns
