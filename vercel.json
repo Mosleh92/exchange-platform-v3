@@ -1,6 +1,5 @@
 {
   "version": 2,
-  "name": "exchange-platform-frontend",
   "builds": [
     {
       "src": "frontend/package.json",
@@ -8,19 +7,28 @@
       "config": {
         "distDir": "dist"
       }
+    },
+    {
+      "src": "backend/src/app.js",
+      "use": "@vercel/node"
     }
   ],
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://your-backend-url.com/api/$1"
+      "dest": "/backend/src/app.js"
     },
     {
       "src": "/(.*)",
-      "dest": "/index.html"
+      "dest": "/frontend/$1"
     }
   ],
   "env": {
-    "VITE_API_URL": "https://your-backend-url.com"
+    "NODE_ENV": "production"
+  },
+  "functions": {
+    "backend/src/app.js": {
+      "maxDuration": 30
+    }
   }
-} 
+}
