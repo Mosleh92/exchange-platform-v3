@@ -2,13 +2,19 @@
   "name": "exchange-platform-backend",
   "version": "4.0.0",
   "description": "Enterprise Multi-tenant Exchange Platform Backend with PostgreSQL",
-  "main": "src/app.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node src/app.js",
-    "dev": "nodemon src/app.js",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "build": "echo 'No build step required'",
     "test": "jest",
-    "setup": "node scripts/setup.js"
+    "setup": "npm run db:migrate && npm run db:seed",
+    "db:migrate": "npx sequelize-cli db:migrate",
+    "db:migrate:undo": "npx sequelize-cli db:migrate:undo",
+    "db:seed": "npx sequelize-cli db:seed:all",
+    "db:seed:undo": "npx sequelize-cli db:seed:undo:all",
+    "db:create": "npx sequelize-cli db:create",
+    "db:drop": "npx sequelize-cli db:drop"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.1.1",

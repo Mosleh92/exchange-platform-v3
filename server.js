@@ -37,21 +37,35 @@ app.use((req, res, next) => {
 app.get('/health', (req, res) => {
   res.json({
     status: 'OK',
-    message: 'Exchange Platform V3 is running!',
+    message: 'Enterprise Exchange Platform v4.0.0 is running!',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'production'
+    version: '4.0.0',
+    environment: process.env.NODE_ENV || 'production',
+    database: 'PostgreSQL',
+    features: [
+      'Multi-tenant Architecture',
+      'PostgreSQL Database',
+      'Enterprise Security',
+      '25+ Financial Modules',
+      'Double-entry Bookkeeping',
+      'JWT with Refresh Tokens',
+      '2FA Support',
+      'Rate Limiting',
+      'Audit Logging'
+    ]
   })
 })
 
 // API endpoints
 app.get('/api/test', (req, res) => {
   res.json({
-    message: 'Backend API is working perfectly!',
+    message: 'Enterprise Exchange Platform v4.0.0 Backend API is working perfectly!',
     timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    status: 'success'
+    version: '4.0.0',
+    status: 'success',
+    database: 'PostgreSQL',
+    architecture: 'Multi-tenant SaaS'
   })
 })
 

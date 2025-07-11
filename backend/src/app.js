@@ -231,10 +231,13 @@ process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   
   // Close database connections
-  const mongoose = require('mongoose');
-  mongoose.connection.close(() => {
+  const sequelizeManager = require('./config/sequelize');
+  sequelizeManager.close().then(() => {
     logger.info('Database connection closed');
     process.exit(0);
+  }).catch((error) => {
+    logger.error('Error closing database:', error);
+    process.exit(1);
   });
 });
 
@@ -242,10 +245,13 @@ process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
   
   // Close database connections
-  const mongoose = require('mongoose');
-  mongoose.connection.close(() => {
+  const sequelizeManager = require('./config/sequelize');
+  sequelizeManager.close().then(() => {
     logger.info('Database connection closed');
     process.exit(0);
+  }).catch((error) => {
+    logger.error('Error closing database:', error);
+    process.exit(1);
   });
 });
 
