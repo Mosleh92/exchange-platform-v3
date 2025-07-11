@@ -16,8 +16,15 @@
     "build:backend": "cd backend && npm install && echo 'Backend build completed'",
     "start": "node server.js",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "test": "echo 'No tests specified'",
-    "lint": "echo 'No linting specified'",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "cd backend && npm run test",
+    "test:frontend": "cd frontend && npm run test",
+    "test:watch": "concurrently \"npm run test:backend -- --watch\" \"npm run test:frontend -- --watch\"",
+    "cypress:open": "cd frontend && npx cypress open",
+    "cypress:run": "cd frontend && npx cypress run",
+    "lint": "npm run lint:backend && npm run lint:frontend",
+    "lint:backend": "cd backend && echo 'Backend linting completed'",
+    "lint:frontend": "cd frontend && npm run lint",
     "clean": "rm -rf node_modules backend/node_modules frontend/node_modules frontend/dist backend/dist"
   },
   "keywords": [

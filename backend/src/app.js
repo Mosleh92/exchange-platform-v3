@@ -25,12 +25,20 @@ const reportRoutes = require('./routes/reports');
 const adminRoutes = require('./routes/admin');
 const analyticsRoutes = require('./routes/analytics');
 
+// Import new enhanced routes
+const tenantRoutes = require('./routes/tenants');
+const activityLogRoutes = require('./routes/activityLog');
+const multiStagePaymentRoutes = require('./routes/payments');
+
 // Import new services and middleware
 const securityMiddleware = require('./middleware/security');
 const validationMiddleware = require('./middleware/validation');
 const errorHandler = require('./middleware/errorHandler');
 const performanceOptimization = require('./services/performanceOptimization.service');
 const databaseOptimization = require('./services/databaseOptimization.service');
+
+// Import enhanced security middleware
+const { generateCSRFToken, validateCSRFToken, csrfErrorHandler } = require('./middleware/csrf');
 
 const app = express();
 
@@ -127,6 +135,9 @@ app.use(express.json({
 }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// CSRF Protection - Generate tokens for frontend
+app.use(generateCSRFToken);
+
 // Request logging
 app.use(morgan('combined', {
   stream: {
@@ -174,6 +185,11 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
+// New enhanced API routes
+app.use('/api/tenants', tenantRoutes);
+app.use('/api/activity-log', activityLogRoutes);
+app.use('/api/multi-stage-payments', multiStagePaymentRoutes);
+
 // Event-driven architecture initialization
 const eventService = new EnhancedEventService();
 const tenantConfigService = new EnhancedTenantConfigService();
@@ -213,6 +229,7 @@ app.use(async (req, res, next) => {
 });
 
 // Enhanced error handling
+app.use(csrfErrorHandler);
 app.use(EnhancedErrorHandler.handleError.bind(EnhancedErrorHandler));
 
 // 404 handler
