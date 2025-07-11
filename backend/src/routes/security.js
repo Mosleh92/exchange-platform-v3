@@ -374,6 +374,7 @@ router.post('/bulk-operations',
  */
 router.get('/health',
     authorize(['super_admin']),
+    RateLimiterService.createMiddleware({ rule: 'default' }),
     async (req, res) => {
         try {
             const health = {
