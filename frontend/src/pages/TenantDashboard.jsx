@@ -3,6 +3,7 @@ import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import io from 'socket.io-client';
+import { useRBAC, PERMISSIONS, PermissionGate } from '../contexts/RBACContext';
 import PersianUtils from '../utils/persian';
 import PersianCalendar from '../utils/persianCalendar';
 import '../styles/rtl.css';
@@ -20,6 +21,7 @@ const icons = {
 };
 
 const TenantDashboard = () => {
+  const { hasPermission, user } = useRBAC();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,12 +32,54 @@ const TenantDashboard = () => {
   const socketRef = useRef(null);
 
   const links = [
-    { to: '/management/branches', label: 'مدیریت شعب', icon: icons.building, color: 'bg-blue-500', description: 'مدیریت شعبات و کارکرد آنها' },
-    { to: '/customers', label: 'مدیریت مشتریان', icon: icons.users, color: 'bg-green-500', description: 'ثبت و مدیریت اطلاعات مشتریان' },
-    { to: '/transactions', label: 'مدیریت معاملات', icon: icons.transactions, color: 'bg-purple-500', description: 'پیگیری و کنترل معاملات' },
-    { to: '/remittances', label: 'مدیریت حواله‌ها', icon: icons.money, color: 'bg-orange-500', description: 'حواله‌های داخلی و بین‌المللی' },
-    { to: '/reports', label: 'گزارشات مالی', icon: icons.chart, color: 'bg-red-500', description: 'گزارشات و تحلیل‌های مالی' },
-    { to: '/settings', label: 'تنظیمات سیستم', icon: icons.settings, color: 'bg-gray-500', description: 'تنظیمات عمومی سیستم' },
+    { 
+      to: '/management/branches', 
+      label: 'مدیریت شعب', 
+      icon: icons.building, 
+      color: 'bg-blue-500', 
+      description: 'مدیریت شعبات و کارکرد آنها',
+      permissions: [PERMISSIONS.MANAGE_BRANCHES]
+    },
+    { 
+      to: '/customers', 
+      label: 'مدیریت مشتریان', 
+      icon: icons.users, 
+      color: 'bg-green-500', 
+      description: 'ثبت و مدیریت اطلاعات مشتریان',
+      permissions: [PERMISSIONS.VIEW_CUSTOMER]
+    },
+    { 
+      to: '/transactions', 
+      label: 'مدیریت معاملات', 
+      icon: icons.transactions, 
+      color: 'bg-purple-500', 
+      description: 'پیگیری و کنترل معاملات',
+      permissions: [PERMISSIONS.VIEW_TRANSACTION]
+    },
+    { 
+      to: '/remittances', 
+      label: 'مدیریت حواله‌ها', 
+      icon: icons.money, 
+      color: 'bg-orange-500', 
+      description: 'حواله‌های داخلی و بین‌المللی',
+      permissions: [PERMISSIONS.VIEW_REMITTANCE]
+    },
+    { 
+      to: '/reports', 
+      label: 'گزارشات مالی', 
+      icon: icons.chart, 
+      color: 'bg-red-500', 
+      description: 'گزارشات و تحلیل‌های مالی',
+      permissions: [PERMISSIONS.VIEW_FINANCIAL_REPORTS]
+    },
+    { 
+      to: '/settings', 
+      label: 'تنظیمات سیستم', 
+      icon: icons.settings, 
+      color: 'bg-gray-500', 
+      description: 'تنظیمات عمومی سیستم',
+      permissions: [PERMISSIONS.MANAGE_TENANT_SETTINGS]
+    },
   ];
 
   // Colors for charts
@@ -52,15 +96,17 @@ const TenantDashboard = () => {
   }, []);
 
   useEffect(() => {
-    fetchStats();
-    setupWebSocket();
+    if (hasPermission(PERMISSIONS.VIEW_TENANT_DASHBOARD)) {
+      fetchStats();
+      setupWebSocket();
+    }
     
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
     };
-  }, []);
+  }, [hasPermission]);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -133,6 +179,29 @@ const TenantDashboard = () => {
     return PersianUtils.currency.formatAdvanced(amount, 'IRR', { abbreviated: true });
   };
 
+  // Check if user has permission to view tenant dashboard
+  if (!hasPermission(PERMISSIONS.VIEW_TENANT_DASHBOARD)) {
+    return (
+      <div className="rtl-container min-h-screen bg-gray-50 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="persian-card p-8 text-center"
+        >
+          <div className="text-red-500 text-6xl mb-4">🚫</div>
+          <h3 className="text-xl font-bold text-red-600 mb-2 font-persian">دسترسی محدود</h3>
+          <p className="text-gray-600 mb-4 font-persian">شما دسترسی مشاهده داشبورد صرافی را ندارید.</p>
+          <button 
+            onClick={() => window.history.back()}
+            className="btn-persian-primary"
+          >
+            بازگشت
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="rtl-container min-h-screen bg-gray-50 flex items-center justify-center">
@@ -184,7 +253,7 @@ const TenantDashboard = () => {
           <div className="flex justify-between items-center mb-4">
             <div>
               <h1 className="text-3xl font-bold text-primary-persian mb-2">داشبورد مدیریت صرافی</h1>
-              <p className="text-gray-600">نمای کلی عملکرد سیستم و شعبات</p>
+              <p className="text-gray-600">خوش آمدید {user?.name} - نمای کلی عملکرد سیستم و شعبات</p>
             </div>
             <div className="text-left">
               <div className="text-sm text-gray-500">آخرین بروزرسانی</div>
@@ -222,91 +291,101 @@ const TenantDashboard = () => {
           transition={{ delay: 0.1 }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
         >
-          <div className="persian-stat-card">
-            <div className="persian-stat-icon">🏢</div>
-            <div className="persian-stat-value">{formatPersianNumber(effectiveStats.branches || 0)}</div>
-            <div className="persian-stat-label">تعداد شعب</div>
-          </div>
+          <PermissionGate permissions={[PERMISSIONS.MANAGE_BRANCHES]}>
+            <div className="persian-stat-card">
+              <div className="persian-stat-icon">🏢</div>
+              <div className="persian-stat-value">{formatPersianNumber(effectiveStats.branches || 0)}</div>
+              <div className="persian-stat-label">تعداد شعب</div>
+            </div>
+          </PermissionGate>
           
-          <div className="persian-stat-card">
-            <div className="persian-stat-icon">👥</div>
-            <div className="persian-stat-value">{formatPersianNumber(effectiveStats.customers || 0)}</div>
-            <div className="persian-stat-label">تعداد مشتریان</div>
-          </div>
+          <PermissionGate permissions={[PERMISSIONS.VIEW_CUSTOMER]}>
+            <div className="persian-stat-card">
+              <div className="persian-stat-icon">👥</div>
+              <div className="persian-stat-value">{formatPersianNumber(effectiveStats.customers || 0)}</div>
+              <div className="persian-stat-label">تعداد مشتریان</div>
+            </div>
+          </PermissionGate>
           
-          <div className="persian-stat-card">
-            <div className="persian-stat-icon">💱</div>
-            <div className="persian-stat-value">{formatPersianNumber(effectiveStats.transactions || 0)}</div>
-            <div className="persian-stat-label">تعداد معاملات</div>
-          </div>
+          <PermissionGate permissions={[PERMISSIONS.VIEW_TRANSACTION]}>
+            <div className="persian-stat-card">
+              <div className="persian-stat-icon">💱</div>
+              <div className="persian-stat-value">{formatPersianNumber(effectiveStats.transactions || 0)}</div>
+              <div className="persian-stat-label">تعداد معاملات</div>
+            </div>
+          </PermissionGate>
           
-          <div className="persian-stat-card">
-            <div className="persian-stat-icon">💰</div>
-            <div className="persian-stat-value">{formatCurrency(effectiveStats.totalBalance || 0)}</div>
-            <div className="persian-stat-label">کل موجودی</div>
-          </div>
+          <PermissionGate permissions={[PERMISSIONS.VIEW_FINANCIAL_REPORTS]}>
+            <div className="persian-stat-card">
+              <div className="persian-stat-icon">💰</div>
+              <div className="persian-stat-value">{formatCurrency(effectiveStats.totalBalance || 0)}</div>
+              <div className="persian-stat-label">کل موجودی</div>
+            </div>
+          </PermissionGate>
         </motion.div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Transaction Chart */}
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            className="persian-card"
-          >
-            <div className="persian-card-header">
-              <h3 className="text-lg font-semibold">نمودار معاملات هفتگی</h3>
-            </div>
-            <div className="persian-card-body">
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip 
-                    labelFormatter={(value) => `تاریخ: ${value}`}
-                    formatter={(value, name) => [formatPersianNumber(value), name === 'transactions' ? 'تعداد معاملات' : 'درآمد']}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="transactions" 
-                    stroke="#1746A2" 
-                    strokeWidth={3}
-                    dot={{ fill: '#1746A2', strokeWidth: 2, r: 4 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
+        <PermissionGate permissions={[PERMISSIONS.VIEW_FINANCIAL_REPORTS]}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Transaction Chart */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 }}
+              className="persian-card"
+            >
+              <div className="persian-card-header">
+                <h3 className="text-lg font-semibold">نمودار معاملات هفتگی</h3>
+              </div>
+              <div className="persian-card-body">
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip 
+                      labelFormatter={(value) => `تاریخ: ${value}`}
+                      formatter={(value, name) => [formatPersianNumber(value), name === 'transactions' ? 'تعداد معاملات' : 'درآمد']}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="transactions" 
+                      stroke="#1746A2" 
+                      strokeWidth={3}
+                      dot={{ fill: '#1746A2', strokeWidth: 2, r: 4 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
 
-          {/* Revenue Chart */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="persian-card"
-          >
-            <div className="persian-card-header">
-              <h3 className="text-lg font-semibold">نمودار درآمد هفتگی</h3>
-            </div>
-            <div className="persian-card-body">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip 
-                    labelFormatter={(value) => `تاریخ: ${value}`}
-                    formatter={(value) => [formatCurrency(value), 'درآمد']}
-                  />
-                  <Bar dataKey="revenue" fill="#D4AF37" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </motion.div>
-        </div>
+            {/* Revenue Chart */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3 }}
+              className="persian-card"
+            >
+              <div className="persian-card-header">
+                <h3 className="text-lg font-semibold">نمودار درآمد هفتگی</h3>
+              </div>
+              <div className="persian-card-body">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip 
+                      labelFormatter={(value) => `تاریخ: ${value}`}
+                      formatter={(value) => [formatCurrency(value), 'درآمد']}
+                    />
+                    <Bar dataKey="revenue" fill="#D4AF37" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </motion.div>
+          </div>
+        </PermissionGate>
 
         {/* Management Cards */}
         <motion.div
@@ -316,34 +395,35 @@ const TenantDashboard = () => {
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
         >
           {links.map((link, index) => (
-            <motion.a
-              key={link.to}
-              href={link.to}
-              whileHover={{ scale: 1.02, y: -2 }}
-              whileTap={{ scale: 0.98 }}
-              className="block no-underline"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 + index * 0.1 }}
-            >
-              <div className="persian-card h-full">
-                <div className="persian-card-body">
-                  <div className="flex items-start space-x-4 space-x-reverse">
-                    <div className={`w-12 h-12 ${link.color} rounded-lg flex items-center justify-center text-white text-2xl`}>
-                      {link.icon}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">{link.label}</h3>
-                      <p className="text-sm text-gray-600 mb-3">{link.description}</p>
-                      <div className="flex items-center text-primary-persian font-medium">
-                        <span>مشاهده و مدیریت</span>
-                        <span className="mr-2">←</span>
+            <PermissionGate key={link.to} permissions={link.permissions} fallback={null}>
+              <motion.a
+                href={link.to}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className="block no-underline"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 + index * 0.1 }}
+              >
+                <div className="persian-card h-full">
+                  <div className="persian-card-body">
+                    <div className="flex items-start space-x-4 space-x-reverse">
+                      <div className={`w-12 h-12 ${link.color} rounded-lg flex items-center justify-center text-white text-2xl`}>
+                        {link.icon}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">{link.label}</h3>
+                        <p className="text-sm text-gray-600 mb-3">{link.description}</p>
+                        <div className="flex items-center text-primary-persian font-medium">
+                          <span>مشاهده و مدیریت</span>
+                          <span className="mr-2">←</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            </motion.a>
+              </motion.a>
+            </PermissionGate>
           ))}
         </motion.div>
 
@@ -359,22 +439,30 @@ const TenantDashboard = () => {
           </div>
           <div className="persian-card-body">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">{formatPersianNumber(effectiveStats.dailyTransactions || 0)}</div>
-                <div className="text-sm text-gray-600">معاملات امروز</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">{formatPersianNumber(effectiveStats.monthlyGrowth || 0)}%</div>
-                <div className="text-sm text-gray-600">رشد ماهانه</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">{formatPersianNumber(effectiveStats.activeUsers || 0)}</div>
-                <div className="text-sm text-gray-600">کاربران فعال</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">{formatPersianNumber(effectiveStats.pendingApprovals || 0)}</div>
-                <div className="text-sm text-gray-600">در انتظار تایید</div>
-              </div>
+              <PermissionGate permissions={[PERMISSIONS.VIEW_TRANSACTION]}>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-blue-600">{formatPersianNumber(effectiveStats.dailyTransactions || 0)}</div>
+                  <div className="text-sm text-gray-600">معاملات امروز</div>
+                </div>
+              </PermissionGate>
+              <PermissionGate permissions={[PERMISSIONS.VIEW_FINANCIAL_REPORTS]}>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-green-600">{formatPersianNumber(effectiveStats.monthlyGrowth || 0)}%</div>
+                  <div className="text-sm text-gray-600">رشد ماهانه</div>
+                </div>
+              </PermissionGate>
+              <PermissionGate permissions={[PERMISSIONS.MANAGE_TENANT_USERS]}>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-purple-600">{formatPersianNumber(effectiveStats.activeUsers || 0)}</div>
+                  <div className="text-sm text-gray-600">کاربران فعال</div>
+                </div>
+              </PermissionGate>
+              <PermissionGate permissions={[PERMISSIONS.APPROVE_TRANSACTION]}>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-orange-600">{formatPersianNumber(effectiveStats.pendingApprovals || 0)}</div>
+                  <div className="text-sm text-gray-600">در انتظار تایید</div>
+                </div>
+              </PermissionGate>
             </div>
           </div>
         </motion.div>
