@@ -3,8 +3,7 @@ const config = require('../config');
 const { UnauthorizedError } = require('../utils/errors');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
-const jwt = require('jsonwebtoken');
-const User = require('../modules/user/user.model');
+const { tenantAccess } = require('./tenant');
 
 exports.authorize = (roles = []) => async (req, res, next) => {
   try {
@@ -19,15 +18,6 @@ exports.authorize = (roles = []) => async (req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
   }
 };
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
-
- copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
 const authMiddleware = async (req, res, next) => {
   try {
     const token = req.headers.authorization?.split(' ')[1];
@@ -75,33 +65,6 @@ const authMiddleware = async (req, res, next) => {
     
     next();
   } catch (error) {
-    next(new UnauthorizedError('توکن نامعتبر است'));
-=======
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id)
-      .populate('tenantId')
-      .select('-password');
-
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-
-    if (!user.isActive) {
-      return res.status(401).json({ message: 'Account is deactivated' });
-    }
-
-    if (user.isLocked) {
-      return res.status(401).json({ message: 'Account is locked' });
-    }
-
-    // Check tenant status for non-super admins
-    if (user.role !== 'super_admin' && user.tenantId && !user.tenantId.isActive) {
-      return res.status(401).json({ message: 'Tenant is inactive' });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ message: 'Invalid token' });
     }
@@ -109,7 +72,6 @@ const authMiddleware = async (req, res, next) => {
       return res.status(401).json({ message: 'Token expired' });
     }
     res.status(500).json({ message: 'Server error' });
-main
   }
 };
 
@@ -149,7 +111,6 @@ const tenantMiddleware = async (req, res, next) => {
 };
 
 module.exports = {
- copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
     auth: authMiddleware,
     authMiddleware, // alias
     authenticate: authMiddleware, // alias for compatibility
@@ -158,9 +119,3 @@ module.exports = {
     tenantAccess,
     superAdmin: authorize('super_admin') // helper for super admin role
 };
-=======
-  authMiddleware,
-  roleMiddleware,
-  tenantMiddleware
-};
- main

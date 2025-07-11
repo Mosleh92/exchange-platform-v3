@@ -467,8 +467,4 @@ class TechnicalAnalysisService {
   }
 }
 
-<<<<<<< HEAD
-module.exports = new TechnicalAnalysisService(); 
-=======
-module.exports = new TechnicalAnalysisService(); 
->>>>>>> 9bbf1ecc9d48877375d9c66279f02298925b488d
+module.exports = new TechnicalAnalysisService();

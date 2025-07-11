@@ -581,8 +581,4 @@ class HighFrequencyTradingService {
   }
 }
 
-<<<<<<< HEAD
-module.exports = new HighFrequencyTradingService(); 
-=======
-module.exports = new HighFrequencyTradingService(); 
->>>>>>> 9bbf1ecc9d48877375d9c66279f02298925b488d
+module.exports = new HighFrequencyTradingService();

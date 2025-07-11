@@ -262,8 +262,4 @@ tradingBotSchema.statics.findByStrategy = function(strategyType) {
   });
 };
 
-<<<<<<< HEAD
-module.exports = mongoose.model('TradingBot', tradingBotSchema); 
-=======
-module.exports = mongoose.model('TradingBot', tradingBotSchema); 
->>>>>>> 9bbf1ecc9d48877375d9c66279f02298925b488d
+module.exports = mongoose.model('TradingBot', tradingBotSchema);

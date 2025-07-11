@@ -1,7 +1,6 @@
 {
   "name": "exchange-platform-backend",
   "version": "3.0.0",
- copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
@@ -130,7 +129,7 @@
     "husky": "^8.0.3",
     "lint-staged": "^14.0.1",
     "mongodb-memory-server": "^9.0.0"
-=======
+  },
   "description": "Multi-tenant Exchange Platform Backend",
   "main": "src/app.js",
   "scripts": {
@@ -197,6 +196,5 @@
   },
   "engines": {
     "node": ">=18.0.0"
- main
   }
 }
