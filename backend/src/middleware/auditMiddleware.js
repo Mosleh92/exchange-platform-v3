@@ -1,8 +1,9 @@
 const auditLogger = require('../utils/auditLogger');
 const logger = require('../utils/logger');
+const websocketService = require('../services/websocketService');
 
 /**
- * Advanced audit middleware with comprehensive request tracking
+ * Advanced audit middleware with comprehensive request tracking and real-time monitoring
  */
 class AuditMiddleware {
   /**
@@ -116,7 +117,36 @@ class AuditMiddleware {
           // Log security events
           if (res.statusCode === 401 || res.statusCode === 403) {
             logger.warn(`Security event: ${res.statusCode} - ${req.method} ${req.originalUrl} from ${requestDetails.ip}`);
+            
+            // Send real-time security alert
+            this.sendSecurityAlert({
+              type: 'UNAUTHORIZED_ACCESS',
+              severity: res.statusCode === 401 ? 'MEDIUM' : 'HIGH',
+              details: {
+                statusCode: res.statusCode,
+                method: req.method,
+                url: req.originalUrl,
+                ip: requestDetails.ip,
+                userId: requestDetails.userId,
+                userAgent: requestDetails.userAgent
+              },
+              timestamp: new Date()
+            });
           }
+
+          // Detect suspicious activity patterns
+          await this.detectSuspiciousActivity(requestDetails, res);
+
+          // Send real-time activity update
+          this.sendActivityUpdate({
+            action,
+            resource,
+            userId: requestDetails.userId,
+            tenantId: requestDetails.tenantId,
+            status: res.statusCode < 400 ? 'SUCCESS' : 'FAILURE',
+            timestamp: new Date(),
+            duration
+          });
 
         } catch (error) {
           logger.error('Failed to create audit log:', error);
@@ -285,8 +315,113 @@ class AuditMiddleware {
   }
 
   /**
-   * Create audit middleware for specific routes
+   * Send real-time security alert
    */
+  static sendSecurityAlert(alert) {
+    try {
+      // Emit to admin users via WebSocket
+      websocketService.emitToRole('super_admin', 'security_alert', alert);
+      websocketService.emitToRole('tenant_admin', 'security_alert', alert);
+      
+      logger.info('Security alert sent via WebSocket', { alert });
+    } catch (error) {
+      logger.error('Failed to send security alert:', error);
+    }
+  }
+
+  /**
+   * Send real-time activity update
+   */
+  static sendActivityUpdate(activity) {
+    try {
+      // Emit activity to tenant admins and super admins
+      if (activity.tenantId) {
+        websocketService.emitToTenant(activity.tenantId, 'activity_update', activity);
+      }
+      
+      websocketService.emitToRole('super_admin', 'global_activity', activity);
+    } catch (error) {
+      logger.error('Failed to send activity update:', error);
+    }
+  }
+
+  /**
+   * Detect suspicious activity patterns
+   */
+  static async detectSuspiciousActivity(requestDetails, res) {
+    try {
+      const suspiciousPatterns = [];
+
+      // Multiple failed login attempts
+      if (requestDetails.url.includes('/auth/login') && res.statusCode === 401) {
+        const recentFailedAttempts = await this.getRecentFailedLogins(requestDetails.ip);
+        if (recentFailedAttempts >= 3) {
+          suspiciousPatterns.push({
+            type: 'MULTIPLE_FAILED_LOGINS',
+            severity: 'HIGH',
+            count: recentFailedAttempts
+          });
+        }
+      }
+
+      // Unusual request frequency
+      const recentRequests = await this.getRecentRequests(requestDetails.ip);
+      if (recentRequests > 100) { // More than 100 requests in the last minute
+        suspiciousPatterns.push({
+          type: 'HIGH_REQUEST_FREQUENCY',
+          severity: 'MEDIUM',
+          count: recentRequests
+        });
+      }
+
+      // Access to sensitive endpoints
+      const sensitiveEndpoints = ['/api/admin', '/api/super-admin', '/api/audit'];
+      if (sensitiveEndpoints.some(endpoint => requestDetails.url.includes(endpoint))) {
+        suspiciousPatterns.push({
+          type: 'SENSITIVE_ENDPOINT_ACCESS',
+          severity: 'MEDIUM',
+          endpoint: requestDetails.url
+        });
+      }
+
+      // Send alerts for detected patterns
+      for (const pattern of suspiciousPatterns) {
+        this.sendSecurityAlert({
+          type: pattern.type,
+          severity: pattern.severity,
+          details: {
+            ...pattern,
+            ip: requestDetails.ip,
+            userId: requestDetails.userId,
+            userAgent: requestDetails.userAgent,
+            url: requestDetails.url
+          },
+          timestamp: new Date()
+        });
+      }
+
+    } catch (error) {
+      logger.error('Failed to detect suspicious activity:', error);
+    }
+  }
+
+  /**
+   * Get recent failed login attempts from cache/database
+   */
+  static async getRecentFailedLogins(ip) {
+    // This would typically query a cache or database
+    // For now, return a mock value
+    return 0;
+  }
+
+  /**
+   * Get recent requests count from cache/database
+   */
+  static async getRecentRequests(ip) {
+    // This would typically query a rate limiting cache
+    // For now, return a mock value
+    return 0;
+  }
   static createRouteAuditMiddleware(action, resource) {
     return async (req, res, next) => {
       const startTime = Date.now();
