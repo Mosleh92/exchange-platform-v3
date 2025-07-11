@@ -17,7 +17,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,js,jsx,json,css,md}\"",
     "lint:fix": "eslint . --ext ts,tsx --fix",
-    "prepare": "husky install"
+    "prepare": "husky install || true"
   },
   "dependencies": {
     "@testing-library/jest-dom": "^6.1.4",
