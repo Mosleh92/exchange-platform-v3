@@ -1,8 +1,8 @@
 {
   "name": "exchange-platform-v3",
-  "version": "1.0.0",
+  "version": "4.0.0",
   "private": true,
-  "description": "Multi-tenant exchange platform built with Node.js, React, and MongoDB",
+  "description": "Enterprise multi-tenant exchange platform with PostgreSQL",
   "engines": {
     "node": ">=18.0.0",
     "npm": ">=9.0.0"
@@ -22,11 +22,14 @@
   },
   "keywords": [
     "exchange",
-    "trading",
     "multi-tenant",
+    "postgresql",
+    "enterprise",
+    "saas",
+    "financial",
+    "trading",
     "nodejs",
-    "react",
-    "mongodb"
+    "react"
   ],
   "author": "Exchange Platform Team",
   "license": "MIT",
@@ -43,11 +46,17 @@
     "helmet": "^7.2.0",
     "isomorphic-dompurify": "^2.26.0",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.11.3",
     "qrcode": "^1.5.4",
     "redis": "^5.6.0",
+    "sequelize": "^6.35.0",
+    "sequelize-cli": "^6.6.2",
     "speakeasy": "^2.0.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/pg": "^8.10.9",
     "concurrently": "^8.2.2",
     "nodemon": "^3.0.2"
   },
