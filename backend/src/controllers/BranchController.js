@@ -588,4 +588,22 @@ class BranchController {
       // Log activity
       await this.logActivity(tenantId, req.user.id, 'UPDATE_CURRENCIES', branchId, {
         branchName: branch.name,
-        currencyCount: cur
+        currencyCount: updatedCurrencies.length
+      });
+
+      res.json({
+        success: true,
+        data: branch,
+        message: 'Branch currencies updated successfully'
+      });
+
+    } catch (error) {
+      logger.error('Update branch currencies error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'خطا در بروزرسانی ارزهای شعبه',
+        error: error.message
+      });
+    }
+  }
+}
