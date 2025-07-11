@@ -237,5 +237,178 @@ const PersianUtils = {
     }
 };
 
+// RTL Support utilities
+PersianUtils.rtl = {
+    // Apply RTL direction to element
+    applyRTL: function(element) {
+        if (element) {
+            element.dir = 'rtl';
+            element.style.direction = 'rtl';
+            element.style.textAlign = 'right';
+        }
+    },
+
+    // Remove RTL direction from element
+    removeRTL: function(element) {
+        if (element) {
+            element.dir = 'ltr';
+            element.style.direction = 'ltr';
+            element.style.textAlign = 'left';
+        }
+    },
+
+    // Check if current document is RTL
+    isRTL: function() {
+        return document.documentElement.dir === 'rtl' || 
+               document.body.dir === 'rtl' ||
+               document.documentElement.getAttribute('lang') === 'fa';
+    },
+
+    // Toggle RTL/LTR
+    toggle: function() {
+        const isCurrentlyRTL = this.isRTL();
+        const newDir = isCurrentlyRTL ? 'ltr' : 'rtl';
+        document.documentElement.dir = newDir;
+        document.body.dir = newDir;
+        
+        // Update CSS classes
+        if (newDir === 'rtl') {
+            document.body.classList.add('rtl-container');
+            document.body.classList.remove('ltr-container');
+        } else {
+            document.body.classList.add('ltr-container');
+            document.body.classList.remove('rtl-container');
+        }
+        
+        return newDir;
+    },
+
+    // Set language and direction
+    setLanguage: function(lang) {
+        const isRTL = ['fa', 'ar', 'he', 'ur'].includes(lang);
+        
+        document.documentElement.lang = lang;
+        document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+        document.body.dir = isRTL ? 'rtl' : 'ltr';
+        
+        if (isRTL) {
+            document.body.classList.add('rtl-container');
+            document.body.classList.remove('ltr-container');
+        } else {
+            document.body.classList.add('ltr-container');
+            document.body.classList.remove('rtl-container');
+        }
+        
+        return isRTL;
+    }
+};
+
+// Enhanced date formatting with Persian calendar support
+PersianUtils.calendar = {
+    // Format date with Persian calendar
+    formatPersianDate: function(date, includeTime = false) {
+        if (!date) return '';
+        
+        try {
+            const d = new Date(date);
+            const options = {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                calendar: 'persian',
+                numberingSystem: 'persian'
+            };
+            
+            if (includeTime) {
+                options.hour = '2-digit';
+                options.minute = '2-digit';
+            }
+            
+            return new Intl.DateTimeFormat('fa-IR-u-ca-persian-nu-persian', options).format(d);
+        } catch (error) {
+            console.warn('Persian date formatting error:', error);
+            return this.toJalaliDate(date);
+        }
+    },
+
+    // Get Persian weekday name
+    getPersianWeekday: function(date) {
+        const weekdays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
+        const d = new Date(date);
+        return weekdays[d.getDay()];
+    },
+
+    // Get Persian month name
+    getPersianMonth: function(monthNumber) {
+        const months = [
+            'فروردین', 'اردیبهشت', 'خرداد', 'تیر',
+            'مرداد', 'شهریور', 'مهر', 'آبان',
+            'آذر', 'دی', 'بهمن', 'اسفند'
+        ];
+        return months[monthNumber - 1] || '';
+    }
+};
+
+// Enhanced currency formatting
+PersianUtils.currency = {
+    // Format currency with better Persian support
+    formatAdvanced: function(amount, currency = 'IRR', options = {}) {
+        if (!amount && amount !== 0) return '';
+        
+        const {
+            usePersianDigits = true,
+            showCurrencySymbol = true,
+            showCurrencyName = false,
+            abbreviated = false
+        } = options;
+        
+        const currencyInfo = {
+            USD: { symbol: '$', name: 'دلار آمریکا', abbr: 'دلار' },
+            EUR: { symbol: '€', name: 'یورو', abbr: 'یورو' },
+            GBP: { symbol: '£', name: 'پوند انگلیس', abbr: 'پوند' },
+            AED: { symbol: 'د.إ', name: 'درهم امارات', abbr: 'درهم' },
+            IRR: { symbol: '﷼', name: 'ریال ایران', abbr: 'ریال' },
+            BTC: { symbol: '₿', name: 'بیت کوین', abbr: 'بیت کوین' },
+            ETH: { symbol: 'Ξ', name: 'اتریوم', abbr: 'اتریوم' },
+            USDT: { symbol: '₮', name: 'تتر', abbr: 'تتر' }
+        };
+        
+        const info = currencyInfo[currency] || { symbol: currency, name: currency, abbr: currency };
+        
+        // Abbreviate large numbers
+        let formattedAmount = amount;
+        let suffix = '';
+        
+        if (abbreviated && amount >= 1000000000) {
+            formattedAmount = amount / 1000000000;
+            suffix = ' میلیارد';
+        } else if (abbreviated && amount >= 1000000) {
+            formattedAmount = amount / 1000000;
+            suffix = ' میلیون';
+        } else if (abbreviated && amount >= 1000) {
+            formattedAmount = amount / 1000;
+            suffix = ' هزار';
+        }
+        
+        const formatted = PersianUtils.formatNumber(formattedAmount, usePersianDigits);
+        
+        let result = formatted + suffix;
+        
+        if (showCurrencySymbol && info.symbol) {
+            result += ` ${info.symbol}`;
+        }
+        
+        if (showCurrencyName) {
+            result += ` ${abbreviated ? info.abbr : info.name}`;
+        }
+        
+        return result;
+    }
+};
+
 // Export for global use
-window.PersianUtils = PersianUtils;
+if (typeof window !== 'undefined') {
+    window.PersianUtils = PersianUtils;
+}
+
+export default PersianUtils;

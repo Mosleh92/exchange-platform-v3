@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import RTL styles */
+@import './styles/rtl.css';
+
 * {
   margin: 0;
   padding: 0;
@@ -15,6 +18,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #f9fafb;
+}
+
+/* Persian/RTL Body Styles */
+body.rtl-container {
+  font-family: 'Vazir', 'Tahoma', sans-serif;
+  direction: rtl;
+  text-align: right;
 }
 
 .container {

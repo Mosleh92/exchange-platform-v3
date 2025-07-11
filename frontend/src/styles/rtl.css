@@ -1,0 +1,485 @@
+/* RTL/Persian Language Support Styles */
+
+/* Import Persian Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Vazir:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IRANSans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Persian/RTL theme colors - luxury palette */
+  --primary-color: #1746A2;
+  --secondary-color: #D4AF37;
+  --accent-color: #0F3A7A;
+  --success-color: #059669;
+  --warning-color: #D97706;
+  --error-color: #DC2626;
+  --info-color: #0891B2;
+  
+  /* Persian fonts */
+  --font-persian-primary: 'Vazir', 'Tahoma', sans-serif;
+  --font-persian-secondary: 'IRANSans', 'Tahoma', sans-serif;
+}
+
+/* RTL Base Styles */
+.rtl-container {
+  direction: rtl;
+  text-align: right;
+  font-family: var(--font-persian-primary);
+}
+
+.rtl-container * {
+  font-family: inherit;
+}
+
+/* RTL Layout Helpers */
+.rtl-flex-row-reverse {
+  flex-direction: row-reverse;
+}
+
+.rtl-text-left {
+  text-align: left;
+}
+
+.rtl-text-right {
+  text-align: right;
+}
+
+.rtl-text-center {
+  text-align: center;
+}
+
+.rtl-float-left {
+  float: left;
+}
+
+.rtl-float-right {
+  float: right;
+}
+
+/* RTL Margin and Padding */
+.rtl-mr-4 {
+  margin-left: 1rem;
+  margin-right: 0;
+}
+
+.rtl-ml-4 {
+  margin-right: 1rem;
+  margin-left: 0;
+}
+
+.rtl-pr-4 {
+  padding-left: 1rem;
+  padding-right: 0;
+}
+
+.rtl-pl-4 {
+  padding-right: 1rem;
+  padding-left: 0;
+}
+
+/* RTL Navigation */
+.rtl-nav {
+  direction: rtl;
+}
+
+.rtl-nav ul {
+  padding-right: 0;
+  padding-left: 0;
+}
+
+.rtl-nav li {
+  text-align: right;
+}
+
+.rtl-nav .nav-link {
+  padding-right: 1rem;
+  padding-left: 0.5rem;
+}
+
+/* RTL Form Elements */
+.rtl-form input,
+.rtl-form select,
+.rtl-form textarea {
+  direction: rtl;
+  text-align: right;
+  font-family: var(--font-persian-primary);
+}
+
+.rtl-form label {
+  text-align: right;
+  margin-left: 0;
+  margin-right: 0.25rem;
+}
+
+.rtl-form .form-group {
+  text-align: right;
+}
+
+/* RTL Tables */
+.rtl-table {
+  direction: rtl;
+}
+
+.rtl-table th,
+.rtl-table td {
+  text-align: right;
+  padding: 0.75rem 0.5rem;
+}
+
+.rtl-table th:first-child,
+.rtl-table td:first-child {
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.rtl-table th:last-child,
+.rtl-table td:last-child {
+  border-radius: 0.375rem 0 0 0.375rem;
+}
+
+/* RTL Cards */
+.rtl-card {
+  direction: rtl;
+  text-align: right;
+}
+
+.rtl-card .card-header {
+  text-align: right;
+}
+
+.rtl-card .card-body {
+  text-align: right;
+}
+
+/* RTL Dashboard */
+.rtl-dashboard {
+  direction: rtl;
+}
+
+.rtl-dashboard .sidebar {
+  right: 0;
+  left: auto;
+  border-left: 1px solid #e2e8f0;
+  border-right: none;
+}
+
+.rtl-dashboard .main-content {
+  margin-right: 250px;
+  margin-left: 0;
+}
+
+.rtl-dashboard .topbar {
+  direction: rtl;
+  padding-right: 1.5rem;
+  padding-left: 1.5rem;
+}
+
+/* RTL Buttons */
+.rtl-btn {
+  font-family: var(--font-persian-primary);
+}
+
+.rtl-btn .icon {
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+.rtl-btn .icon-right {
+  margin-right: 0.5rem;
+  margin-left: 0;
+}
+
+/* RTL Dropdown */
+.rtl-dropdown {
+  direction: rtl;
+}
+
+.rtl-dropdown .dropdown-menu {
+  right: 0;
+  left: auto;
+  text-align: right;
+}
+
+.rtl-dropdown .dropdown-item {
+  text-align: right;
+  padding-right: 1rem;
+  padding-left: 1rem;
+}
+
+/* RTL Modal */
+.rtl-modal .modal-header {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl-modal .modal-body {
+  text-align: right;
+  direction: rtl;
+}
+
+.rtl-modal .modal-footer {
+  direction: rtl;
+  justify-content: flex-start;
+}
+
+/* RTL Breadcrumb */
+.rtl-breadcrumb {
+  direction: rtl;
+}
+
+.rtl-breadcrumb .breadcrumb-item + .breadcrumb-item::before {
+  content: "‹";
+  margin-left: 0.5rem;
+  margin-right: 0;
+}
+
+/* RTL Pagination */
+.rtl-pagination {
+  direction: rtl;
+}
+
+.rtl-pagination .page-link {
+  margin-left: -1px;
+  margin-right: 0;
+}
+
+.rtl-pagination .page-item:first-child .page-link {
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.rtl-pagination .page-item:last-child .page-link {
+  border-radius: 0.375rem 0 0 0.375rem;
+}
+
+/* Persian Number Support */
+.persian-numbers {
+  font-feature-settings: "ss01" on;
+  font-variant-numeric: normal;
+}
+
+/* RTL Animation Fixes */
+.rtl-slide-in-right {
+  animation: slideInRight 0.3s ease-in-out;
+}
+
+.rtl-slide-in-left {
+  animation: slideInLeft 0.3s ease-in-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* RTL Grid Layout */
+.rtl-grid {
+  direction: rtl;
+}
+
+.rtl-grid-cols-1 {
+  grid-template-columns: 1fr;
+}
+
+.rtl-grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.rtl-grid-cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.rtl-grid-cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* Responsive RTL Support */
+@media (max-width: 768px) {
+  .rtl-dashboard .sidebar {
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+  }
+  
+  .rtl-dashboard .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .rtl-dashboard .main-content {
+    margin-right: 0;
+    margin-left: 0;
+  }
+}
+
+/* RTL Utility Classes */
+.dir-rtl {
+  direction: rtl;
+}
+
+.dir-ltr {
+  direction: ltr;
+}
+
+.text-right-rtl {
+  text-align: right;
+}
+
+.text-left-rtl {
+  text-align: left;
+}
+
+.font-persian {
+  font-family: var(--font-persian-primary);
+}
+
+.font-persian-secondary {
+  font-family: var(--font-persian-secondary);
+}
+
+/* Color Scheme */
+.bg-primary-persian {
+  background-color: var(--primary-color);
+}
+
+.bg-secondary-persian {
+  background-color: var(--secondary-color);
+}
+
+.text-primary-persian {
+  color: var(--primary-color);
+}
+
+.text-secondary-persian {
+  color: var(--secondary-color);
+}
+
+.border-primary-persian {
+  border-color: var(--primary-color);
+}
+
+/* Enhanced Card Styles with Persian Design */
+.persian-card {
+  background: linear-gradient(135deg, rgba(23, 70, 162, 0.05) 0%, rgba(212, 175, 55, 0.05) 100%);
+  border: 1px solid rgba(23, 70, 162, 0.1);
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  transition: all 0.3s ease;
+}
+
+.persian-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 15px rgba(23, 70, 162, 0.15);
+}
+
+.persian-card-header {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 12px 12px 0 0;
+  font-weight: 600;
+}
+
+.persian-card-body {
+  padding: 1.5rem;
+}
+
+/* Persian Button Styles */
+.btn-persian-primary {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+  border: none;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-family: var(--font-persian-primary);
+  transition: all 0.3s ease;
+}
+
+.btn-persian-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(23, 70, 162, 0.3);
+}
+
+.btn-persian-secondary {
+  background: linear-gradient(135deg, var(--secondary-color) 0%, #B8941F 100%);
+  border: none;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  font-family: var(--font-persian-primary);
+  transition: all 0.3s ease;
+}
+
+.btn-persian-secondary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+}
+
+/* Loading Animation with Persian Style */
+.persian-loading {
+  display: inline-block;
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(23, 70, 162, 0.1);
+  border-top: 3px solid var(--primary-color);
+  border-radius: 50%;
+  animation: persianSpin 1s linear infinite;
+}
+
+@keyframes persianSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Persian Stats Cards */
+.persian-stat-card {
+  background: white;
+  border-radius: 16px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(23, 70, 162, 0.1);
+  transition: all 0.3s ease;
+}
+
+.persian-stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(23, 70, 162, 0.15);
+}
+
+.persian-stat-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  font-family: var(--font-persian-primary);
+}
+
+.persian-stat-label {
+  font-size: 1rem;
+  color: #6B7280;
+  font-weight: 500;
+  font-family: var(--font-persian-primary);
+}
+
+.persian-stat-icon {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1rem auto;
+  color: white;
+}
