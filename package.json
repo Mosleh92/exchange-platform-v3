@@ -1,58 +1,23 @@
 {
   "name": "exchange-platform-v3",
   "version": "1.0.0",
-  "private": true,
-  "description": "Multi-tenant exchange platform built with Node.js, React, and MongoDB",
-  "engines": {
-    "node": ">=18.0.0",
-    "npm": ">=9.0.0"
-  },
+  "main": "api/index.js",
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "cd frontend && npm install && npm run build",
-    "build:backend": "cd backend && npm install && echo 'Backend build completed'",
-    "start": "node server.js",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "test": "echo 'No tests specified'",
-    "lint": "echo 'No linting specified'",
-    "clean": "rm -rf node_modules backend/node_modules frontend/node_modules frontend/dist backend/dist"
+    "build": "echo 'API-only build completed'",
+    "start": "node api/index.js",
+    "dev": "node api/index.js"
   },
-  "keywords": [
-    "exchange",
-    "trading",
-    "multi-tenant",
-    "nodejs",
-    "react",
-    "mongodb"
-  ],
-  "author": "Exchange Platform Team",
-  "license": "MIT",
   "dependencies": {
-    "bcryptjs": "^3.0.2",
-    "compression": "^1.7.4",
+    "express": "^4.18.0",
+    "mongoose": "^7.0.0",
     "cors": "^2.8.5",
-    "crypto": "^1.0.1",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "express-rate-limit": "^7.5.1",
-    "express-slow-down": "^2.1.0",
-    "express-validator": "^7.2.1",
-    "helmet": "^7.2.0",
-    "isomorphic-dompurify": "^2.26.0",
-    "jsonwebtoken": "^9.0.2",
-    "qrcode": "^1.5.4",
-    "redis": "^5.6.0",
-    "speakeasy": "^2.0.0"
+    "helmet": "^6.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "dotenv": "^16.0.0",
+    "express-rate-limit": "^6.7.0"
   },
-  "devDependencies": {
-    "concurrently": "^8.2.2",
-    "nodemon": "^3.0.2"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Mosleh92/exchange-platform-v3.git"
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
