@@ -14,7 +14,9 @@
     "test": "npm run test:backend",
     "test:backend": "cd backend && npm test",
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "deploy": "npm run build && npm start"
+    "deploy": "npm run build && npm start",
+    "health-check": "node scripts/health-check.js",
+    "validate": "node scripts/validate-deployment.js"
   },
   "repository": {
     "type": "git",

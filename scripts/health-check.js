@@ -17,10 +17,11 @@ function checkEnvironmentVariables() {
   
   const requiredVars = [
     'NODE_ENV',
-    'PORT',
     'JWT_SECRET',
     'MONGODB_URI'
   ];
+  
+  const optionalVars = ['PORT'];
   
   let allValid = true;
   
@@ -33,6 +34,15 @@ function checkEnvironmentVariables() {
       log(`⚠️  Warning: ${varName} should be at least 32 characters long`, 'yellow');
     } else {
       log(`✅ ${varName}: ${varName === 'JWT_SECRET' ? '***' : value}`, 'green');
+    }
+  });
+  
+  optionalVars.forEach(varName => {
+    const value = process.env[varName];
+    if (value) {
+      log(`✅ ${varName}: ${value}`, 'green');
+    } else {
+      log(`ℹ️  ${varName}: Using default (will be auto-set by hosting platforms)`, 'blue');
     }
   });
   
