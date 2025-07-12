@@ -1,38 +1,35 @@
 {
-  "name": "exchange-platform-v3",
+  "name": "exchange-platform-frontend",
   "version": "1.0.0",
-  "description": "Advanced Multi-tenant Cryptocurrency Exchange Platform",
-  "main": "backend/src/app.js",
+  "private": true,
+  "type": "module",
+  "description": "Exchange Platform Frontend",
   "scripts": {
-    "start": "cd backend && npm start",
-    "dev": "concurrently \"cd backend && npm run dev\" \"cd frontend && npm run dev\"",
-    "build": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "cd frontend && npm ci --only=production && npm run build",
-    "build:backend": "cd backend && npm ci --only=production",
-    "test": "npm run test:backend && npm run test:frontend",
-    "test:backend": "cd backend && npm test",
-    "test:frontend": "cd frontend && npm test",
-    "lint": "npm run lint:backend && npm run lint:frontend",
-    "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint"
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "echo \"No tests configured yet\"",
+    "lint": "echo \"No linting configured yet\""
   },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Mosleh92/exchange-platform-v3.git"
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.15.0",
+    "axios": "^1.5.0",
+    "lucide-react": "^0.263.1",
+    "react-query": "^3.39.3",
+    "react-hot-toast": "^2.4.1",
+    "react-hook-form": "^7.45.4",
+    "zustand": "^4.4.1"
   },
-  "keywords": [
-    "cryptocurrency",
-    "exchange",
-    "trading",
-    "blockchain",
-    "react",
-    "node.js",
-    "mongodb"
-  ],
-  "author": "CodeOverlord",
-  "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "@types/react": "^18.2.15",
+    "@types/react-dom": "^18.2.7",
+    "@vitejs/plugin-react": "^4.0.3",
+    "vite": "^4.4.5",
+    "autoprefixer": "^10.4.15",
+    "postcss": "^8.4.28",
+    "tailwindcss": "^3.3.3"
   },
   "engines": {
     "node": ">=18.0.0"

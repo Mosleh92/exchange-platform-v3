@@ -16,6 +16,7 @@ build/
 # Logs
 *.log
 npm-debug.log*
+logs/
 
 # OS generated files
 .DS_Store
@@ -24,3 +25,16 @@ Thumbs.db
 # Editor directories
 .vscode/
 .idea/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Coverage
+coverage/
+
+# Runtime files
+*.pid
+*.seed
+*.pid.lock
