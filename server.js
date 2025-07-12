@@ -9,9 +9,16 @@ require('dotenv').config()
 // Import the comprehensive backend application (with error handling)
 let backendApp = null
 try {
-  backendApp = require('./backend/src/app')
+  backendApp = require('./backend/src/comprehensive-backend')
+  console.log('📦 Comprehensive backend loaded successfully')
 } catch (error) {
-  console.log('⚠️ Backend app import failed, will use fallback API:', error.message)
+  console.log('⚠️ Comprehensive backend import failed, will use fallback API:', error.message)
+  try {
+    backendApp = require('./backend/src/app')
+    console.log('📦 Original backend loaded as fallback')
+  } catch (error2) {
+    console.log('⚠️ Original backend also failed:', error2.message)
+  }
 }
 
 const app = express()
