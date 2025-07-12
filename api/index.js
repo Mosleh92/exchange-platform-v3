@@ -557,6 +557,11 @@ app.get('/api/docs', (req, res) => {
   });
 });
 
+// Serve static demo file
+app.get('/demo.html', (req, res) => {
+  res.sendFile(require('path').join(__dirname, '..', 'demo.html'));
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
