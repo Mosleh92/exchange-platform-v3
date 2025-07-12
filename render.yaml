@@ -1,80 +1,29 @@
-# render.yaml - کنفیگریشن کامل برای Render.com
+# Render.com Configuration for Exchange Platform
 services:
-  # Backend Service
+  # Full-stack web service
   - type: web
-    name: exchange-backend
+    name: exchange-platform
     env: node
     region: oregon
     plan: starter
-    buildCommand: |
-      cd backend
-      npm install
-      npm run build
-    startCommand: |
-      cd backend
-      npm start
+    buildCommand: npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 3000
-      - key: MONGODB_URI
-        fromDatabase:
-          name: exchange-mongodb
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: exchange-redis
-          property: connectionString
       - key: JWT_SECRET
         generateValue: true
       - key: SESSION_SECRET
         generateValue: true
-      - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: exchange-frontend
-          property: url
-    
-  # Frontend Service  
-  - type: web
-    name: exchange-frontend
-    env: static
-    region: oregon
-    plan: starter
-    buildCommand: |
-      cd frontend
-      npm install
-      npm run build
-    staticPublishPath: ./frontend/dist
-    envVars:
-      - key: VITE_API_URL
-        fromService:
-          type: web
-          name: exchange-backend
-          property: url
-      - key: VITE_WS_URL
-        fromService:
-          type: web
-          name: exchange-backend
-          property: url
-      - key: VITE_APP_NAME
-        value: "پلتفرم صرافی همیار"
+      - key: MONGODB_URI
+        value: mongodb+srv://username:password@cluster.mongodb.net/exchange_platform
 
-# Databases
-databases:
-  - name: exchange-mongodb
-    databaseName: exchange_platform
-    user: exchange_user
-    plan: starter
-
-# Redis
-services:
-  - type: redis
-    name: exchange-redis
-    plan: starter
-    region: oregon
+# Optional: Separate MongoDB database (if using Render's database service)
+# databases:
+#   - name: exchange-mongodb
+#     databaseName: exchange_platform
+#     user: exchange_user
+#     plan: starter
 
 ---
 
