@@ -9,12 +9,21 @@ require('dotenv').config();
 
 const SecurityMiddleware = require('./security');
 const WebSocketManager = require('./websocket');
+const HealthMonitor = require('./monitoring');
+const { connectDB, initializeDB, models } = require('./database');
 
 const app = express();
 const server = http.createServer(app);
 
+// Initialize monitoring
+const healthMonitor = new HealthMonitor();
+healthMonitor.startPerformanceMonitoring();
+
 // Initialize WebSocket Manager
 const wsManager = new WebSocketManager(server);
+
+// Metrics tracking middleware
+app.use(healthMonitor.trackRequest.bind(healthMonitor));
 
 // Security middleware
 app.use(SecurityMiddleware.securityHeaders);
@@ -64,43 +73,76 @@ const orderSchema = Joi.object({
 });
 
 // Database connection
-const connectDB = async () => {
+const initializeDatabase = async () => {
   try {
-    if (!process.env.MONGODB_URI) {
-      console.log('MongoDB URI not found, using fallback connection');
-      return;
+    if (process.env.MONGODB_URI) {
+      await connectDB();
+      await initializeDB();
+    } else {
+      console.log('⚠️ MongoDB URI not configured, running in demo mode');
+      healthMonitor.addAlert('warning', 'Database not configured - running in demo mode');
     }
-    
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
-    console.log('✅ MongoDB connected successfully');
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error.message);
-    // Don't exit in production, continue with limited functionality
+    console.error('Database initialization failed:', error.message);
+    healthMonitor.addAlert('error', 'Database initialization failed', { error: error.message });
   }
 };
 
 // Initialize database connection
-connectDB();
+initializeDatabase();
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+// Enhanced health check endpoint with comprehensive monitoring
+app.get('/api/health', async (req, res) => {
+  try {
+    const healthStatus = await healthMonitor.getHealthStatus();
+    const statusCode = healthStatus.status === 'OK' ? 200 : 
+                      healthStatus.status === 'DEGRADED' ? 503 : 500;
+    res.status(statusCode).json(healthStatus);
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Health check failed',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Readiness check for Kubernetes/Docker
+app.get('/api/ready', async (req, res) => {
+  try {
+    const readiness = await healthMonitor.isReady();
+    res.status(readiness.ready ? 200 : 503).json(readiness);
+  } catch (error) {
+    res.status(503).json({
+      ready: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Liveness check for Kubernetes/Docker  
+app.get('/api/alive', (req, res) => {
+  res.json(healthMonitor.isAlive());
+});
+
+// System information endpoint
+app.get('/api/info', (req, res) => {
+  res.json(healthMonitor.getSystemInfo());
+});
+
+// Metrics endpoint for monitoring systems
+app.get('/api/metrics', 
+  SecurityMiddleware.authenticate,
+  SecurityMiddleware.authorize(['super_admin']),
+  (req, res) => {
   res.json({
-    status: 'OK',
-    message: 'Exchange Platform V3 API is running!',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: '3.0.0',
-    environment: process.env.NODE_ENV || 'production',
-    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    features: {
-      authentication: true,
-      trading: true,
-      p2p: true,
-      multiTenant: true,
-      realTime: true
+    success: true,
+    data: {
+      ...healthMonitor.getMetrics(),
+      alerts: healthMonitor.getAlerts('error', 10),
+      resources: healthMonitor.getResourceUsage()
     }
   });
 });
@@ -443,6 +485,78 @@ app.get('/api/system/metrics',
   });
 });
 
+// API Documentation endpoint
+app.get('/api/docs', (req, res) => {
+  res.json({
+    title: 'Exchange Platform V3 API',
+    version: '3.0.0',
+    description: 'Production-ready multi-tenant exchange platform API',
+    endpoints: {
+      health: {
+        'GET /api/health': 'Comprehensive health check with system metrics',
+        'GET /api/ready': 'Readiness check for container orchestration',
+        'GET /api/alive': 'Liveness check for container orchestration',
+        'GET /api/info': 'System information and feature flags',
+        'GET /api/docs': 'API documentation'
+      },
+      authentication: {
+        'POST /api/auth/login': 'User authentication with email/password',
+        'POST /api/auth/register': 'User registration (customers only)'
+      },
+      trading: {
+        'GET /api/trading/pairs': 'Get available trading pairs and current prices',
+        'POST /api/trading/order': 'Place a trading order (requires auth)'
+      },
+      p2p: {
+        'GET /api/p2p/orders': 'Get P2P orders (requires auth, tenant-isolated)'
+      },
+      account: {
+        'GET /api/account/balance': 'Get user wallet balances (requires auth)',
+        'GET /api/user/profile': 'Get user profile information (requires auth)'
+      },
+      admin: {
+        'GET /api/admin/users': 'List users (admin only, tenant-isolated)',
+        'GET /api/system/metrics': 'System metrics (super admin only)',
+        'GET /api/metrics': 'Detailed metrics and alerts (super admin only)'
+      },
+      transactions: {
+        'GET /api/transactions': 'Get transaction history (requires auth, paginated)'
+      }
+    },
+    authentication: {
+      type: 'Bearer Token',
+      header: 'Authorization: Bearer {token}',
+      note: 'Obtain token via POST /api/auth/login',
+      testCredentials: {
+        'admin@exchange.com': 'password123 (super_admin)',
+        'tenant@exchange.com': 'password123 (tenant_admin)', 
+        'manager@exchange.com': 'password123 (manager)',
+        'customer@exchange.com': 'password123 (customer)'
+      }
+    },
+    roles: ['super_admin', 'tenant_admin', 'manager', 'staff', 'customer'],
+    features: [
+      'Multi-tenant architecture',
+      'Real-time WebSocket updates',
+      'Rate limiting and security',
+      'Comprehensive monitoring',
+      'Input validation',
+      'Audit logging',
+      'Health checks'
+    ],
+    websocket: {
+      url: `ws://${req.headers.host}`,
+      events: {
+        authenticate: 'Authenticate WebSocket connection',
+        subscribe_trading: 'Subscribe to trading pair updates', 
+        subscribe_p2p: 'Subscribe to P2P order updates',
+        place_order: 'Place order via WebSocket',
+        create_p2p_order: 'Create P2P order via WebSocket'
+      }
+    }
+  });
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
@@ -461,16 +575,18 @@ app.use((req, res) => {
     message: 'Endpoint not found',
     path: req.path,
     availableEndpoints: [
-      'GET /api/health',
-      'GET /api/status',
-      'POST /api/auth/login',
-      'POST /api/auth/register',
-      'GET /api/trading/pairs',
-      'POST /api/trading/order',
-      'GET /api/p2p/orders',
-      'GET /api/account/balance',
-      'GET /api/transactions'
-    ]
+      'GET /api/health - Health check',
+      'GET /api/docs - API documentation', 
+      'GET /api/status - System status',
+      'POST /api/auth/login - User login',
+      'POST /api/auth/register - User registration',
+      'GET /api/trading/pairs - Trading pairs',
+      'POST /api/trading/order - Place order (auth required)',
+      'GET /api/p2p/orders - P2P orders (auth required)',
+      'GET /api/account/balance - Account balance (auth required)',
+      'GET /api/transactions - Transaction history (auth required)'
+    ],
+    documentation: `${req.protocol}://${req.headers.host}/api/docs`
   });
 });
 

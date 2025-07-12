@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Exchange Platform V3 - Production Ready</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2rem;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            max-width: 1200px;
+            width: 90%;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1.5rem;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .feature-card h3 {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: #4ade80;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-ok { background-color: #4ade80; }
+        .status-warning { background-color: #fbbf24; }
+        .status-error { background-color: #ef4444; }
+
+        .api-demo {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+        }
+
+        .button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 500;
+            margin: 0.5rem;
+            transition: all 0.3s;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .response {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .websocket-demo {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 1.5rem;
+            border-radius: 15px;
+        }
+
+        .price-ticker {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .price-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 1rem;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .price-symbol {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .price-value {
+            font-size: 1.2rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .price-change {
+            font-size: 0.9rem;
+        }
+
+        .positive { color: #4ade80; }
+        .negative { color: #ef4444; }
+
+        .logs {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Exchange Platform V3</h1>
+        <p style="text-align: center; margin-bottom: 2rem; font-size: 1.1rem;">
+            Production-Ready Multi-Tenant Exchange Platform
+        </p>
+
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3><span class="status-indicator status-ok"></span>API Security</h3>
+                <ul>
+                    <li>JWT Authentication</li>
+                    <li>Rate Limiting</li>
+                    <li>Input Validation</li>
+                    <li>Multi-tenant Isolation</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3><span class="status-indicator status-ok"></span>Real-time Features</h3>
+                <ul>
+                    <li>WebSocket Server</li>
+                    <li>Live Price Updates</li>
+                    <li>Order Notifications</li>
+                    <li>P2P Matching</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3><span class="status-indicator status-ok"></span>Database & Monitoring</h3>
+                <ul>
+                    <li>MongoDB Schemas</li>
+                    <li>Health Monitoring</li>
+                    <li>Performance Metrics</li>
+                    <li>Alert System</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3><span class="status-indicator status-ok"></span>Production Ready</h3>
+                <ul>
+                    <li>Docker Support</li>
+                    <li>Vercel Compatible</li>
+                    <li>Environment Config</li>
+                    <li>Security Headers</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="api-demo">
+            <h3>🔧 API Demo</h3>
+            <p>Test the production-ready API endpoints:</p>
+            
+            <button class="button" onclick="testHealth()">Health Check</button>
+            <button class="button" onclick="testLogin()">Login Test</button>
+            <button class="button" onclick="testTradingPairs()">Trading Pairs</button>
+            <button class="button" onclick="testPlaceOrder()">Place Order</button>
+            
+            <div id="apiResponse" class="response" style="display: none;"></div>
+        </div>
+
+        <div class="websocket-demo">
+            <h3>📡 Real-time Trading Data</h3>
+            <p>Live price updates via WebSocket:</p>
+            
+            <button class="button" onclick="connectWebSocket()">Connect WebSocket</button>
+            <button class="button" onclick="disconnectWebSocket()">Disconnect</button>
+            
+            <div class="price-ticker" id="priceTicker">
+                <!-- Price data will be populated here -->
+            </div>
+            
+            <div id="wsLogs" class="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let authToken = null;
+
+        // API Base URL
+        const API_BASE = window.location.origin;
+
+        function logMessage(message) {
+            const logs = document.getElementById('wsLogs');
+            const time = new Date().toLocaleTimeString();
+            logs.innerHTML += `[${time}] ${message}\n`;
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function showApiResponse(data) {
+            const responseDiv = document.getElementById('apiResponse');
+            responseDiv.style.display = 'block';
+            responseDiv.textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const url = `${API_BASE}${endpoint}`;
+                const response = await fetch(url, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(authToken && { 'Authorization': `Bearer ${authToken}` }),
+                        ...options.headers
+                    },
+                    ...options
+                });
+                
+                const data = await response.json();
+                showApiResponse(data);
+                return data;
+            } catch (error) {
+                showApiResponse({ error: error.message });
+                throw error;
+            }
+        }
+
+        async function testHealth() {
+            await apiCall('/api/health');
+        }
+
+        async function testLogin() {
+            const loginData = {
+                email: 'admin@exchange.com',
+                password: 'password123'
+            };
+            
+            const result = await apiCall('/api/auth/login', {
+                method: 'POST',
+                body: JSON.stringify(loginData)
+            });
+            
+            if (result.success) {
+                authToken = result.data.token;
+                logMessage('✅ Login successful, token saved');
+            }
+        }
+
+        async function testTradingPairs() {
+            await apiCall('/api/trading/pairs');
+        }
+
+        async function testPlaceOrder() {
+            if (!authToken) {
+                alert('Please login first!');
+                return;
+            }
+            
+            const orderData = {
+                pair: 'BTC/USD',
+                type: 'buy',
+                amount: 0.1,
+                price: 43000
+            };
+            
+            await apiCall('/api/trading/order', {
+                method: 'POST',
+                body: JSON.stringify(orderData)
+            });
+        }
+
+        function connectWebSocket() {
+            if (ws) {
+                logMessage('⚠️ WebSocket already connected');
+                return;
+            }
+
+            const wsUrl = `ws://${window.location.host}`;
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function() {
+                logMessage('🔗 WebSocket connected');
+                
+                // Authenticate if we have a token
+                if (authToken) {
+                    ws.send(JSON.stringify({
+                        type: 'authenticate',
+                        token: authToken
+                    }));
+                }
+                
+                // Subscribe to trading pairs
+                ws.send(JSON.stringify({
+                    type: 'subscribe_trading',
+                    pairs: ['BTC/USD', 'ETH/USD', 'EUR/USD', 'GBP/USD']
+                }));
+            };
+
+            ws.onmessage = function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'price_update') {
+                        updatePriceDisplay(data);
+                        logMessage(`💰 Price update: ${data.pair} = $${data.price}`);
+                    } else {
+                        logMessage(`📨 ${JSON.stringify(data)}`);
+                    }
+                } catch (error) {
+                    logMessage(`❌ Error parsing message: ${error.message}`);
+                }
+            };
+
+            ws.onclose = function() {
+                logMessage('🔌 WebSocket disconnected');
+                ws = null;
+            };
+
+            ws.onerror = function(error) {
+                logMessage(`❌ WebSocket error: ${error.message || 'Connection failed'}`);
+            };
+        }
+
+        function disconnectWebSocket() {
+            if (ws) {
+                ws.close();
+                ws = null;
+                logMessage('🔌 WebSocket disconnected');
+            }
+        }
+
+        function updatePriceDisplay(priceData) {
+            const ticker = document.getElementById('priceTicker');
+            
+            let priceItem = document.querySelector(`[data-pair="${priceData.pair}"]`);
+            if (!priceItem) {
+                priceItem = document.createElement('div');
+                priceItem.className = 'price-item';
+                priceItem.setAttribute('data-pair', priceData.pair);
+                ticker.appendChild(priceItem);
+            }
+            
+            const changeClass = priceData.change >= 0 ? 'positive' : 'negative';
+            const changeSymbol = priceData.change >= 0 ? '+' : '';
+            
+            priceItem.innerHTML = `
+                <div class="price-symbol">${priceData.pair}</div>
+                <div class="price-value">$${priceData.price.toLocaleString()}</div>
+                <div class="price-change ${changeClass}">${changeSymbol}${priceData.change}%</div>
+            `;
+        }
+
+        // Auto-connect WebSocket on page load
+        window.addEventListener('load', function() {
+            logMessage('🚀 Exchange Platform V3 Demo Ready');
+            logMessage('💡 Try the API endpoints and WebSocket connection!');
+            
+            // Auto-connect WebSocket
+            setTimeout(connectWebSocket, 1000);
+        });
+    </script>
+</body>
+</html>
