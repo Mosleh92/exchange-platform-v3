@@ -19,5 +19,6 @@ module.exports = {
     '!src/scripts/**',
     '!src/tests/**'
   ],
-  setupFiles: ['./src/tests/setup.js']
+  setupFilesAfterEnv: ['./src/tests/setup.js'],
+  testTimeout: 30000
 };

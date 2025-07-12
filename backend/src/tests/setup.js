@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const redis = require('redis');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 // Set test environment
@@ -13,40 +12,52 @@ let mongoServer;
 let mockRedisClient;
 
 // Mock Redis client globally
+mockRedisClient = {
+  connect: jest.fn().mockResolvedValue(undefined),
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  on: jest.fn(),
+  quit: jest.fn().mockResolvedValue(undefined)
+};
+
 jest.mock('redis', () => ({
   createClient: jest.fn(() => mockRedisClient)
 }));
 
-// Global test setup
-beforeAll(async () => {
-  // Start in-memory MongoDB
-  mongoServer = await MongoMemoryServer.create();
-  const mongoUri = mongoServer.getUri();
-  
-  // Connect to test database
-  await mongoose.connect(mongoUri, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-  });
-  
-  // Create mock Redis client
-  mockRedisClient = {
-    connect: jest.fn().mockResolvedValue(undefined),
-    get: jest.fn().mockResolvedValue(null),
-    set: jest.fn().mockResolvedValue(undefined),
-    del: jest.fn().mockResolvedValue(undefined),
-    on: jest.fn(),
-    quit: jest.fn().mockResolvedValue(undefined)
-  };
-  
-  console.log('Test environment setup completed');
-});
+// Setup function that can be called in tests
+global.setupTestDatabase = async () => {
+  if (!mongoServer) {
+    mongoServer = await MongoMemoryServer.create();
+    const mongoUri = mongoServer.getUri();
+    
+    if (mongoose.connection.readyState === 0) {
+      await mongoose.connect(mongoUri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+      });
+    }
+  }
+  return mongoServer;
+};
 
-// Global test teardown
-afterAll(async () => {
-  // Close database connections
-  await mongoose.connection.dropDatabase();
-  await mongoose.connection.close();
+// Teardown function that can be called in tests  
+global.teardownTestDatabase = async () => {
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.connection.dropDatabase();
+    await mongoose.connection.close();
+  }
+  
+  if (mongoServer) {
+    await mongoServer.stop();
+    mongoServer = null;
+  }
+};
+
+// Global test timeout
+jest.setTimeout(30000);
+
+console.log('Test setup configuration loaded');
   
   // Stop MongoDB server
   if (mongoServer) {
