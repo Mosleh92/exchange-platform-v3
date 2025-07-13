@@ -1,0 +1,156 @@
+# Docker Compose for Local Fly.io Testing
+# This mimics the Fly.io deployment environment for local development and testing
+
+version: '3.8'
+
+services:
+  # MongoDB (mimics exchange-platform-db.internal)
+  mongodb:
+    image: mongo:5.0
+    container_name: exchange-platform-db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: test-password
+      MONGO_INITDB_DATABASE: exchange_platform
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./scripts/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - exchange-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis (mimics exchange-platform-redis.internal)
+  redis:
+    image: redis:7-alpine
+    container_name: exchange-platform-redis
+    restart: unless-stopped
+    command: redis-server --requirepass test-password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - exchange-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--no-auth-warning", "-a", "test-password", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Backend (mimics exchange-platform-backend.fly.dev)
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: exchange-platform-backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      MONGODB_URI: mongodb://admin:test-password@mongodb:27017/exchange_platform
+      REDIS_URL: redis://:test-password@redis:6379
+      JWT_SECRET: test-jwt-secret-for-local-development-only
+      SESSION_SECRET: test-session-secret-for-local-development-only
+      FRONTEND_URL: http://localhost:3001
+      CORS_ORIGIN: http://localhost:3001
+      LOG_LEVEL: info
+      FLY_REGION: local
+      FLY_APP_NAME: exchange-platform-backend-local
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads_data:/app/uploads
+      - ./backend/logs:/app/logs
+    networks:
+      - exchange-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend (mimics exchange-platform-frontend.fly.dev)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: exchange-platform-frontend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3001:3000"
+    networks:
+      - exchange-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # Database migration runner
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: exchange-platform-migrate
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://admin:test-password@mongodb:27017/exchange_platform
+      REDIS_URL: redis://:test-password@redis:6379
+    networks:
+      - exchange-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: ["npm", "run", "migrate"]
+    restart: "no"
+
+  # Database optimizer runner
+  optimize:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: exchange-platform-optimize
+    environment:
+      NODE_ENV: production
+      MONGODB_URI: mongodb://admin:test-password@mongodb:27017/exchange_platform
+    networks:
+      - exchange-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: ["node", "scripts/database-optimizer.js"]
+    restart: "no"
+
+volumes:
+  mongodb_data:
+    driver: local
+  redis_data:
+    driver: local
+  uploads_data:
+    driver: local
+
+networks:
+  exchange-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

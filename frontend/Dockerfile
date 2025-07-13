@@ -36,37 +36,15 @@ RUN apk update && apk upgrade && \
 # Copy built application from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Create custom nginx configuration for SPA routing
-RUN echo 'server { \
-    listen 3000; \
-    server_name _; \
-    root /usr/share/nginx/html; \
-    index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
-    } \
-    location /health { \
-        access_log off; \
-        return 200 "healthy\n"; \
-        add_header Content-Type text/plain; \
-    } \
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ { \
-        expires 1y; \
-        add_header Cache-Control "public, immutable"; \
-    } \
-    gzip on; \
-    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript; \
-}' > /etc/nginx/conf.d/default.conf
-
-# Remove default nginx config
-RUN rm -f /etc/nginx/conf.d/default.conf.dpkg-dist
+# Copy custom nginx configuration
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Create nginx user and set permissions
 RUN addgroup -g 1001 -S nginx-custom && \
     adduser -S nginx-custom -u 1001 -G nginx-custom && \
     chown -R nginx-custom:nginx-custom /var/cache/nginx && \
     chown -R nginx-custom:nginx-custom /var/log/nginx && \
-    chown -R nginx-custom:nginx-custom /etc/nginx/conf.d && \
+    chown -R nginx-custom:nginx-custom /etc/nginx && \
     touch /var/run/nginx.pid && \
     chown -R nginx-custom:nginx-custom /var/run/nginx.pid
 
