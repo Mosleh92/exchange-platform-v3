@@ -15,14 +15,14 @@ const logger = require('./utils/logger');
 
 // Import routes
 const authRoutes = require('./routes/auth');
-const transactionRoutes = require('./routes/transaction');
+const transactionRoutes = require('./routes/transaction.routes');
 const accountRoutes = require('./routes/accounts');
-const p2pRoutes = require('./routes/p2p');
+const p2pRoutes = require('./routes/p2p.routes');
 const userRoutes = require('./routes/users');
-const paymentRoutes = require('./routes/payment');
-const remittanceRoutes = require('./routes/remittance');
-const reportRoutes = require('./routes/reports');
-const adminRoutes = require('./routes/admin');
+const paymentRoutes = require('./routes/payment.routes');
+const remittanceRoutes = require('./routes/remittances');
+const reportRoutes = require('./routes/report');
+const adminRoutes = require('./routes/superAdmin');
 const analyticsRoutes = require('./routes/analytics');
 
 // Import new services and middleware

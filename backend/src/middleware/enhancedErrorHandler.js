@@ -7,7 +7,7 @@ const EnhancedAuditService = require('../services/enhancedAuditService');
  */
 class EnhancedErrorHandler {
   constructor() {
-    this.auditService = new EnhancedAuditService();
+    this.auditService = EnhancedAuditService;
   }
 
   /**

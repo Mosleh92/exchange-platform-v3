@@ -9,7 +9,7 @@ const EnhancedAuditService = require('./enhancedAuditService');
 class EnhancedEventService extends EventEmitter {
   constructor() {
     super();
-    this.auditService = new EnhancedAuditService();
+    this.auditService = EnhancedAuditService;
     this.eventHandlers = new Map();
     this.eventHistory = [];
     this.maxEventHistory = 1000;

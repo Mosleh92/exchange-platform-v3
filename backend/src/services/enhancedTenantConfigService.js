@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
  */
 class EnhancedTenantConfigService {
   constructor() {
-    this.eventService = new EnhancedEventService();
+    this.eventService = EnhancedEventService;
     this.cache = new Map();
     this.cacheTimeout = 300000; // 5 minutes
     this.cacheTimestamps = new Map();

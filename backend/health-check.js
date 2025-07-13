@@ -1,7 +1,7 @@
 const http = require('http');
 
 const options = {
-  hostname: 'localhost',
+  hostname: '0.0.0.0',
   port: process.env.PORT || 3000,
   path: '/health',
   method: 'GET',
