@@ -7,7 +7,18 @@
     "start": "node src/app.js",
     "dev": "nodemon src/app.js",
     "test": "jest",
-    "lint": "eslint src --ext js"
+    "lint": "eslint src --ext js",
+    "build": "echo 'No build step needed for backend'",
+    "fly:deploy": "fly deploy",
+    "fly:launch": "fly launch",
+    "fly:status": "fly status",
+    "fly:logs": "fly logs",
+    "fly:scale": "fly scale count 2",
+    "fly:secrets": "fly secrets list",
+    "fly:secrets:set": "fly secrets set",
+    "migrate": "node scripts/migrate.js",
+    "health": "curl -f http://localhost:3000/health || node health-check.js",
+    "deploy": "npm run migrate && npm run fly:deploy"
   },
   "dependencies": {
     "express": "^4.18.2",

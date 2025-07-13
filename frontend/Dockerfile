@@ -1,11 +1,11 @@
 # ==============================================
-# Frontend Dockerfile - Production Ready
+# Frontend Dockerfile - Production Ready (Fly.io Optimized)
 # ==============================================
 
-# Use official Node.js LTS image for building
+# Build stage
 FROM node:18-alpine AS build
 
-# Install security updates
+# Install security updates and git
 RUN apk update && apk upgrade && \
     apk add --no-cache git && \
     rm -rf /var/cache/apk/*
@@ -13,22 +13,22 @@ RUN apk update && apk upgrade && \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files for better caching
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci && npm cache clean --force
 
 # Copy source code
 COPY . .
 
-# Build the application
+# Build the application for production
 RUN npm run build
 
 # Production stage with Nginx
 FROM nginx:alpine AS production
 
-# Install security updates
+# Install security updates and curl for health checks
 RUN apk update && apk upgrade && \
     apk add --no-cache curl && \
     rm -rf /var/cache/apk/*
@@ -36,28 +36,49 @@ RUN apk update && apk upgrade && \
 # Copy built application from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Copy custom nginx configuration
-COPY nginx/default.conf /etc/nginx/conf.d/default.conf
-COPY nginx/nginx.conf /etc/nginx/nginx.conf
+# Create custom nginx configuration for SPA routing
+RUN echo 'server { \
+    listen 3000; \
+    server_name _; \
+    root /usr/share/nginx/html; \
+    index index.html; \
+    location / { \
+        try_files $uri $uri/ /index.html; \
+    } \
+    location /health { \
+        access_log off; \
+        return 200 "healthy\n"; \
+        add_header Content-Type text/plain; \
+    } \
+    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ { \
+        expires 1y; \
+        add_header Cache-Control "public, immutable"; \
+    } \
+    gzip on; \
+    gzip_types text/plain text/css application/json application/javascript text/xml application/xml application/xml+rss text/javascript; \
+}' > /etc/nginx/conf.d/default.conf
+
+# Remove default nginx config
+RUN rm -f /etc/nginx/conf.d/default.conf.dpkg-dist
 
 # Create nginx user and set permissions
 RUN addgroup -g 1001 -S nginx-custom && \
-    adduser -S nginx-custom -u 1001 && \
+    adduser -S nginx-custom -u 1001 -G nginx-custom && \
     chown -R nginx-custom:nginx-custom /var/cache/nginx && \
     chown -R nginx-custom:nginx-custom /var/log/nginx && \
     chown -R nginx-custom:nginx-custom /etc/nginx/conf.d && \
     touch /var/run/nginx.pid && \
     chown -R nginx-custom:nginx-custom /var/run/nginx.pid
 
-# Switch to non-root user
+# Switch to non-root user  
 USER nginx-custom
 
-# Health check
+# Health check optimized for Fly.io
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:80/health || exit 1
+    CMD curl -f http://localhost:3000/health || exit 1
 
-# Expose port
-EXPOSE 80
+# Expose port 3000 for Fly.io
+EXPOSE 3000
 
-# Start Nginx
+# Start Nginx on port 3000
 CMD ["nginx", "-g", "daemon off;"]

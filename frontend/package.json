@@ -6,10 +6,17 @@
   "description": "Exchange Platform Frontend",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode production",
     "preview": "vite preview",
     "test": "echo \"No tests configured yet\"",
-    "lint": "echo \"No linting configured yet\""
+    "lint": "echo \"No linting configured yet\"",
+    "fly:deploy": "npm run build && fly deploy",
+    "fly:launch": "fly launch",
+    "fly:status": "fly status",
+    "fly:logs": "fly logs",
+    "fly:scale": "fly scale count 2",
+    "health": "curl -f http://localhost:3000/health || echo 'Health check failed'",
+    "deploy": "npm run build && npm run fly:deploy"
   },
   "dependencies": {
     "react": "^18.2.0",

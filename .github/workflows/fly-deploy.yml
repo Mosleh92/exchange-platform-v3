@@ -1,0 +1,241 @@
+name: Deploy to Fly.io
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    services:
+      mongodb:
+        image: mongo:5.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --eval 'db.runCommand({ping: 1})'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          npm ci
+      
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Run backend tests
+        run: |
+          cd backend
+          npm test
+        env:
+          NODE_ENV: test
+          MONGODB_URI: mongodb://localhost:27017/exchange_platform_test
+          REDIS_URL: redis://localhost:6379
+          JWT_SECRET: test-jwt-secret-for-ci
+          SESSION_SECRET: test-session-secret-for-ci
+      
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+        env:
+          VITE_API_URL: /api
+          VITE_WS_URL: ws://localhost:3000
+
+  deploy-backend:
+    name: Deploy Backend
+    runs-on: ubuntu-latest
+    needs: test
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      
+      - name: Deploy backend to Fly.io
+        run: |
+          cd backend
+          flyctl deploy --remote-only --app exchange-platform-backend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Wait for backend deployment
+        run: |
+          echo "Waiting for backend to be healthy..."
+          sleep 30
+          
+          # Check if backend is healthy
+          for i in {1..10}; do
+            if curl -f https://exchange-platform-backend.fly.dev/health; then
+              echo "✅ Backend is healthy"
+              break
+            else
+              echo "⏳ Waiting for backend... (attempt $i/10)"
+              sleep 30
+            fi
+            
+            if [ $i -eq 10 ]; then
+              echo "❌ Backend health check failed"
+              exit 1
+            fi
+          done
+      
+      - name: Run database migrations
+        run: |
+          cd backend
+          flyctl ssh console --app exchange-platform-backend --command "npm run migrate"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+  deploy-frontend:
+    name: Deploy Frontend
+    runs-on: ubuntu-latest
+    needs: [test, deploy-backend]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      
+      - name: Deploy frontend to Fly.io
+        run: |
+          cd frontend
+          flyctl deploy --remote-only --app exchange-platform-frontend
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Wait for frontend deployment
+        run: |
+          echo "Waiting for frontend to be healthy..."
+          sleep 30
+          
+          # Check if frontend is healthy
+          for i in {1..10}; do
+            if curl -f https://exchange-platform-frontend.fly.dev/health; then
+              echo "✅ Frontend is healthy"
+              break
+            else
+              echo "⏳ Waiting for frontend... (attempt $i/10)"
+              sleep 30
+            fi
+            
+            if [ $i -eq 10 ]; then
+              echo "❌ Frontend health check failed"
+              exit 1
+            fi
+          done
+
+  post-deployment:
+    name: Post-Deployment Verification
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend]
+    
+    steps:
+      - name: Verify backend health
+        run: |
+          echo "🔍 Verifying backend health..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://exchange-platform-backend.fly.dev/health)
+          if [ $response -eq 200 ]; then
+            echo "✅ Backend health check passed"
+          else
+            echo "❌ Backend health check failed (HTTP $response)"
+            exit 1
+          fi
+      
+      - name: Verify frontend health
+        run: |
+          echo "🔍 Verifying frontend health..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://exchange-platform-frontend.fly.dev/health)
+          if [ $response -eq 200 ]; then
+            echo "✅ Frontend health check passed"
+          else
+            echo "❌ Frontend health check failed (HTTP $response)"
+            exit 1
+          fi
+      
+      - name: Test API connectivity
+        run: |
+          echo "🔍 Testing API connectivity..."
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://exchange-platform-backend.fly.dev/api/health)
+          if [ $response -eq 200 ]; then
+            echo "✅ API connectivity test passed"
+          else
+            echo "❌ API connectivity test failed (HTTP $response)"
+            exit 1
+          fi
+      
+      - name: Deployment success notification
+        run: |
+          echo "🎉 Deployment completed successfully!"
+          echo "Backend URL: https://exchange-platform-backend.fly.dev"
+          echo "Frontend URL: https://exchange-platform-frontend.fly.dev"
+          
+          # Log deployment to GitHub
+          echo "::notice title=Deployment Success::Exchange Platform deployed successfully to Fly.io"
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    needs: [deploy-backend, deploy-frontend, post-deployment]
+    if: failure()
+    
+    steps:
+      - name: Setup Fly CLI
+        uses: superfly/flyctl-actions/setup-flyctl@master
+      
+      - name: Rollback backend
+        run: |
+          echo "🔄 Rolling back backend deployment..."
+          flyctl releases rollback --app exchange-platform-backend || echo "Backend rollback failed"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Rollback frontend
+        run: |
+          echo "🔄 Rolling back frontend deployment..."
+          flyctl releases rollback --app exchange-platform-frontend || echo "Frontend rollback failed"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      
+      - name: Rollback notification
+        run: |
+          echo "⚠️ Deployment failed - rollback initiated"
+          echo "::error title=Deployment Failed::Deployment failed and rollback was initiated"

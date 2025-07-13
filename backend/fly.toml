@@ -1,0 +1,128 @@
+# Fly.io Configuration for Exchange Platform Backend
+app = "exchange-platform-backend"
+primary_region = "fra"
+
+[build]
+
+[env]
+  NODE_ENV = "production"
+  PORT = "3000"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 250
+    soft_limit = 200
+
+[[http_service.checks]]
+  interval = "30s"
+  timeout = "10s"
+  grace_period = "5s"
+  method = "GET"
+  path = "/health"
+  protocol = "http"
+  restart_limit = 0
+
+  [http_service.checks.headers]
+    User-Agent = "fly-health-check"
+
+[[http_service.checks]]
+  interval = "60s"
+  timeout = "15s"
+  grace_period = "10s"
+  method = "GET"
+  path = "/health/ready"
+  protocol = "http"
+  restart_limit = 3
+
+[machine]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+  processes = ["app"]
+
+[metrics]
+  port = 9091
+  path = "/metrics"
+
+[[mounts]]
+  source = "uploads_vol"
+  destination = "/app/uploads"
+  size_gb = 1
+
+[deploy]
+  strategy = "canary"
+  release_command = "npm run migrate"
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "1s"
+
+  [[services.http_checks]]
+    interval = "10s"
+    timeout = "2s"
+    grace_period = "1s"
+    restart_limit = 0
+    method = "get"
+    path = "/health/live"
+    protocol = "http"
+    tls_skip_verify = false
+
+    [services.http_checks.headers]
+      User-Agent = "fly-health-check"
+
+# WebSocket support
+[[services]]
+  protocol = "tcp"
+  internal_port = 3000
+  processes = ["app"]
+
+  [[services.ports]]
+    port = 8080
+    handlers = ["http"]
+
+  [services.concurrency]
+    type = "connections"
+    hard_limit = 100
+    soft_limit = 80
+
+# Process scaling
+[processes]
+  app = "npm start"
+
+[[restart]]
+  policy = "on-failure"
+  max_restart_attempts = 5
+
+[kill_signal] 
+  signal = "SIGTERM"
+
+[kill_timeout] 
+  timeout = "30s"
