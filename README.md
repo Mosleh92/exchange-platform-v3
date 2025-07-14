@@ -135,33 +135,18 @@ npm run test         # Run tests
 
 ## 🌐 Deployment
 
-### Deploying to Fly.io
+### Deploying to Railway
 
-1. **Install the Fly CLI:**
-   ```bash
-   curl -L https://fly.io/install.sh | sh
-   ```
+1. **Fork the repository.**
 
-2. **Login to Fly:**
-   ```bash
-   fly auth login
-   ```
+2. **Create a new project on Railway and connect it to your forked repository.**
 
-3. **Launch the app:**
-   ```bash
-   fly launch
-   ```
-   This will create a `fly.toml` file and a new app on Fly.io.
+3. **Add the following environment variables in the Railway project settings:**
+   - `DATABASE_URL`: Your MongoDB connection string.
+   - `JWT_SECRET`: A secret key for signing JSON Web Tokens.
+   - `NODE_ENV`: `production`
 
-4. **Set secrets:**
-   ```bash
-   fly secrets set DATABASE_URL="your-mongodb-connection-string" JWT_SECRET="your-jwt-secret" NODE_ENV="production"
-   ```
-
-5. **Deploy:**
-   ```bash
-   fly deploy
-   ```
+4. **Railway will automatically deploy the application when you push to the `main` branch.**
 
 ### Docker Deployment
 ```bash
