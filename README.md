@@ -135,12 +135,33 @@ npm run test         # Run tests
 
 ## 🌐 Deployment
 
-### Free Hosting Options
+### Deploying to Fly.io
 
-1. **Railway** - Recommended for full-stack apps
-2. **Render** - Good for Node.js applications
-3. **Heroku** - Classic choice with good free tier
-4. **Vercel** - Excellent for frontend deployment
+1. **Install the Fly CLI:**
+   ```bash
+   curl -L https://fly.io/install.sh | sh
+   ```
+
+2. **Login to Fly:**
+   ```bash
+   fly auth login
+   ```
+
+3. **Launch the app:**
+   ```bash
+   fly launch
+   ```
+   This will create a `fly.toml` file and a new app on Fly.io.
+
+4. **Set secrets:**
+   ```bash
+   fly secrets set DATABASE_URL="your-mongodb-connection-string" JWT_SECRET="your-jwt-secret" NODE_ENV="production"
+   ```
+
+5. **Deploy:**
+   ```bash
+   fly deploy
+   ```
 
 ### Docker Deployment
 ```bash
