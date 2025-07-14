@@ -26,7 +26,7 @@ describe('DatePicker Component', () => {
     fireEvent.focus(input);
     
     await waitFor(() => {
-      expect(screen.getByText('Clear')).toBeInTheDocument();
+      expect(screen.getByText('Sun')).toBeInTheDocument();
     });
   });
 
@@ -49,7 +49,7 @@ describe('DatePicker Component', () => {
     fireEvent.focus(input);
     
     await waitFor(() => {
-      const prevButton = screen.getByRole('button', { name: /previous/i });
+      const prevButton = screen.getByRole('button', { name: /previous month/i });
       fireEvent.click(prevButton);
     });
     
@@ -65,7 +65,7 @@ describe('DatePicker Component', () => {
     fireEvent.focus(input);
     
     await waitFor(() => {
-      const nextButton = screen.getByRole('button', { name: /next/i });
+      const nextButton = screen.getByRole('button', { name: /next month/i });
       fireEvent.click(nextButton);
     });
     

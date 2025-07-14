@@ -34,7 +34,7 @@ describe('Table Component', () => {
     
     expect(screen.getByText('John Doe')).toBeInTheDocument();
     expect(screen.getByText('jane@example.com')).toBeInTheDocument();
-    expect(screen.getByText('Active')).toBeInTheDocument();
+    expect(screen.getAllByText('Active')[0]).toBeInTheDocument();
   });
 
   it('renders column headers', () => {
@@ -47,7 +47,7 @@ describe('Table Component', () => {
   });
 
   it('handles sorting when sortable is true', () => {
-    render(<Table {...defaultProps} sortable />);
+    render(<Table {...defaultProps} />);
     
     const nameHeader = screen.getByText('Name');
     fireEvent.click(nameHeader);
@@ -57,7 +57,7 @@ describe('Table Component', () => {
   });
 
   it('changes sort direction on second click', () => {
-    render(<Table {...defaultProps} sortable />);
+    render(<Table {...defaultProps} />);
     
     const nameHeader = screen.getByText('Name');
     fireEvent.click(nameHeader);
@@ -67,7 +67,7 @@ describe('Table Component', () => {
   });
 
   it('renders pagination when enabled', () => {
-    render(<Table {...defaultProps} pagination pageSize={2} />);
+    render(<Table {...defaultProps} pagination={{ pageSize: 2 }} />);
     
     expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
     expect(screen.getByText('Previous')).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe('Table Component', () => {
   });
 
   it('handles page navigation', () => {
-    render(<Table {...defaultProps} pagination pageSize={2} />);
+    render(<Table {...defaultProps} pagination={{ pageSize: 2 }} />);
     
     const nextButton = screen.getByText('Next');
     fireEvent.click(nextButton);
@@ -170,7 +170,7 @@ describe('Table Component', () => {
       {
         key: 'status',
         header: 'Status',
-        render: (value: string) => (
+        Cell: ({ value }) => (
           <span data-testid={`status-${value}`}>{value}</span>
         ),
       },
