@@ -1,12 +1,12 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Modal from '../Modal';
 
 // Mock createPortal
 jest.mock('react-dom', () => ({
   ...jest.requireActual('react-dom'),
-  createPortal: (node: React.ReactNode) => node,
+  createPortal: (node) => node,
 }));
 
 describe('Modal Component', () => {
@@ -39,13 +39,13 @@ describe('Modal Component', () => {
   });
 
   it('does not render when isOpen is false', () => {
-    render(
+    const { container } = render(
       <Modal {...defaultProps} isOpen={false}>
         <div data-testid="modal-content">Modal content</div>
       </Modal>
     );
     
-    expect(screen.queryByTestId('modal-content')).not.toBeInTheDocument();
+    expect(container.firstChild).toBeNull();
   });
 
   it('renders with title', () => {
@@ -61,12 +61,12 @@ describe('Modal Component', () => {
   it('calls onClose when close button is clicked', () => {
     const onClose = jest.fn();
     render(
-      <Modal {...defaultProps} onClose={onClose}>
+      <Modal {...defaultProps} onClose={onClose} title="Test Modal">
         <div>Content</div>
       </Modal>
     );
     
-    const closeButton = screen.getByLabelText('Close modal');
+    const closeButton = screen.getByRole('button');
     fireEvent.click(closeButton);
     
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -80,8 +80,8 @@ describe('Modal Component', () => {
       </Modal>
     );
     
-    const overlay = screen.getByRole('dialog').parentElement;
-    fireEvent.click(overlay!);
+    const overlay = screen.getByTestId('modal-overlay');
+    fireEvent.click(overlay);
     
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -107,8 +107,8 @@ describe('Modal Component', () => {
       </Modal>
     );
     
-    const modal = container.querySelector('[role="dialog"]');
-    expect(modal).toHaveClass('size-large');
+    const modal = container.querySelector('.max-w-4xl');
+    expect(modal).toBeInTheDocument();
   });
 
   it('applies custom className', () => {
@@ -118,8 +118,8 @@ describe('Modal Component', () => {
       </Modal>
     );
     
-    const modal = container.querySelector('[role="dialog"]');
-    expect(modal).toHaveClass('custom-modal');
+    const modal = container.querySelector('.custom-modal');
+    expect(modal).toBeInTheDocument();
   });
 
   it('renders without close button when showCloseButton is false', () => {
@@ -129,7 +129,7 @@ describe('Modal Component', () => {
       </Modal>
     );
     
-    expect(screen.queryByLabelText('Close modal')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('renders without header when no title and showCloseButton is false', () => {

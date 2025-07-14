@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 class ExchangeUser(HttpUser):
     """Simulates a real exchange platform user"""
     
+    host = "http://localhost:3000"
     wait_time = between(1, 3)  # Random wait between requests
     
     def on_start(self):
