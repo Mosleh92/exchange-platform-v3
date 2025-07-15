@@ -1,9 +1,10 @@
-const express = require('express')
-const path = require('path')
-const cors = require('cors')
-const helmet = require('helmet')
-const compression = require('compression')
-require('dotenv').config()
+import express from 'express';
+import path from 'path';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import dotenv from 'dotenv';
+dotenv.config();
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -112,6 +113,12 @@ app.post('/api/auth/register', (req, res) => {
   }
 })
 
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 // Serve static files
 const frontendPath = path.join(__dirname, 'frontend', 'dist')
 app.use(express.static(frontendPath))
@@ -121,7 +128,7 @@ app.get('*', (req, res) => {
   const indexPath = path.join(frontendPath, 'index.html')
   
   // Check if index.html exists
-  if (require('fs').existsSync(indexPath)) {
+  if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath)
   } else {
     // Fallback HTML
