@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "Advanced Multi-tenant Cryptocurrency Exchange Platform",
   "main": "server.js",
-  "type": "module",
   "scripts": {
     "start": "node server.js",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
