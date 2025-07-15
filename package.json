@@ -17,7 +17,8 @@
     "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
     "deploy": "npm run build && npm start",
     "health-check": "node scripts/health-check.js",
-    "validate": "node scripts/validate-deployment.js"
+    "validate": "node scripts/validate-deployment.js",
+    "postbuild": "cp -r frontend/dist ."
   },
   "repository": {
     "type": "git",

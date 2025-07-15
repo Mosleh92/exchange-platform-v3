@@ -1,37 +1,44 @@
-const express = require('express')
-const path = require('path')
-const cors = require('cors')
-const helmet = require('helmet')
-const compression = require('compression')
-require('dotenv').config()
+import express from 'express';
+import path from 'path';
+import cors from 'cors';
+import helmet from 'helmet';
+import compression from 'compression';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 
-const app = express()
-const PORT = process.env.PORT || 3000
+config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = process.env.PORT || 3000;
 
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false,
-}))
+}));
 
 // CORS
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   credentials: true,
-}))
+}));
 
 // Compression
-app.use(compression())
+app.use(compression());
 
 // Body parsing
-app.use(express.json({ limit: '10mb' }))
-app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request logging
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`)
-  next()
-})
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -42,8 +49,8 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     version: '1.0.0',
     environment: process.env.NODE_ENV || 'production'
-  })
-})
+  });
+});
 
 // API endpoints
 app.get('/api/test', (req, res) => {
@@ -52,8 +59,8 @@ app.get('/api/test', (req, res) => {
     timestamp: new Date().toISOString(),
     version: '1.0.0',
     status: 'success'
-  })
-})
+  });
+});
 
 // Status endpoint
 app.get('/api/status', (req, res) => {
@@ -65,12 +72,12 @@ app.get('/api/status', (req, res) => {
       systemStatus: 'operational',
       uptime: process.uptime()
     }
-  })
-})
+  });
+});
 
 // Auth endpoints
 app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body
+  const { email, password } = req.body;
   
   if (email && password) {
     res.json({
@@ -82,17 +89,17 @@ app.post('/api/auth/login', (req, res) => {
         email: email,
         name: 'Demo User'
       }
-    })
+    });
   } else {
     res.status(400).json({
       success: false,
       message: 'Email and password required'
-    })
+    });
   }
-})
+});
 
 app.post('/api/auth/register', (req, res) => {
-  const { email, password, name } = req.body
+  const { email, password, name } = req.body;
   
   if (email && password && name) {
     res.json({
@@ -103,26 +110,26 @@ app.post('/api/auth/register', (req, res) => {
         email: email,
         name: name
       }
-    })
+    });
   } else {
     res.status(400).json({
       success: false,
       message: 'All fields are required'
-    })
+    });
   }
-})
+});
 
 // Serve static files
-const frontendPath = path.join(__dirname, 'frontend', 'dist')
-app.use(express.static(frontendPath))
+const frontendPath = path.join(__dirname, 'frontend', 'dist');
+app.use(express.static(frontendPath));
 
 // Fallback for React Router
 app.get('*', (req, res) => {
-  const indexPath = path.join(frontendPath, 'index.html')
+  const indexPath = path.join(frontendPath, 'index.html');
   
   // Check if index.html exists
-  if (require('fs').existsSync(indexPath)) {
-    res.sendFile(indexPath)
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
   } else {
     // Fallback HTML
     res.send(`
@@ -235,16 +242,16 @@ app.get('*', (req, res) => {
         </div>
       </body>
       </html>
-    `)
+    `);
   }
-})
+});
 
 // Error handling
 app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).json({ message: 'Something went wrong!' })
-})
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
+});
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Exchange Platform V3 running on port ${PORT}`)
-})
+  console.log(`🚀 Exchange Platform V3 running on port ${PORT}`);
+});
