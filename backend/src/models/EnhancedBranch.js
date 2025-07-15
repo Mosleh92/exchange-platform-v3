@@ -1,44 +1,41 @@
 const mongoose = require('mongoose');
 const { ObjectId } = mongoose.Schema.Types;
 
-const exchangeRateSchema = new mongoose.Schema({
+const enhancedBranchSchema = new mongoose.Schema({
   exchange_company_id: {
     type: ObjectId,
     ref: 'ExchangeCompany',
     required: true,
   },
-  branch_id: {
-    type: ObjectId,
-    ref: 'EnhancedBranch',
-  },
-  currency_from: {
+  name: {
     type: String,
     required: true,
   },
-  currency_to: {
+  code: {
     type: String,
     required: true,
+    unique: true,
   },
-  buy_rate: {
-    type: Number,
-    required: true,
+  address: {
+    street: String,
+    city: String,
+    state: String,
+    zipCode: String,
+    country: String,
   },
-  sell_rate: {
-    type: Number,
-    required: true,
-  },
-  effective_date: {
-    type: Date,
-    required: true,
-  },
-  created_by: {
+  manager_id: {
     type: ObjectId,
     ref: 'User',
-    required: true,
+  },
+  daily_limits: {
+    type: Object,
+  },
+  operating_hours: {
+    type: Object,
   },
   status: {
     type: String,
-    enum: ['active', 'inactive', 'expired'],
+    enum: ['active', 'inactive'],
     default: 'active',
   },
   created_at: {
@@ -51,9 +48,9 @@ const exchangeRateSchema = new mongoose.Schema({
   },
 });
 
-exchangeRateSchema.pre('save', function(next) {
+enhancedBranchSchema.pre('save', function(next) {
   this.updated_at = Date.now();
   next();
 });
 
-module.exports = mongoose.model('ExchangeRate', exchangeRateSchema);
+module.exports = mongoose.model('EnhancedBranch', enhancedBranchSchema);
