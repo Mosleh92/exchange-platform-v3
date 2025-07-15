@@ -8,9 +8,13 @@
     "dev": "nodemon src/app.js",
     "test": "jest",
     "lint": "eslint src --ext js",
-    "start:prod": "node src/app.js"
+    "start:prod": "node src/app.js",
+    "db:migrate": "echo 'No migrations to run.'",
+    "db:seed": "node scripts/seed.cjs"
   },
   "dependencies": {
+    "mongoose": "^7.0.0",
+    "dotenv": "^16.3.1",
     "axios": "^1.10.0",
     "bcryptjs": "^2.4.3",
     "bull": "^4.16.5",

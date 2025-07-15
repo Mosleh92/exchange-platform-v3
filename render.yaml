@@ -1,28 +1,8 @@
 services:
-  - type: pserv
-    name: postgres
-    postgres:
-      version: 15
   - type: web
-    name: backend
+    name: exchange-platform
     env: node
-    repo: https://github.com/render-examples/express-hello-world.git # optional
-    region: oregon
     plan: free
-    healthCheckPath: /
-    envVars:
-      - key: DATABASE_URL
-        fromService:
-          type: pserv
-          name: postgres
-          property: connectionString
-    buildCommand: "./render-build.sh"
-    startCommand: "cd backend && npm start"
-  - type: static
-    name: frontend
-    env: static
-    repo: https://github.com/render-examples/create-react-app.git # optional
-    region: oregon
-    plan: free
-    buildCommand: "./render-build.sh"
-    staticPublishPath: frontend/dist
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    healthCheckPath: /health
