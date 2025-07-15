@@ -1,257 +1,178 @@
+// server.js - Fixed static file serving
 import express from 'express';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
-import compression from 'compression';
-import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
-
-config();
+import rateLimit from 'express-rate-limit';
+import { prisma } from './lib/db.js';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Security middleware
+// Security middlewares
 app.use(helmet({
-  contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false,
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      fontSrc: ["'self'", "https:", "data:"],
+      connectSrc: ["'self'"]
+    }
+  },
+  crossOriginEmbedderPolicy: false
 }));
 
-// CORS
 app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true,
+  origin: process.env.CORS_ORIGIN || '*',
+  credentials: true
 }));
 
-// Compression
-app.use(compression());
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'Too many requests from this IP'
+});
+app.use('/api/', limiter);
 
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
 
-// Request logging
+// Logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    message: 'Exchange Platform V3 is running!',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'production'
-  });
-});
-
-// API endpoints
-app.get('/api/test', (req, res) => {
-  res.json({
-    message: 'Backend API is working perfectly!',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    status: 'success'
-  });
-});
-
-// Status endpoint
-app.get('/api/status', (req, res) => {
-  res.json({
-    success: true,
-    data: {
-      totalUsers: 12847,
-      totalTrades: 45692,
-      systemStatus: 'operational',
-      uptime: process.uptime()
+// Static files serving with proper MIME types
+app.use(express.static(path.join(__dirname, 'frontend/dist'), {
+  maxAge: '1d',
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.js')) {
+      res.setHeader('Content-Type', 'application/javascript');
+    } else if (filePath.endsWith('.css')) {
+      res.setHeader('Content-Type', 'text/css');
+    } else if (filePath.endsWith('.html')) {
+      res.setHeader('Content-Type', 'text/html');
     }
-  });
-});
+  }
+}));
 
-// Auth endpoints
-app.post('/api/auth/login', (req, res) => {
-  const { email, password } = req.body;
-  
-  if (email && password) {
-    res.json({
-      success: true,
-      message: 'Login successful',
-      token: 'mock-jwt-token',
-      user: {
-        id: 1,
-        email: email,
-        name: 'Demo User'
+// API Routes
+import authRoutes from './routes/auth.js';
+import exchangeRoutes from './routes/exchange.js';
+
+app.use('/api/auth', authRoutes);
+app.use('/api/exchange', exchangeRoutes);
+
+// Health check with detailed info
+app.get('/api/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    
+    // Check if frontend files exist
+    const fs = await import('fs');
+    const frontendPath = path.join(__dirname, 'frontend/dist');
+    const indexExists = fs.existsSync(path.join(frontendPath, 'index.html'));
+    
+    res.json({ 
+      status: 'OK', 
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      frontend: indexExists ? 'found' : 'missing',
+      uptime: process.uptime(),
+      node_env: process.env.NODE_ENV,
+      paths: {
+        root: __dirname,
+        frontend: frontendPath,
+        indexFile: path.join(frontendPath, 'index.html')
       }
     });
-  } else {
-    res.status(400).json({
-      success: false,
-      message: 'Email and password required'
+  } catch (error) {
+    res.status(500).json({ 
+      status: 'ERROR', 
+      timestamp: new Date().toISOString(),
+      database: 'disconnected',
+      error: error.message
     });
   }
 });
 
-app.post('/api/auth/register', (req, res) => {
-  const { email, password, name } = req.body;
+// Debug route to check files
+app.get('/api/debug/files', (req, res) => {
+  const fs = require('fs');
+  const frontendPath = path.join(__dirname, 'frontend/dist');
   
-  if (email && password && name) {
+  try {
+    const files = fs.readdirSync(frontendPath, { recursive: true });
     res.json({
-      success: true,
-      message: 'Registration successful',
-      user: {
-        id: 2,
-        email: email,
-        name: name
-      }
+      frontendPath,
+      files: files.map(file => ({
+        name: file,
+        path: path.join(frontendPath, file),
+        exists: fs.existsSync(path.join(frontendPath, file))
+      }))
     });
-  } else {
-    res.status(400).json({
-      success: false,
-      message: 'All fields are required'
+  } catch (error) {
+    res.json({
+      error: error.message,
+      frontendPath,
+      exists: fs.existsSync(frontendPath)
     });
   }
 });
 
-// Serve static files
-const frontendPath = path.join(__dirname, 'frontend', 'dist');
-app.use(express.static(frontendPath));
-
-// Fallback for React Router
-app.get('*', (req, res) => {
-  const indexPath = path.join(frontendPath, 'index.html');
+// Catch all handler - MUST be last
+app.get('*', (req, res, next) => {
+  // Skip API routes
+  if (req.path.startsWith('/api/')) {
+    return next();
+  }
   
-  // Check if index.html exists
+  const indexPath = path.join(__dirname, 'frontend/dist/index.html');
+  console.log('Serving index.html for:', req.path);
+  console.log('Index file path:', indexPath);
+  
+  // Check if file exists
+  const fs = require('fs');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
   } else {
-    // Fallback HTML
-    res.send(`
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Exchange Platform V3</title>
-        <style>
-          body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-          }
-          .container {
-            text-align: center;
-            background: rgba(255,255,255,0.1);
-            padding: 3rem;
-            border-radius: 20px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255,255,255,0.2);
-          }
-          h1 {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            font-weight: 700;
-          }
-          .status {
-            font-size: 1.5rem;
-            margin-bottom: 2rem;
-            color: #4ade80;
-          }
-          .links {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-          }
-          .link {
-            background: rgba(255,255,255,0.2);
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 500;
-            transition: all 0.3s;
-            border: 1px solid rgba(255,255,255,0.3);
-          }
-          .link:hover {
-            background: rgba(255,255,255,0.3);
-            transform: translateY(-2px);
-          }
-          .stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-            gap: 1rem;
-            margin: 2rem 0;
-          }
-          .stat {
-            background: rgba(255,255,255,0.1);
-            padding: 1rem;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.2);
-          }
-          .stat-value {
-            font-size: 1.5rem;
-            font-weight: 700;
-            color: #4ade80;
-          }
-          .stat-label {
-            font-size: 0.8rem;
-            opacity: 0.8;
-            margin-top: 0.5rem;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>🚀 Exchange Platform V3</h1>
-          <div class="status">✅ Successfully Deployed!</div>
-          <p>Multi-tenant exchange platform is now running.</p>
-          
-          <div class="stats">
-            <div class="stat">
-              <div class="stat-value">1.0.0</div>
-              <div class="stat-label">Version</div>
-            </div>
-            <div class="stat">
-              <div class="stat-value">${Math.floor(process.uptime())}</div>
-              <div class="stat-label">Uptime (s)</div>
-            </div>
-            <div class="stat">
-              <div class="stat-value">${process.env.NODE_ENV || 'PROD'}</div>
-              <div class="stat-label">Environment</div>
-            </div>
-          </div>
-
-          <div class="links">
-            <a href="/health" class="link">🩺 Health</a>
-            <a href="/api/test" class="link">🔧 API Test</a>
-            <a href="/api/status" class="link">📊 Status</a>
-          </div>
-        </div>
-      </body>
-      </html>
-    `);
+    res.status(404).json({ 
+      error: 'Frontend not found',
+      path: indexPath,
+      suggestion: 'Run build command to generate frontend files'
+    });
   }
 });
 
 // Error handling
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+app.use((error, req, res, next) => {
+  console.error('Server Error:', error);
+  res.status(500).json({ 
+    error: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : error.message 
+  });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Exchange Platform V3 running on port ${PORT}`);
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  await prisma.$disconnect();
+  process.exit(0);
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Exchange Platform running on port ${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+  console.log(`🗄️  Database: ${process.env.DATABASE_URL ? 'Connected' : 'Not configured'}`);
+  console.log(`📁 Frontend path: ${path.join(__dirname, 'frontend/dist')}`);
 });
