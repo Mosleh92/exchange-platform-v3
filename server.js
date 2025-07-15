@@ -1,12 +1,13 @@
-const express = require('express')
-const path = require('path')
-const cors = require('cors')
-const helmet = require('helmet')
-const compression = require('compression')
-require('dotenv').config()
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+require('dotenv').config();
 
-const app = express()
-const PORT = process.env.PORT || 3000
+const app = express();
+const PORT = process.env.PORT || 3000;
+
 
 // Security middleware
 app.use(helmet({
