@@ -1,14 +1,44 @@
 const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Schema.Types;
 
 const auditLogSchema = new mongoose.Schema({
-  action: { type: String, required: true }, // create, update, delete, login, logout, etc.
-  resource: { type: String, required: true }, // نام مدل یا جدول (مثلاً Transaction, Customer)
-  resourceId: { type: mongoose.Schema.Types.ObjectId }, // شناسه رکورد
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  username: String,
-  ip: String,
-  details: mongoose.Schema.Types.Mixed, // جزئیات تغییرات (قبل/بعد)
-  createdAt: { type: Date, default: Date.now }
+  tenant_id: {
+    type: ObjectId,
+    ref: 'ExchangeCompany',
+    required: true,
+  },
+  user_id: {
+    type: ObjectId,
+    ref: 'User',
+    required: true,
+  },
+  action: {
+    type: String,
+    required: true,
+  },
+  resource_type: {
+    type: String,
+    required: true,
+  },
+  resource_id: {
+    type: ObjectId,
+  },
+  old_values: {
+    type: Object,
+  },
+  new_values: {
+    type: Object,
+  },
+  ip_address: {
+    type: String,
+  },
+  user_agent: {
+    type: String,
+  },
+  created_at: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
-module.exports = mongoose.model('AuditLog', auditLogSchema); 
+module.exports = mongoose.model('AuditLog', auditLogSchema);

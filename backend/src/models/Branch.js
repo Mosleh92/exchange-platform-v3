@@ -1,13 +1,6 @@
 const mongoose = require('mongoose');
 
-// ایزولاسیون داده‌ها: tenantId و branchId برای جلوگیری از نشت داده بین صرافی‌ها و شعبه‌ها الزامی است.
-
 const branchSchema = new mongoose.Schema({
-  branchId: {
-    type: String,
-    required: true,
-    unique: true
-  },
   tenantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tenant',
@@ -16,162 +9,207 @@ const branchSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    trim: true
+    trim: true,
+    maxlength: 100
   },
   code: {
     type: String,
     required: true,
-    unique: true
+    unique: true,
+    uppercase: true,
+    trim: true
   },
   type: {
     type: String,
-    enum: ['main', 'branch', 'sub_branch'],
-    default: 'branch'
+    enum: ['main', 'sub', 'virtual'],
+    default: 'sub'
   },
   status: {
     type: String,
     enum: ['active', 'inactive', 'suspended'],
     default: 'active'
   },
-  address: {
-    country: { type: String, required: true },
-    city: { type: String, required: true },
-    street: String,
-    postalCode: String,
-    coordinates: {
-      lat: Number,
-      lng: Number
-    }
-  },
   contact: {
+    address: {
+      street: String,
+      city: String,
+      state: String,
+      postalCode: String,
+      country: String
+    },
     phone: String,
     email: String,
-    fax: String
+    fax: String,
+    website: String
+  },
+  location: {
+    latitude: Number,
+    longitude: Number,
+    timezone: {
+      type: String,
+      default: 'UTC'
+    }
   },
   manager: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
   staff: [{
-    userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    role: { type: String, enum: ['staff', 'manager', 'cashier'] },
-    assignedAt: { type: Date, default: Date.now }
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    position: String,
+    permissions: [String],
+    startDate: Date,
+    endDate: Date,
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active'
+    }
   }],
-  operatingHours: {
-    monday: { open: String, close: String },
-    tuesday: { open: String, close: String },
-    wednesday: { open: String, close: String },
-    thursday: { open: String, close: String },
-    friday: { open: String, close: String },
-    saturday: { open: String, close: String },
-    sunday: { open: String, close: String }
-  },
+  operatingHours: [{
+    day: {
+      type: String,
+      enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    },
+    isOpen: {
+      type: Boolean,
+      default: true
+    },
+    openTime: String,
+    closeTime: String,
+    breakTime: {
+      start: String,
+      end: String
+    }
+  }],
   services: [{
-    type: String,
-    enum: ['currency_exchange', 'remittance', 'banking', 'crypto'],
-    status: { type: String, enum: ['active', 'inactive'], default: 'active' }
+    name: String,
+    description: String,
+    fee: Number,
+    currency: String,
+    isActive: {
+      type: Boolean,
+      default: true
+    }
   }],
-  limits: {
-    dailyTransactionLimit: { type: Number, default: 1000000000 },
-    monthlyTransactionLimit: { type: Number, default: 10000000000 },
-    maxCashAmount: { type: Number, default: 100000000 }
+  currencies: [{
+    code: String,
+    name: String,
+    buyRate: Number,
+    sellRate: Number,
+    isActive: {
+      type: Boolean,
+      default: true
+    },
+    lastUpdated: Date
+  }],
+  cashLimits: {
+    dailyLimit: {
+      type: Number,
+      default: 1000000
+    },
+    weeklyLimit: {
+      type: Number,
+      default: 7000000
+    },
+    monthlyLimit: {
+      type: Number,
+      default: 30000000
+    }
   },
   settings: {
-    allowInternational: { type: Boolean, default: true },
-    allowCrypto: { type: Boolean, default: false },
-    requireApproval: { type: Boolean, default: true },
-    autoApprovalLimit: { type: Number, default: 10000000 }
+    allowP2P: {
+      type: Boolean,
+      default: true
+    },
+    allowRemittance: {
+      type: Boolean,
+      default: true
+    },
+    allowCryptoTrading: {
+      type: Boolean,
+      default: false
+    },
+    autoApproveTransactions: {
+      type: Boolean,
+      default: false
+    },
+    maxTransactionAmount: {
+      type: Number,
+      default: 100000
+    },
+    requireDocumentation: {
+      type: Boolean,
+      default: true
+    },
+    kycRequired: {
+      type: Boolean,
+      default: true
+    }
   },
-  metadata: {
-    openedAt: { type: Date, default: Date.now },
-    closedAt: Date,
-    reason: String,
-    documents: [{
+  statistics: {
+    totalCustomers: {
+      type: Number,
+      default: 0
+    },
+    totalTransactions: {
+      type: Number,
+      default: 0
+    },
+    totalVolume: {
+      type: Number,
+      default: 0
+    },
+    lastTransactionDate: Date
+  },
+  documents: [{
+    type: String,
+    name: String,
+    filePath: String,
+    uploadedAt: Date,
+    expiryDate: Date,
+    status: {
       type: String,
-      name: String,
-      url: String,
-      uploadedAt: { type: Date, default: Date.now }
-    }]
-  }
+      enum: ['pending', 'approved', 'rejected'],
+      default: 'pending'
+    }
+  }],
+  parentBranch: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch'
+  },
+  childBranches: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Branch'
+  }]
 }, {
-  timestamps: true
+  timestamps: true,
+  toJSON: { virtuals: true },
+  toObject: { virtuals: true }
 });
 
-// Indexes
-branchSchema.index({ branchId: 1 });
-branchSchema.index({ tenantId: 1 });
+// Indexes for performance
+branchSchema.index({ tenantId: 1, status: 1 });
 branchSchema.index({ code: 1 });
-branchSchema.index({ status: 1 });
-branchSchema.index({ 'address.city': 1 });
+branchSchema.index({ 'contact.city': 1 });
+branchSchema.index({ manager: 1 });
 
-// Static method to generate branch ID
-branchSchema.statics.generateBranchId = function() {
-  const timestamp = Date.now().toString();
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-  return `BR${timestamp}${random}`;
-};
+// Virtual for full address
+branchSchema.virtual('fullAddress').get(function() {
+  const addr = this.contact.address;
+  return `${addr.street}, ${addr.city}, ${addr.state} ${addr.postalCode}, ${addr.country}`;
+});
 
-// Static method to generate branch code
-branchSchema.statics.generateBranchCode = function(tenantId, city) {
-  const cityCode = city.substring(0, 3).toUpperCase();
-  const timestamp = Date.now().toString().slice(-4);
-  return `${cityCode}${timestamp}`;
-};
-
-// Method to add staff member
-branchSchema.methods.addStaff = function(userId, role) {
-  const existingStaff = this.staff.find(s => s.userId.toString() === userId.toString());
-  if (existingStaff) {
-    existingStaff.role = role;
-    existingStaff.assignedAt = new Date();
-  } else {
-    this.staff.push({ userId, role, assignedAt: new Date() });
+// Pre-save middleware
+branchSchema.pre('save', function(next) {
+  // Auto-generate branch code if not provided
+  if (!this.code) {
+    this.code = this.name.substring(0, 3).toUpperCase() + Date.now().toString().slice(-4);
   }
-  return this.save();
-};
+  next();
+});
 
-// Method to remove staff member
-branchSchema.methods.removeStaff = function(userId) {
-  this.staff = this.staff.filter(s => s.userId.toString() !== userId.toString());
-  return this.save();
-};
-
-// Method to check if service is available
-branchSchema.methods.hasService = function(service) {
-  const serviceConfig = this.services.find(s => s.type === service);
-  return serviceConfig && serviceConfig.status === 'active';
-};
-
-// Method to get active staff
-branchSchema.methods.getActiveStaff = function() {
-  return this.staff.filter(s => s.status !== 'inactive');
-};
-
-// Static method to get branches by tenant
-branchSchema.statics.getByTenant = function(tenantId, filters = {}) {
-  const query = { tenantId, ...filters };
-  return this.find(query).populate('manager', 'name email');
-};
-
-// Static method to get branch statistics
-branchSchema.statics.getBranchStats = async function(tenantId) {
-  return this.aggregate([
-    { $match: { tenantId } },
-    {
-      $group: {
-        _id: null,
-        totalBranches: { $sum: 1 },
-        activeBranches: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-        totalStaff: { $sum: { $size: '$staff' } },
-        byType: {
-          $push: {
-            type: '$type',
-            name: '$name'
-          }
-        }
-      }
-    }
-  ]);
-};
-
-module.exports = mongoose.model('Branch', branchSchema); 
+module.exports = mongoose.model('Branch', branchSchema);

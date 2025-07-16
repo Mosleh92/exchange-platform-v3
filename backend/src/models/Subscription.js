@@ -11,6 +11,16 @@ const subscriptionSchema = new mongoose.Schema({
     ref: 'Plan',
     required: true
   },
+  plan: {
+    type: String,
+    enum: ['basic', 'professional', 'enterprise'],
+    required: true
+  },
+  features: [{
+    name: String,
+    enabled: Boolean,
+    limit: Number
+  }],
   startDate: {
     type: Date,
     required: true
@@ -21,7 +31,7 @@ const subscriptionSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['active', 'expired', 'pending', 'canceled'],
+    enum: ['active', 'expired', 'pending', 'canceled', 'suspended'],
     default: 'pending'
   },
   nextRenewalDate: {
@@ -30,6 +40,11 @@ const subscriptionSchema = new mongoose.Schema({
   autoRenew: {
     type: Boolean,
     default: false
+  },
+  billingInfo: {
+    method: String,
+    lastBilled: Date,
+    nextBilling: Date
   }
 }, {
   timestamps: true

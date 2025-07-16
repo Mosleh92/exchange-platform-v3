@@ -1,11 +1,13 @@
 const winston = require('winston');
-const path = require('path');
 
-// Define log format
-const logFormat = winston.format.combine(
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
     winston.format.timestamp(),
-    winston.format.errors({ stack: true }),
     winston.format.json()
+  )
+});
+=======
 );
 
 // Create logger instance
@@ -36,10 +38,35 @@ const logger = winston.createLogger({
             maxsize: 5242880, // 5MB
             maxFiles: 5
         })
+    ],
+    exceptionHandlers: [
+        new winston.transports.File({ 
+            filename: path.join(__dirname, '../../logs/exceptions.log'),
+            maxsize: 5242880, // 5MB
+            maxFiles: 5
+        })
+    ],
+    rejectionHandlers: [
+        new winston.transports.File({ 
+            filename: path.join(__dirname, '../../logs/rejections.log'),
+            maxsize: 5242880, // 5MB
+            maxFiles: 5
+        })
     ]
 });
 
+// Add console transport for non-production environments
+if (process.env.NODE_ENV !== 'production') {
+    logger.add(new winston.transports.Console({
+        format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.simple()
+        )
+    }));
+}
+
 // Add request logging middleware
+ main
 const requestLogger = (req, res, next) => {
     const start = Date.now();
     
@@ -59,7 +86,7 @@ const requestLogger = (req, res, next) => {
     next();
 };
 
-// Add error logging middleware
+// Add error logging middleware for compatibility with existing server.js
 const errorLogger = (err, req, res, next) => {
     logger.error('Application Error', {
         error: err.message,

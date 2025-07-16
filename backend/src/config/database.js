@@ -42,3 +42,7 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB; 
+=======
+import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();
+ main

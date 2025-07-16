@@ -1,0 +1,4 @@
+analysis:
+  exclude:
+    - path: 'backend/scripts/legacy/*.js'
+    - path: 'frontend/mobile/**/*.stories.tsx'

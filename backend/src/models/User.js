@@ -1,250 +1,290 @@
-// backend/src/models/User.js
+// backend/src/models/User.js - Updated with 2FA fields
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
-const validator = require('validator');
 
 const userSchema = new mongoose.Schema({
-  email: {
-    type: String,
-    required: [true, 'Email is required'],
-    unique: true,
-    lowercase: true,
-    trim: true,
-    validate: [validator.isEmail, 'Invalid email format']
-  },
-  password: {
-    type: String,
-    required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters'],
-    select: false // Never include in queries by default
-  },
-  firstName: {
-    type: String,
-    required: [true, 'First name is required'],
-    trim: true,
-    maxlength: [50, 'First name cannot exceed 50 characters']
-  },
-  lastName: {
-    type: String,
-    required: [true, 'Last name is required'],
-    trim: true,
-    maxlength: [50, 'Last name cannot exceed 50 characters']
-  },
-  tenantId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Tenant',
-    required: [true, 'Tenant ID is required'],
-    index: true
-  },
-  branchId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Branch',
-    required: function() {
-      return ['STAFF', 'BRANCH_MANAGER'].includes(this.role);
+    // Basic user information
+    email: {
+        type: String,
+        required: true,
+        unique: true,
+        lowercase: true
     },
-    index: true
-  },
-  role: {
-    type: String,
-    enum: {
-      values: ['SUPER_ADMIN', 'TENANT_ADMIN', 'BRANCH_MANAGER', 'STAFF', 'CUSTOMER'],
-      message: 'Invalid role'
+    password: {
+        type: String,
+        required: true
     },
-    required: [true, 'Role is required'],
-    index: true
-  },
-  permissions: [{
-    type: String,
-    enum: [
-      'READ_USERS', 'WRITE_USERS', 'DELETE_USERS',
-      'READ_TRANSACTIONS', 'WRITE_TRANSACTIONS', 'DELETE_TRANSACTIONS',
-      'READ_RATES', 'WRITE_RATES',
-      'READ_REPORTS', 'WRITE_REPORTS',
-      'MANAGE_BRANCHES', 'MANAGE_SETTINGS',
-      'APPROVE_TRANSACTIONS', 'MANAGE_P2P'
-    ]
-  }],
-  balance: {
-    type: Number,
-    default: 0,
-    min: [0, 'Balance cannot be negative'],
-    max: [10000000, 'Balance exceeds maximum limit'],
-    set: v => Math.round(v * 100) / 100 // Round to 2 decimal places
-  },
-  currencies: [{
-    code: {
-      type: String,
-      required: true,
-      length: 3,
-      uppercase: true
+    firstName: {
+        type: String,
+        required: true
     },
-    balance: {
-      type: Number,
-      default: 0,
-      min: 0,
-      max: 10000000
+    lastName: {
+        type: String,
+        required: true
+    },
+    phone: {
+        type: String,
+        required: true
+    },
+    
+    // Role and tenant
+    role: {
+        type: String,
+        enum: ['super_admin', 'tenant_admin', 'manager', 'staff', 'customer'],
+        default: 'customer'
+    },
+    tenantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Tenant',
+        required: function() {
+            return this.role !== 'super_admin';
+        }
+    },
+    
+    // Profile information
+    avatar: String,
+    dateOfBirth: Date,
+    address: {
+        street: String,
+        city: String,
+        state: String,
+        country: String,
+        zipCode: String
+    },
+    
+    // Account status
+    isActive: {
+        type: Boolean,
+        default: true
+    },
+    isVerified: {
+        type: Boolean,
+        default: false
+    },
+    
+    // KYC information
+    kycStatus: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected', 'none'],
+        default: 'none'
+    },
+    kycDocuments: [{
+        type: {
+            type: String,
+            enum: ['passport', 'national_id', 'driver_license', 'utility_bill', 'bank_statement']
+        },
+        url: String,
+        status: {
+            type: String,
+            enum: ['pending', 'approved', 'rejected'],
+            default: 'pending'
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now
+        },
+        reviewedAt: Date,
+        reviewedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+        rejectionReason: String
+    }],
+    
+    // 2FA Configuration
+    twoFactorEnabled: {
+        type: Boolean,
+        default: false
+    },
+    twoFactorSecret: {
+        type: String,
+        select: false // Don't include in regular queries
+    },
+    twoFactorBackupCodes: [{
+        code: {
+            type: String,
+            select: false
+        },
+        used: {
+            type: Boolean,
+            default: false
+        },
+        usedAt: Date
+    }],
+    twoFactorLastUsed: Date,
+    
+    // Security settings
+    ipWhitelist: [{
+        ip: String,
+        description: String,
+        addedAt: {
+            type: Date,
+            default: Date.now
+        }
+    }],
+    allowedIPs: [String], // For IP whitelisting
+    
+    // Login tracking
+    lastLoginAt: Date,
+    lastLoginIP: String,
+    failedLoginAttempts: {
+        type: Number,
+        default: 0
+    },
+    lockoutUntil: Date,
+    
+    // Password reset
+    passwordResetToken: String,
+    passwordResetExpires: Date,
+    
+    // Email verification
+    emailVerificationToken: String,
+    emailVerificationExpires: Date,
+    
+    // API access
+    apiKeys: [{
+        name: String,
+        key: String,
+        secret: String,
+        permissions: [String],
+        isActive: {
+            type: Boolean,
+            default: true
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        lastUsed: Date
+    }],
+    
+    // Notifications preferences
+    notifications: {
+        email: {
+            login: { type: Boolean, default: true },
+            transaction: { type: Boolean, default: true },
+            security: { type: Boolean, default: true },
+            marketing: { type: Boolean, default: false }
+        },
+        sms: {
+            login: { type: Boolean, default: false },
+            transaction: { type: Boolean, default: true },
+            security: { type: Boolean, default: true }
+        },
+        push: {
+            login: { type: Boolean, default: false },
+            transaction: { type: Boolean, default: true },
+            security: { type: Boolean, default: true }
+        }
+    },
+    
+    // Audit trail
+    createdBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+    },
+    updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
     }
-  }],
-  phone: {
-    type: String,
-    trim: true,
-    validate: {
-      validator: function(v) {
-        return !v || validator.isMobilePhone(v);
-      },
-      message: 'Invalid phone number'
-    }
-  },
-  address: {
-    street: { type: String, maxlength: 200 },
-    city: { type: String, maxlength: 100 },
-    state: { type: String, maxlength: 100 },
-    postalCode: { type: String, maxlength: 20 },
-    country: { type: String, maxlength: 100 }
-  },
-  status: {
-    type: String,
-    enum: ['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING_VERIFICATION'],
-    default: 'PENDING_VERIFICATION'
-  },
-  lastLogin: {
-    type: Date,
-    default: null
-  },
-  failedLoginAttempts: {
-    type: Number,
-    default: 0,
-    max: 5
-  },
-  accountLocked: {
-    type: Boolean,
-    default: false
-  },
-  lockUntil: {
-    type: Date,
-    default: null
-  },
-  emailVerified: {
-    type: Boolean,
-    default: false
-  },
-  emailVerificationToken: {
-    type: String,
-    select: false
-  },
-  passwordResetToken: {
-    type: String,
-    select: false
-  },
-  passwordResetExpires: {
-    type: Date,
-    select: false
-  },
-  twoFactorEnabled: {
-    type: Boolean,
-    default: false
-  },
-  twoFactorSecret: {
-    type: String,
-    select: false
-  },
-  profileImage: {
-    type: String,
-    validate: {
-      validator: function(v) {
-        return !v || validator.isURL(v);
-      },
-      message: 'Invalid profile image URL'
-    }
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  updatedBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  }
+}, {
+    timestamps: true,
+    toJSON: { 
+        virtuals: true,
+        transform: function(doc, ret) {
+            // Remove sensitive fields from JSON output
+            delete ret.password;
+            delete ret.twoFactorSecret;
+            delete ret.twoFactorBackupCodes;
+            delete ret.passwordResetToken;
+            delete ret.emailVerificationToken;
+            return ret;
+        }
+    },
+    toObject: { virtuals: true }
 });
 
-// ===== COMPOUND INDEXES FOR MULTI-TENANT QUERIES =====
-userSchema.index({ tenantId: 1, email: 1 }, { unique: true });
-userSchema.index({ tenantId: 1, branchId: 1 });
-userSchema.index({ tenantId: 1, role: 1 });
-userSchema.index({ tenantId: 1, status: 1 });
-userSchema.index({ tenantId: 1, createdAt: -1 });
+// Indexes for better performance
+userSchema.index({ email: 1 });
+userSchema.index({ tenantId: 1 });
+userSchema.index({ role: 1 });
+userSchema.index({ kycStatus: 1 });
+userSchema.index({ isActive: 1 });
+userSchema.index({ createdAt: -1 });
 
-// ===== MIDDLEWARE =====
+// Virtual for full name
+userSchema.virtual('fullName').get(function() {
+    return `${this.firstName} ${this.lastName}`;
+});
+
+// Virtual for account lock status
+userSchema.virtual('isLocked').get(function() {
+    return !!(this.lockoutUntil && this.lockoutUntil > Date.now());
+});
+
+// Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
-  // Hash password if modified
-  if (this.isModified('password')) {
-    this.password = await bcrypt.hash(this.password, 12);
-  }
-  
-  // Update timestamp
-  this.updatedAt = Date.now();
-  
-  next();
+    if (!this.isModified('password')) return next();
+    
+    const salt = await bcrypt.genSalt(12);
+    this.password = await bcrypt.hash(this.password, salt);
+    next();
 });
 
-userSchema.pre('findOneAndUpdate', function(next) {
-  this.set({ updatedAt: Date.now() });
-  next();
-});
-
-// ===== METHODS =====
+// Method to compare password
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+    return await bcrypt.compare(candidatePassword, this.password);
 };
 
-userSchema.methods.incrementFailedLogins = async function() {
-  this.failedLoginAttempts += 1;
-  
-  // Lock account after 5 failed attempts
-  if (this.failedLoginAttempts >= 5) {
-    this.accountLocked = true;
-    this.lockUntil = Date.now() + 30 * 60 * 1000; // 30 minutes
-  }
-  
-  await this.save();
+// Method to increment failed login attempts
+userSchema.methods.incLoginAttempts = function() {
+    // If we have a previous lock that has expired, restart at 1
+    if (this.lockoutUntil && this.lockoutUntil < Date.now()) {
+        return this.updateOne({
+            $unset: { lockoutUntil: 1 },
+            $set: { failedLoginAttempts: 1 }
+        });
+    }
+    
+    const updates = { $inc: { failedLoginAttempts: 1 } };
+    
+    // Lock account after 5 failed attempts for 2 hours
+    if (this.failedLoginAttempts + 1 >= 5 && !this.isLocked) {
+        updates.$set = { lockoutUntil: Date.now() + 2 * 60 * 60 * 1000 };
+    }
+    
+    return this.updateOne(updates);
 };
 
-userSchema.methods.resetFailedLogins = async function() {
-  this.failedLoginAttempts = 0;
-  this.accountLocked = false;
-  this.lockUntil = null;
-  await this.save();
+// Method to reset login attempts
+userSchema.methods.resetLoginAttempts = function() {
+    return this.updateOne({
+        $unset: { failedLoginAttempts: 1, lockoutUntil: 1 }
+    });
 };
 
-userSchema.methods.isLocked = function() {
-  return this.accountLocked && this.lockUntil && this.lockUntil > Date.now();
+// Method to generate API key
+userSchema.methods.generateApiKey = function() {
+    const crypto = require('crypto');
+    return {
+        key: crypto.randomBytes(32).toString('hex'),
+        secret: crypto.randomBytes(64).toString('hex')
+    };
 };
 
-userSchema.methods.toJSON = function() {
-  const user = this.toObject();
-  delete user.password;
-  delete user.emailVerificationToken;
-  delete user.passwordResetToken;
-  delete user.passwordResetExpires;
-  delete user.twoFactorSecret;
-  return user;
-};
-
-// ===== STATIC METHODS =====
-userSchema.statics.findByTenant = function(tenantId, query = {}) {
-  return this.find({ tenantId, ...query });
-};
-
-userSchema.statics.findByTenantAndBranch = function(tenantId, branchId, query = {}) {
-  return this.find({ tenantId, branchId, ...query });
+// Method to check if user has permission
+userSchema.methods.hasPermission = function(permission) {
+    const rolePermissions = {
+        super_admin: ['*'],
+        tenant_admin: ['tenant.*', 'user.*', 'transaction.*', 'report.*'],
+        manager: ['user.read', 'transaction.*', 'report.read'],
+        staff: ['user.read', 'transaction.read', 'transaction.create'],
+        customer: ['profile.*', 'transaction.own', 'wallet.own']
+    };
+    
+    const permissions = rolePermissions[this.role] || [];
+    return permissions.includes('*') || permissions.includes(permission) || 
+           permissions.some(p => p.endsWith('.*') && permission.startsWith(p.slice(0, -1)));
 };
 
 const User = mongoose.model('User', userSchema);
@@ -605,3 +645,6 @@ module.exports = {
   P2PAnnouncement,
   AuditLog
 };
+=======
+module.exports = mongoose.model('User', userSchema);
+ main
