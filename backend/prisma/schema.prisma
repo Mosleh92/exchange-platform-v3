@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  branches  Branch[]
+}
+
+model Branch {
+  id       String @id @default(uuid())
+  tenantId String
+  name     String
+  manager  String
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  customers Customer[]
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  branchId  String
+  fullName  String
+  phone     String?
+  balance   Decimal  @default(0)
+  branch    Branch   @relation(fields: [branchId], references: [id])
+  transactions Transaction[]
+}
+
+model Transaction {
+  id        String   @id @default(uuid())
+  customerId String
+  currency  String
+  amount    Decimal
+  rate      Decimal
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+  customer  Customer @relation(fields: [customerId], references: [id])
+}
