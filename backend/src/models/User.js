@@ -1,4 +1,3 @@
-// backend/src/models/User.js - Updated with 2FA fields
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
