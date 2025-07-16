@@ -37,7 +37,8 @@ const EnhancedAuditService = require('./services/enhancedAuditService');
 const logger = require('./utils/logger');
 
 // Import routes
-const authRoutes = require('./routes/auth');
+const authRoutes = require('../../routes/auth');
+const exchangeRoutes = require('../../routes/exchange');
 const transactionRoutes = require('./routes/transaction');
 const accountRoutes = require('./routes/accounts');
 const p2pRoutes = require('./routes/p2p');
@@ -182,6 +183,7 @@ app.use('/api-docs', swagger.serve, swagger.setup);
 
 // API routes with enhanced middleware
 app.use('/api/auth', authRoutes);
+app.use('/api/exchange', exchangeRoutes);
 app.use('/api/transaction', (req, res, next) => {
   req.optimizedQuery = databaseOptimization.executeQuery.bind(databaseOptimization);
   req.paginatedQuery = databaseOptimization.paginatedQuery.bind(databaseOptimization);

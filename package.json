@@ -4,7 +4,7 @@
   "description": "Advanced Multi-tenant Cryptocurrency Exchange Platform",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
+    "start": "cd backend && npm start",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",

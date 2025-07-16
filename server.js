@@ -28,6 +28,15 @@ app.use(compression())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
+ feature/exchange-api
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+// Serve static files
+=======
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.json({
@@ -41,6 +50,7 @@ app.get('/health', (req, res) => {
 })
 
 // Serve static files from frontend build
+ main
 const frontendPath = path.join(__dirname, 'frontend', 'dist')
 app.use(express.static(frontendPath))
 
@@ -50,7 +60,11 @@ app.get('*', (req, res) => {
   if (require('fs').existsSync(indexPath)) {
     res.sendFile(indexPath)
   } else {
+ feature/exchange-api
+    res.status(404).send('Not Found');
+=======
     res.send('Frontend build not found.')
+ main
   }
 })
 

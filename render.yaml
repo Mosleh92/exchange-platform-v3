@@ -1,7 +1,13 @@
 services:
   - type: web
-    name: backend
+    name: exchange-platform
     env: node
+ feature/exchange-api
+    plan: free
+    buildCommand: "npm install && npm run build"
+    startCommand: "npm run start"
+    healthCheckPath: /health
+=======
     region: oregon
     plan: free
     healthCheckPath: /api/health
@@ -20,3 +26,4 @@ services:
     plan: free
     buildCommand: "cd frontend && npm install && npm run build"
     staticPublishPath: frontend/dist
+ main
