@@ -1,6 +1,6 @@
 # 🏦 Exchange Platform v3 - Multi-Tenant System
 
-A comprehensive multi-tenant exchange platform built with Node.js, React, and MongoDB.
+A comprehensive multi-tenant exchange platform built with Node.js, React, and PostgreSQL + Supabase.
 
 ## 🌟 Features
 
@@ -35,128 +35,105 @@ A comprehensive multi-tenant exchange platform built with Node.js, React, and Mo
 └── docs/             # Documentation
 ```
 
-## 🚀 Quick Start
+## 🚀 1-Command GitHub → Supabase Auto-Bootstrap
+> copy-paste in **any** Google Labs terminal:
 
-### Prerequisites
-
-- Node.js 18+ 
-- MongoDB 6+
-- Redis 6+
-- Git
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/exchange-platform-v3.git
-   cd exchange-platform-v3
-   ```
-
-2. **Install dependencies**
-   ```bash
-   # Install backend dependencies
-   cd backend
-   npm install
-   
-   # Install frontend dependencies
-   cd ../frontend
-   npm install
-   ```
-
-3. **Environment Setup**
-   ```bash
-   # Backend environment
-   cd backend
-   cp env.example .env
-   # Edit .env with your configuration
-   
-   # Frontend environment
-   cd ../frontend
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Database Setup**
-   ```bash
-   # Start MongoDB and Redis
-   # Then run database setup
-   cd backend
-   npm run setup
-   ```
-
-5. **Start Development Servers**
-   ```bash
-   # Terminal 1 - Backend
-   cd backend
-   npm run dev
-   
-   # Terminal 2 - Frontend
-   cd frontend
-   npm run dev
-   ```
-
-6. **Access the Application**
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3000
-   - Admin Panel: http://localhost:5173/admin
-
-## 🛠️ Available Scripts
-
-### Backend
 ```bash
-npm run dev          # Start development server
-npm run start        # Start production server
-npm run test         # Run tests
-npm run setup        # Setup database and seed data
-npm run build        # Build for production
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Auto-detecting & deploying from GitHub to Supabase …"
+
+# 1️⃣  Detect if we are **inside** a GitHub repo
+if [[ ! -d .git ]]; then
+  echo "⚠️  Not inside a repo — cloning demo"
+  git clone https://github.com/Mosleh92/exchange-platform-v3.git .
+fi
+
+# 2️⃣  Install Supabase CLI (idempotent)
+command -v supabase >/dev/null 2>&1 || npm install -g supabase
+
+# 3️⃣  Login (token from GitHub Secret or prompt once)
+supabase login --no-browser 2>/dev/null || true
+
+# 4️⃣  Detect or ask for Supabase project ref
+if [[ -n "${SUPABASE_PROJECT_REF:-}" ]]; then
+  REF=$SUPABASE_PROJECT_REF
+elif [[ -f .env ]]; then
+  REF=$(grep -Po '(?<=SUPABASE_PROJECT_REF=).*' .env || true)
+else
+  read -rp "🆔 Supabase Project Ref: " REF
+fi
+
+# 5️⃣  Link & push (schema + seed + functions)
+supabase link --project-ref "$REF"
+supabase db push --project-ref "$REF"
+supabase functions deploy   --project-ref "$REF"
+
+# 6️⃣  Auto-inject secrets
+[[ -f .env.example ]] && supabase secrets set --env-file .env.example
+
+# 7️⃣  Health-check
+curl -fsS "https://${REF}.supabase.co/functions/v1/health" | jq -r .
+
+echo "✅  SaaS ready → https://${REF}.supabase.co"
 ```
 
-### Frontend
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run test         # Run tests
-```
+## 🔐 Initial Setup & Security
 
-## 🔐 Default Login Credentials
+### First Time Setup
+After installation, please:
 
-### Super Admin
-- **Email**: admin@exchange.com
-- **Password**: admin123
+1. **Change Default Credentials**: Use the admin panel to update all default passwords
+2. **Configure Environment Variables**: Set strong, unique secrets in your `.env` files
+3. **Review Security Settings**: Check `SECURITY.md` for detailed security configuration
 
-### Tenant Admin
-- **Email**: tenant@exchange.com
-- **Password**: tenant123
+### Default Test Accounts
+The system creates demo accounts for testing. **Change these credentials immediately in production:**
 
-### Customer
-- **Email**: customer@exchange.com
-- **Password**: customer123
+- **Super Admin**: admin@exchange.com (change password via admin panel)
+- **Tenant Admin**: tenant@exchange.com (change password via admin panel)  
+- **Customer**: customer@exchange.com (change password via admin panel)
+
+⚠️ **Security Warning**: Default credentials are for development only. Always change them in production environments.
 
 ## 🌐 Deployment
+=======
+---
+ main
 
-### Deploying to Railway
+### 🧪  Zero-Config GitHub Actions (optional)
+Drop this file **once** into `.github/workflows/deploy.yml` so every `git push` auto-syncs:
 
-1. **Fork the repository.**
-
-2. **Create a new project on Railway and connect it to your forked repository.**
-
-3. **Add the following environment variables in the Railway project settings:**
-   - `DATABASE_URL`: Your MongoDB connection string.
-   - `JWT_SECRET`: A secret key for signing JSON Web Tokens.
-   - `NODE_ENV`: `production`
-
-4. **Railway will automatically deploy the application when you push to the `main` branch.**
-
-### Docker Deployment
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-
-# Or build individual containers
-docker build -t exchange-backend ./backend
-docker build -t exchange-frontend ./frontend
+```yaml
+name: 🚀 Auto-Deploy to Supabase
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: |
+          supabase db push   --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
 ```
+
+Add **two secrets** in GitHub → Settings → Secrets:
+| Key | Value |
+|---|---|
+| `SUPABASE_PROJECT_REF` | your-project-ref |
+| `SUPABASE_ACCESS_TOKEN` | personal-access-token |
+
+---
+
+### 🎯  Result
+- **No clicks** – CLI auto-detects your repo.
+- **No prompts** – uses GitHub Secrets or `.env`.
+- **No downtime** – push to `main` → live in ~30 s.
 
 ## 📊 System Roles
 
@@ -200,9 +177,15 @@ NODE_ENV=development
 PORT=3000
 MONGODB_URI=mongodb://localhost:27017/exchange
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-secret-key
-SESSION_SECRET=your-session-secret
+JWT_SECRET=generate-strong-random-secret-key-here
+SESSION_SECRET=generate-strong-random-session-secret-here
+BCRYPT_ROUNDS=12
 ```
+
+**Security Note**: 
+- Generate strong, unique secrets for JWT_SECRET and SESSION_SECRET
+- Use environment-specific values for each deployment
+- Never commit real secrets to version control
 
 #### Frontend (.env)
 ```env
@@ -281,6 +264,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ using Node.js, React, and MongoDB**
+**Built with ❤️ using Node.js, React, and PostgreSQL + Supabase**
 # exchange-platform-v
 # exchange-platform-v3

@@ -1,6 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+ copilot/fix-dd7d2c3e-0e1b-4fcd-b4f9-18a95ca70cef
+const compression = require('compression');
+const routes = require('./routes');
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(helmet());
+app.use(compression());
+app.use(express.json());
+
+// Routes
+app.use('/api', routes);
+
+// Error handling
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'خطای سرور' });
+});
+
+module.exports = app;
+=======
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
@@ -335,3 +358,4 @@ module.exports = {
   tenantConfigService,
   auditService
 };
+ main

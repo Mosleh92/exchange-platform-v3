@@ -1,13 +1,13 @@
-import express from 'express';
-import path from 'path';
-import cors from 'cors';
-import helmet from 'helmet';
-import compression from 'compression';
-import dotenv from 'dotenv';
-dotenv.config();
+const express = require('express');
+const path = require('path');
+const cors = require('cors');
+const helmet = require('helmet');
+const compression = require('compression');
+require('dotenv').config();
 
-const app = express()
-const PORT = process.env.PORT || 3000
+const app = express();
+const PORT = process.env.PORT || 3000;
+
 
 // Security middleware
 app.use(helmet({
@@ -28,6 +28,7 @@ app.use(compression())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
+ feature/exchange-api
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fs from 'fs';
@@ -35,25 +36,36 @@ import fs from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 // Serve static files
+=======
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'OK',
+    message: 'Exchange Platform V3 is running!',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: '1.0.0',
+    environment: process.env.NODE_ENV || 'production'
+  })
+})
+
+// Serve static files from frontend build
+ main
 const frontendPath = path.join(__dirname, 'frontend', 'dist')
 app.use(express.static(frontendPath))
 
-// Fallback for React Router
+// Fallback for React Router (SPA)
 app.get('*', (req, res) => {
   const indexPath = path.join(frontendPath, 'index.html')
-  
-  // Check if index.html exists
-  if (fs.existsSync(indexPath)) {
+  if (require('fs').existsSync(indexPath)) {
     res.sendFile(indexPath)
   } else {
+ feature/exchange-api
     res.status(404).send('Not Found');
+=======
+    res.send('Frontend build not found.')
+ main
   }
-})
-
-// Error handling
-app.use((err, req, res, next) => {
-  console.error(err.stack)
-  res.status(500).json({ message: 'Something went wrong!' })
 })
 
 app.listen(PORT, '0.0.0.0', () => {

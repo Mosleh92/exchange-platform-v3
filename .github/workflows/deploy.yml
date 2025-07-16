@@ -1,70 +1,15 @@
-# .github/workflows/deploy.yml
-name: Deploy Exchange System
-
+name: 🚀 Auto-Deploy to Supabase
 on:
   push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
+    branches: [ main ]
 jobs:
-  test:
+  deploy:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-        cache: 'npm'
-    
-    - name: Install dependencies
-      run: |
-        cd backend && npm ci
-        cd ../frontend && npm ci
-    
-    - name: Run tests
-      run: |
-        cd backend && npm test
-        cd ../frontend && npm test
-    
-    - name: Security scan
-      run: |
-        npm audit --audit-level moderate
-        npx snyk test
-
-  build-and-deploy:
-    needs: test
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-1
-    
-    - name: Build and push Docker images
-      run: |
-        # Build backend
-        docker build -t exchange-backend ./backend
-        docker tag exchange-backend:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/exchange-backend:latest
-        
-        # Build frontend  
-        docker build -t exchange-frontend ./frontend
-        docker tag exchange-frontend:latest $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/exchange-frontend:latest
-        
-        # Push to ECR
-        aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com
-        docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/exchange-backend:latest
-        docker push $AWS_ACCOUNT_ID.dkr.ecr.us-east-1.amazonaws.com/exchange-frontend:latest
-    
-    - name: Deploy to ECS
-      run: |
-        aws ecs update-service --cluster exchange-cluster --service exchange-backend --force-new-deployment
-        aws ecs update-service --cluster exchange-cluster --service exchange-frontend --force-new-deployment
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: |
+          supabase db push   --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}

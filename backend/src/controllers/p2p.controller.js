@@ -1,8 +1,14 @@
+const P2PAnnouncement = require('../models/P2PAnnouncement');
+const P2PTransaction = require('../models/P2PTransaction');
+const { AuditLog } = require('../models/User');
+const { validationResult } = require('express-validator');
+
 // backend/src/controllers/P2PController.js
 const { DatabaseManager } = require('../config/database');
 const { logger } = require('../utils/logger');
 const { generateOrderId } = require('../utils/helpers');
 const NotificationService = require('../services/NotificationService');
+ main
 
 class P2PController {
   // Create P2P order
