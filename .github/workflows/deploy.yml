@@ -1,8 +1,7 @@
-name: Deploy to Supabase
+name: 🚀 Auto-Deploy to Supabase
 on:
   push:
-    branches: [main]
-
+    branches: [ main ]
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -11,5 +10,6 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
-      - run: supabase db push --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-      - run: supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+      - run: |
+          supabase db push   --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
