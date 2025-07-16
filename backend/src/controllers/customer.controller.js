@@ -1,4 +1,5 @@
 const Customer = require('../models/Customer');
+const { AuditLog } = require('../models/User');
 const FinancialService = require('../services/financialService');
 const { validationResult } = require('express-validator');
 
