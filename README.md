@@ -1,6 +1,6 @@
 # 🏦 Exchange Platform v3 - Multi-Tenant System
 
-A comprehensive multi-tenant exchange platform built with Node.js, React, and MongoDB.
+A comprehensive multi-tenant exchange platform built with Node.js, React, and PostgreSQL + Supabase.
 
 ## 🌟 Features
 
@@ -181,47 +181,107 @@ npm run test         # Run tests
 npm run setup        # Setup database and seed data
 npm run build        # Build for production
 ```
+=======
+## 🚀 1-Command GitHub → Supabase Auto-Bootstrap
+> copy-paste in **any** Google Labs terminal:
+ main
 
-### Frontend
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run preview      # Preview production build
-npm run test         # Run tests
+#!/usr/bin/env bash
+set -euo pipefail
+echo "🔍 Auto-detecting & deploying from GitHub to Supabase …"
+
+# 1️⃣  Detect if we are **inside** a GitHub repo
+if [[ ! -d .git ]]; then
+  echo "⚠️  Not inside a repo — cloning demo"
+  git clone https://github.com/Mosleh92/exchange-platform-v3.git .
+fi
+
+# 2️⃣  Install Supabase CLI (idempotent)
+command -v supabase >/dev/null 2>&1 || npm install -g supabase
+
+# 3️⃣  Login (token from GitHub Secret or prompt once)
+supabase login --no-browser 2>/dev/null || true
+
+# 4️⃣  Detect or ask for Supabase project ref
+if [[ -n "${SUPABASE_PROJECT_REF:-}" ]]; then
+  REF=$SUPABASE_PROJECT_REF
+elif [[ -f .env ]]; then
+  REF=$(grep -Po '(?<=SUPABASE_PROJECT_REF=).*' .env || true)
+else
+  read -rp "🆔 Supabase Project Ref: " REF
+fi
+
+# 5️⃣  Link & push (schema + seed + functions)
+supabase link --project-ref "$REF"
+supabase db push --project-ref "$REF"
+supabase functions deploy   --project-ref "$REF"
+
+# 6️⃣  Auto-inject secrets
+[[ -f .env.example ]] && supabase secrets set --env-file .env.example
+
+# 7️⃣  Health-check
+curl -fsS "https://${REF}.supabase.co/functions/v1/health" | jq -r .
+
+echo "✅  SaaS ready → https://${REF}.supabase.co"
 ```
 
-## 🔐 Default Login Credentials
+## 🔐 Initial Setup & Security
 
-### Super Admin
-- **Email**: admin@exchange.com
-- **Password**: admin123
+### First Time Setup
+After installation, please:
 
-### Tenant Admin
-- **Email**: tenant@exchange.com
-- **Password**: tenant123
+1. **Change Default Credentials**: Use the admin panel to update all default passwords
+2. **Configure Environment Variables**: Set strong, unique secrets in your `.env` files
+3. **Review Security Settings**: Check `SECURITY.md` for detailed security configuration
 
-### Customer
-- **Email**: customer@exchange.com
-- **Password**: customer123
+### Default Test Accounts
+The system creates demo accounts for testing. **Change these credentials immediately in production:**
+
+- **Super Admin**: admin@exchange.com (change password via admin panel)
+- **Tenant Admin**: tenant@exchange.com (change password via admin panel)  
+- **Customer**: customer@exchange.com (change password via admin panel)
+
+⚠️ **Security Warning**: Default credentials are for development only. Always change them in production environments.
 
 ## 🌐 Deployment
+=======
+---
+ main
 
-### Free Hosting Options
+### 🧪  Zero-Config GitHub Actions (optional)
+Drop this file **once** into `.github/workflows/deploy.yml` so every `git push` auto-syncs:
 
-1. **Railway** - Recommended for full-stack apps
-2. **Render** - Good for Node.js applications
-3. **Heroku** - Classic choice with good free tier
-4. **Vercel** - Excellent for frontend deployment
-
-### Docker Deployment
-```bash
-# Build and run with Docker Compose
-docker-compose up -d
-
-# Or build individual containers
-docker build -t exchange-backend ./backend
-docker build -t exchange-frontend ./frontend
+```yaml
+name: 🚀 Auto-Deploy to Supabase
+on:
+  push:
+    branches: [ main ]
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: |
+          supabase db push   --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+          supabase functions deploy --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
 ```
+
+Add **two secrets** in GitHub → Settings → Secrets:
+| Key | Value |
+|---|---|
+| `SUPABASE_PROJECT_REF` | your-project-ref |
+| `SUPABASE_ACCESS_TOKEN` | personal-access-token |
+
+---
+
+### 🎯  Result
+- **No clicks** – CLI auto-detects your repo.
+- **No prompts** – uses GitHub Secrets or `.env`.
+- **No downtime** – push to `main` → live in ~30 s.
 
 ## 📊 System Roles
 
@@ -265,9 +325,15 @@ NODE_ENV=development
 PORT=3000
 MONGODB_URI=mongodb://localhost:27017/exchange
 REDIS_URL=redis://localhost:6379
-JWT_SECRET=your-secret-key
-SESSION_SECRET=your-session-secret
+JWT_SECRET=generate-strong-random-secret-key-here
+SESSION_SECRET=generate-strong-random-session-secret-here
+BCRYPT_ROUNDS=12
 ```
+
+**Security Note**: 
+- Generate strong, unique secrets for JWT_SECRET and SESSION_SECRET
+- Use environment-specific values for each deployment
+- Never commit real secrets to version control
 
 #### Frontend (.env)
 ```env
@@ -290,6 +356,29 @@ npm run test:e2e
 # Run tests with coverage
 npm run test:coverage
 ```
+
+
+# Backend Dependencies
+cd backend
+
+# Security packages
+npm install speakeasy qrcode helmet express-rate-limit express-slow-down
+npm install isomorphic-dompurify redis express-validator
+npm install jsonwebtoken crypto bcryptjs
+
+# Development dependencies
+npm install --save-dev jest supertest
+
+# Frontend Dependencies (if using React)
+cd ../frontend
+
+# QR Code and 2FA components
+npm install qrcode.react react-qr-scanner
+npm install @types/qrcode.react
+
+# Security utilities
+npm install crypto-js
+npm install react-helmet-async
 
 ## 📚 API Documentation
 
@@ -323,6 +412,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Built with ❤️ using Node.js, React, and MongoDB**
+**Built with ❤️ using Node.js, React, and PostgreSQL + Supabase**
 # exchange-platform-v
 # exchange-platform-v3

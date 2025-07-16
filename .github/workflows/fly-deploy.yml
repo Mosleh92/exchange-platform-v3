@@ -1,0 +1,19 @@
+# .github/workflows/fly-deploy.yml
+name: Fly Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: superfly/fly-pr-review-apps@1
+        with:
+          fly_api_token: ${{ secrets.FLY_API_TOKEN }}
+          fly_app_name: "exchange-platform-v3"
+          dockerfile: "backend/Dockerfile"

@@ -1,211 +1,114 @@
-# مستندات API پلتفرم صرافی | Exchange Platform API Documentation
+# 🔌 API Documentation - Exchange Platform v3
 
-## 📋 فهرست مطالب
+## Overview
+Complete API documentation for the Exchange Platform v3 with OpenAPI/Swagger specifications, authentication, and examples.
 
-- [معرفی](#معرفی)
-- [احراز هویت](#احراز-هویت)
-- [Endpoints](#endpoints)
-- [کدهای خطا](#کدهای-خطا)
-- [مثال‌های استفاده](#مثال‌های-استفاده)
-- [Rate Limiting](#rate-limiting)
+## 📋 Table of Contents
+- [Authentication](#authentication)
+- [Multi-tenancy](#multi-tenancy)
+- [Transactions API](#transactions-api)
+- [Users API](#users-api)
+- [Reports API](#reports-api)
+- [P2P API](#p2p-api)
+- [Accounting API](#accounting-api)
+- [Error Codes](#error-codes)
 
-## معرفی
+## 🔐 Authentication
 
-API پلتفرم صرافی یک RESTful API است که امکان مدیریت کامل صرافی‌ها، تراکنش‌ها، مشتریان و گزارش‌ها را فراهم می‌کند.
-
-### Base URL
-- **Development**: `http://localhost:5000/api`
-- **Staging**: `https://staging-api.exchange.com/api`
-- **Production**: `https://api.exchange.com/api`
-
-### Content-Type
-```
-Content-Type: application/json
-```
-
-### Response Format
-تمام پاسخ‌ها در فرمت JSON هستند:
-```json
-{
-  "success": true,
-  "message": "عملیات با موفقیت انجام شد",
-  "data": {},
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
-## احراز هویت
-
-### JWT Authentication
-تمام درخواست‌ها (به جز login و register) نیاز به توکن JWT دارند.
-
-#### دریافت توکن
+### Login
 ```http
 POST /api/auth/login
 Content-Type: application/json
+```
 
+**Request Body:**
+```json
 {
   "email": "user@example.com",
-  "password": "password123"
+  "password": "SecurePassword123!"
 }
 ```
 
-#### پاسخ
+**Response:**
 ```json
 {
   "success": true,
-  "message": "ورود موفقیت‌آمیز",
-  "data": {
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "refresh_token_here",
     "user": {
-      "id": "507f1f77bcf86cd799439011",
+    "id": "user_id",
       "email": "user@example.com",
-      "role": "tenant_admin",
-      "tenantId": "507f1f77bcf86cd799439012"
-    },
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+    "role": "customer",
+    "tenantId": "tenant_id",
+    "permissions": ["read", "write"]
   }
 }
 ```
 
-#### استفاده از توکن
+### Register
 ```http
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+POST /api/auth/register
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "email": "newuser@example.com",
+  "password": "SecurePassword123!",
+  "firstName": "John",
+  "lastName": "Doe",
+  "phone": "+989123456789",
+  "tenantId": "tenant_id"
+}
 ```
 
 ### Refresh Token
 ```http
 POST /api/auth/refresh
 Content-Type: application/json
-
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
 ```
-
-## Endpoints
-
-### 🔐 Authentication
-
-#### POST /api/auth/login
-ورود کاربر
 
 **Request Body:**
 ```json
 {
-  "email": "user@example.com",
-  "password": "password123"
+  "refreshToken": "refresh_token_here"
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "ورود موفقیت‌آمیز",
-  "data": {
-    "user": {
-      "id": "507f1f77bcf86cd799439011",
-      "email": "user@example.com",
-      "role": "tenant_admin",
-      "tenantId": "507f1f77bcf86cd799439012",
-      "permissions": ["read:transactions", "write:transactions"]
-    },
-    "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-  }
-}
-```
+## 🏢 Multi-tenancy
 
-#### POST /api/auth/register
-ثبت‌نام کاربر جدید
+All API requests must include tenant context:
 
-**Request Body:**
-```json
-{
-  "email": "newuser@example.com",
-  "password": "password123",
-  "name": "نام کاربر",
-  "phone": "+989123456789",
-  "role": "customer"
-}
-```
-
-#### POST /api/auth/logout
-خروج کاربر
-
-**Headers:**
 ```http
-Authorization: Bearer <access_token>
+GET /api/transactions
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
 ```
 
-### 💰 Transactions
+## 💰 Transactions API
 
-#### GET /api/transactions
-دریافت لیست تراکنش‌ها
-
-**Query Parameters:**
-- `page`: شماره صفحه (پیش‌فرض: 1)
-- `limit`: تعداد آیتم در هر صفحه (پیش‌فرض: 10)
-- `status`: فیلتر بر اساس وضعیت
-- `type`: فیلتر بر اساس نوع
-- `fromDate`: تاریخ شروع
-- `toDate`: تاریخ پایان
-
-**Headers:**
+### Create Transaction
 ```http
-Authorization: Bearer <access_token>
+POST /api/transactions
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: application/json
 ```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "تراکنش‌ها با موفقیت دریافت شدند",
-  "data": {
-    "transactions": [
-      {
-        "id": "507f1f77bcf86cd799439011",
-        "transactionId": "TXN202401010001",
-        "customerId": "507f1f77bcf86cd799439013",
-        "customerName": "علی احمدی",
-        "type": "currency_buy",
-        "fromCurrency": "USD",
-        "toCurrency": "IRR",
-        "amount": 1000,
-        "exchangeRate": 500000,
-        "totalAmount": 500000000,
-        "status": "completed",
-        "createdAt": "2024-01-01T00:00:00.000Z"
-      }
-    ],
-    "pagination": {
-      "page": 1,
-      "limit": 10,
-      "total": 100,
-      "pages": 10
-    }
-  }
-}
-```
-
-#### POST /api/transactions
-ایجاد تراکنش جدید
 
 **Request Body:**
 ```json
 {
-  "customerId": "507f1f77bcf86cd799439013",
   "type": "currency_buy",
-  "fromCurrency": "USD",
-  "toCurrency": "IRR",
-  "amount": 1000,
-  "exchangeRate": 500000,
+  "fromCurrency": "IRR",
+  "toCurrency": "USD",
+  "amount": 1000000,
+  "exchangeRate": 50000,
   "paymentMethod": "bank_transfer",
-  "deliveryMethod": "bank_transfer",
-  "bankDetails": {
-    "bankName": "ملت",
-    "accountNumber": "1234567890",
+  "deliveryMethod": "account_credit",
+  "bank_details": {
+    "bank_name": "Test Bank",
+    "account_number": "1234567890",
     "iban": "IR123456789012345678901234"
   }
 }
@@ -215,423 +118,444 @@ Authorization: Bearer <access_token>
 ```json
 {
   "success": true,
-  "message": "تراکنش با موفقیت ایجاد شد",
   "data": {
-    "transaction": {
-      "id": "507f1f77bcf86cd799439011",
-      "transactionId": "TXN202401010001",
+    "id": "transaction_id",
+    "transactionId": "TXN-20241201-001",
+    "type": "currency_buy",
       "status": "pending",
-      "totalAmount": 500000000,
-      "remainingAmount": 500000000,
-      "createdAt": "2024-01-01T00:00:00.000Z"
-    }
+    "amount": 1000000,
+    "exchangeRate": 50000,
+    "totalAmount": 1000000,
+    "createdAt": "2024-12-01T10:00:00.000Z"
   }
 }
 ```
 
-#### GET /api/transactions/:id
-دریافت جزئیات تراکنش
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "جزئیات تراکنش دریافت شد",
-  "data": {
-    "transaction": {
-      "id": "507f1f77bcf86cd799439011",
-      "transactionId": "TXN202401010001",
-      "customerId": "507f1f77bcf86cd799439013",
-      "customerName": "علی احمدی",
-      "type": "currency_buy",
-      "fromCurrency": "USD",
-      "toCurrency": "IRR",
-      "amount": 1000,
-      "exchangeRate": 500000,
-      "totalAmount": 500000000,
-      "paidAmount": 500000000,
-      "remainingAmount": 0,
-      "status": "completed",
-      "payments": [
-        {
-          "paymentId": "507f1f77bcf86cd799439014",
-          "amount": 500000000,
-          "status": "verified",
-          "method": "bank_transfer",
-          "date": "2024-01-01T00:00:00.000Z"
-        }
-      ],
-      "createdAt": "2024-01-01T00:00:00.000Z",
-      "updatedAt": "2024-01-01T00:00:00.000Z"
-    }
-  }
-}
+### Get Transactions
+```http
+GET /api/transactions?page=1&limit=20&status=completed
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
 ```
-
-### 👥 Customers
-
-#### GET /api/customers
-دریافت لیست مشتریان
 
 **Query Parameters:**
-- `page`: شماره صفحه
-- `limit`: تعداد آیتم در هر صفحه
-- `search`: جستجو در نام، ایمیل یا شماره تلفن
-- `kyc_status`: فیلتر بر اساس وضعیت KYC
+- `page` (number): Page number (default: 1)
+- `limit` (number): Items per page (default: 20, max: 100)
+- `status` (string): Filter by status
+- `type` (string): Filter by transaction type
+- `startDate` (string): Filter from date (ISO)
+- `endDate` (string): Filter to date (ISO)
 
 **Response:**
 ```json
 {
   "success": true,
-  "message": "مشتریان با موفقیت دریافت شدند",
-  "data": {
-    "customers": [
-      {
-        "id": "507f1f77bcf86cd799439013",
-        "name": "علی احمدی",
-        "email": "ali@example.com",
-        "phone": "+989123456789",
-        "nationalId": "1234567890",
-        "kyc_status": "verified",
-        "totalTransactions": 15,
-        "totalAmount": 5000000000,
-        "createdAt": "2024-01-01T00:00:00.000Z"
+  "data": [
+    {
+      "id": "transaction_id",
+      "transactionId": "TXN-20241201-001",
+      "type": "currency_buy",
+      "status": "completed",
+      "amount": 1000000,
+      "exchangeRate": 50000,
+      "totalAmount": 1000000,
+      "createdAt": "2024-12-01T10:00:00.000Z"
       }
     ],
     "pagination": {
       "page": 1,
-      "limit": 10,
-      "total": 50,
-      "pages": 5
+    "limit": 20,
+    "total": 150,
+    "pages": 8
+  }
+}
+```
+
+### Update Transaction
+```http
+PATCH /api/transactions/{id}
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "status": "completed",
+  "notes": "Transaction completed successfully"
+}
+```
+
+### Upload Receipt
+```http
+POST /api/transactions/{id}/receipts
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: multipart/form-data
+```
+
+**Form Data:**
+- `receipt` (file): Receipt image/document
+- `description` (string): Receipt description
+
+## 👥 Users API
+
+### Get User Profile
+```http
+GET /api/users/profile
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+### Update Profile
+```http
+PUT /api/users/profile
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "phone": "+989123456789",
+  "address": "123 Main St, Tehran"
+}
+```
+
+### KYC Submission
+```http
+POST /api/users/kyc
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: multipart/form-data
+```
+
+**Form Data:**
+- `idDocument` (file): ID document
+- `proofOfAddress` (file): Address proof
+- `nationalId` (string): National ID number
+- `dateOfBirth` (string): Date of birth (YYYY-MM-DD)
+
+## 📊 Reports API
+
+### Financial Report
+```http
+GET /api/reports/financial?startDate=2024-01-01&endDate=2024-12-31
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "balanceSheet": {
+      "assets": 50000000,
+      "liabilities": 30000000,
+      "equity": 20000000
+    },
+    "incomeStatement": {
+      "revenue": 10000000,
+      "expenses": 8000000,
+      "netIncome": 2000000
+    },
+    "cashFlow": {
+      "operating": 15000000,
+      "investing": -5000000,
+      "financing": -2000000,
+      "net": 8000000
     }
   }
 }
 ```
 
-#### POST /api/customers
-ایجاد مشتری جدید
+### Transaction Report
+```http
+GET /api/reports/transactions?startDate=2024-01-01&endDate=2024-12-31
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+### Analytics Report
+```http
+GET /api/reports/analytics
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+## 🤝 P2P API
+
+### Create Announcement
+```http
+POST /api/p2p/announcements
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: application/json
+```
 
 **Request Body:**
 ```json
 {
-  "name": "علی احمدی",
-  "email": "ali@example.com",
-  "phone": "+989123456789",
-  "nationalId": "1234567890",
-  "address": "تهران، خیابان ولیعصر",
-  "documents": [
+  "type": "sell",
+  "fromCurrency": "USD",
+  "toCurrency": "IRR",
+  "amount": 100,
+  "price": 50000,
+  "paymentMethod": "bank_transfer",
+  "deliveryMethod": "account_credit",
+  "description": "Selling USD for IRR"
+}
+```
+
+### Get Announcements
+```http
+GET /api/p2p/announcements?type=sell&fromCurrency=USD&toCurrency=IRR
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+### Match Announcement
+```http
+POST /api/p2p/announcements/{id}/match
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+## 📈 Accounting API
+
+### Create Journal Entry
+```http
+POST /api/accounting/journal-entries
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "description": "Currency exchange transaction",
+  "entryType": "currency_exchange",
+  "entries": [
     {
-      "type": "national_id",
-      "filePath": "uploads/documents/national_id_123.pdf"
+      "accountCode": "1001",
+      "accountName": "Cash",
+      "debit": 1000000,
+      "credit": 0,
+      "currency": "IRR"
+    },
+    {
+      "accountCode": "2001",
+      "accountName": "Accounts Payable",
+      "debit": 0,
+      "credit": 1000000,
+      "currency": "IRR"
     }
   ]
 }
 ```
 
-### 🏦 Payments
-
-#### GET /api/payments
-دریافت لیست پرداخت‌ها
-
-**Query Parameters:**
-- `transactionId`: فیلتر بر اساس تراکنش
-- `status`: فیلتر بر اساس وضعیت
-- `method`: فیلتر بر اساس روش پرداخت
-
-#### POST /api/payments
-ثبت پرداخت جدید
-
-**Request Body:**
-```json
-{
-  "transactionId": "507f1f77bcf86cd799439011",
-  "amount": 500000000,
-  "method": "bank_transfer",
-  "reference": "TR123456789",
-  "receipt": {
-    "fileName": "receipt.pdf",
-    "filePath": "uploads/receipts/receipt_123.pdf"
-  }
-}
-```
-
-### 📊 Reports
-
-#### GET /api/reports/financial
-گزارش مالی
-
-**Query Parameters:**
-- `fromDate`: تاریخ شروع
-- `toDate`: تاریخ پایان
-- `type`: نوع گزارش (daily, weekly, monthly)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "گزارش مالی دریافت شد",
-  "data": {
-    "summary": {
-      "totalTransactions": 150,
-      "totalAmount": 75000000000,
-      "totalCommission": 750000000,
-      "averageTransaction": 500000000
-    },
-    "byType": [
-      {
-        "type": "currency_buy",
-        "count": 100,
-        "amount": 50000000000
-      },
-      {
-        "type": "currency_sell",
-        "count": 50,
-        "amount": 25000000000
-      }
-    ],
-    "byStatus": [
-      {
-        "status": "completed",
-        "count": 120,
-        "amount": 60000000000
-      },
-      {
-        "status": "pending",
-        "count": 30,
-        "amount": 15000000000
-      }
-    ]
-  }
-}
-```
-
-#### GET /api/reports/transactions
-گزارش تراکنش‌ها
-
-#### GET /api/reports/customers
-گزارش مشتریان
-
-### 🏢 Tenants
-
-#### GET /api/tenants
-دریافت لیست سازمان‌ها (فقط Super Admin)
-
-#### POST /api/tenants
-ایجاد سازمان جدید
-
-**Request Body:**
-```json
-{
-  "name": "صرافی نمونه",
-  "domain": "sample-exchange.com",
-  "settings": {
-    "currency": "IRR",
-    "timezone": "Asia/Tehran",
-    "language": "fa"
-  }
-}
-```
-
-### 🔧 Settings
-
-#### GET /api/settings
-دریافت تنظیمات سازمان
-
-#### PUT /api/settings
-بروزرسانی تنظیمات
-
-**Request Body:**
-```json
-{
-  "currency": "IRR",
-  "timezone": "Asia/Tehran",
-  "language": "fa",
-  "exchangeRates": {
-    "USD": 500000,
-    "EUR": 550000
-  },
-  "commission": {
-    "percentage": 1.5,
-    "minimum": 10000
-  }
-}
-```
-
-## کدهای خطا
-
-### HTTP Status Codes
-
-| کد | معنی | توضیح |
-|---|---|---|
-| 200 | OK | درخواست موفق |
-| 201 | Created | منبع جدید ایجاد شد |
-| 400 | Bad Request | درخواست نامعتبر |
-| 401 | Unauthorized | احراز هویت ناموفق |
-| 403 | Forbidden | دسترسی غیرمجاز |
-| 404 | Not Found | منبع یافت نشد |
-| 422 | Unprocessable Entity | داده‌های ورودی نامعتبر |
-| 429 | Too Many Requests | تعداد درخواست‌ها بیش از حد |
-| 500 | Internal Server Error | خطای داخلی سرور |
-
-### Error Response Format
-```json
-{
-  "success": false,
-  "message": "پیام خطا",
-  "code": "ERROR_CODE",
-  "details": {
-    "field": "توضیح خطا"
-  },
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
-### کدهای خطای رایج
-
-| کد | معنی |
-|---|---|
-| `TENANT_ID_REQUIRED` | شناسه سازمان الزامی است |
-| `TENANT_ACCESS_DENIED` | دسترسی به سازمان مجاز نیست |
-| `INVALID_CREDENTIALS` | نام کاربری یا رمز عبور اشتباه |
-| `TOKEN_EXPIRED` | توکن منقضی شده |
-| `INVALID_TOKEN` | توکن نامعتبر |
-| `PERMISSION_DENIED` | دسترسی غیرمجاز |
-| `RESOURCE_NOT_FOUND` | منبع یافت نشد |
-| `VALIDATION_ERROR` | خطای اعتبارسنجی |
-
-## مثال‌های استفاده
-
-### ایجاد تراکنش کامل
-```javascript
-// 1. ورود کاربر
-const loginResponse = await fetch('/api/auth/login', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    email: 'user@example.com',
-    password: 'password123'
-  })
-});
-
-const { data: { accessToken } } = await loginResponse.json();
-
-// 2. ایجاد تراکنش
-const transactionResponse = await fetch('/api/transactions', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`
-  },
-  body: JSON.stringify({
-    customerId: '507f1f77bcf86cd799439013',
-    type: 'currency_buy',
-    fromCurrency: 'USD',
-    toCurrency: 'IRR',
-    amount: 1000,
-    exchangeRate: 500000,
-    paymentMethod: 'bank_transfer'
-  })
-});
-
-const { data: { transaction } } = await transactionResponse.json();
-
-// 3. ثبت پرداخت
-const paymentResponse = await fetch('/api/payments', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${accessToken}`
-  },
-  body: JSON.stringify({
-    transactionId: transaction.id,
-    amount: 500000000,
-    method: 'bank_transfer',
-    reference: 'TR123456789'
-  })
-});
-```
-
-### دریافت گزارش مالی
-```javascript
-const reportResponse = await fetch('/api/reports/financial?fromDate=2024-01-01&toDate=2024-01-31', {
-  headers: {
-    'Authorization': `Bearer ${accessToken}`
-  }
-});
-
-const { data } = await reportResponse.json();
-console.log('Total Transactions:', data.summary.totalTransactions);
-console.log('Total Amount:', data.summary.totalAmount);
-```
-
-## Rate Limiting
-
-### محدودیت‌های درخواست
-- **عمومی**: 100 درخواست در 15 دقیقه
-- **احراز هویت**: 5 درخواست در 15 دقیقه
-- **ایجاد تراکنش**: 50 درخواست در ساعت
-- **گزارش‌گیری**: 20 درخواست در ساعت
-
-### Headers پاسخ
+### Get Trial Balance
 ```http
+GET /api/accounting/trial-balance
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+### Get Financial Reports
+```http
+GET /api/accounting/reports
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+```
+
+## ❌ Error Codes
+
+### Authentication Errors
+- `TOKEN_MISSING` (401): Authentication token required
+- `TOKEN_INVALID` (401): Invalid authentication token
+- `TOKEN_EXPIRED` (401): Authentication token expired
+- `ACCOUNT_DEACTIVATED` (401): Account is deactivated
+- `ACCOUNT_LOCKED` (401): Account is locked
+
+### Authorization Errors
+- `INSUFFICIENT_PERMISSIONS` (403): User lacks required permissions
+- `TENANT_INACTIVE` (403): Tenant is inactive
+- `CROSS_TENANT_ACCESS` (403): Cross-tenant access denied
+
+### Validation Errors
+- `VALIDATION_ERROR` (400): Request data validation failed
+- `INVALID_ID` (400): Invalid ID format
+- `DUPLICATE_ENTRY` (409): Record already exists
+
+### Business Logic Errors
+- `INSUFFICIENT_BALANCE` (400): Insufficient account balance
+- `INVALID_TRANSACTION` (400): Invalid transaction data
+- `TRANSACTION_LIMIT_EXCEEDED` (400): Transaction limit exceeded
+
+### System Errors
+- `INTERNAL_ERROR` (500): Internal server error
+- `DATABASE_ERROR` (500): Database operation failed
+- `SERVICE_UNAVAILABLE` (503): Service temporarily unavailable
+
+## 🔧 Rate Limiting
+
+API endpoints are rate-limited to prevent abuse:
+
+- **General endpoints**: 100 requests per 15 minutes
+- **Authentication endpoints**: 5 requests per 15 minutes
+- **Report endpoints**: 50 requests per 15 minutes
+
+Rate limit headers:
+```
 X-RateLimit-Limit: 100
 X-RateLimit-Remaining: 95
 X-RateLimit-Reset: 1640995200
 ```
 
-### پاسخ Rate Limit
+## 📝 Request/Response Examples
+
+### Complete Transaction Flow
+
+1. **Create Transaction**
+```bash
+curl -X POST https://api.exchange.com/api/transactions \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "x-tenant-id: YOUR_TENANT_ID" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "currency_buy",
+    "fromCurrency": "IRR",
+    "toCurrency": "USD",
+    "amount": 1000000,
+    "exchangeRate": 50000,
+    "paymentMethod": "bank_transfer",
+    "deliveryMethod": "account_credit"
+  }'
+```
+
+2. **Upload Receipt**
+```bash
+curl -X POST https://api.exchange.com/api/transactions/TRANSACTION_ID/receipts \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "x-tenant-id: YOUR_TENANT_ID" \
+  -F "receipt=@receipt.jpg" \
+  -F "description=Payment receipt"
+```
+
+3. **Get Transaction Status**
+```bash
+curl -X GET https://api.exchange.com/api/transactions/TRANSACTION_ID \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "x-tenant-id: YOUR_TENANT_ID"
+```
+
+## 🚀 SDK Examples
+
+### JavaScript/Node.js
+```javascript
+const axios = require('axios');
+
+const api = axios.create({
+  baseURL: 'https://api.exchange.com',
+  headers: {
+    'Authorization': `Bearer ${token}`,
+    'x-tenant-id': tenantId
+  }
+});
+
+// Create transaction
+const transaction = await api.post('/api/transactions', {
+  type: 'currency_buy',
+  fromCurrency: 'IRR',
+  toCurrency: 'USD',
+  amount: 1000000,
+  exchangeRate: 50000
+});
+
+// Get transactions
+const transactions = await api.get('/api/transactions', {
+  params: { page: 1, limit: 20 }
+});
+```
+
+### Python
+```python
+import requests
+
+headers = {
+    'Authorization': f'Bearer {token}',
+    'x-tenant-id': tenant_id
+}
+
+# Create transaction
+response = requests.post(
+    'https://api.exchange.com/api/transactions',
+    headers=headers,
+    json={
+        'type': 'currency_buy',
+        'fromCurrency': 'IRR',
+        'toCurrency': 'USD',
+        'amount': 1000000,
+        'exchangeRate': 50000
+    }
+)
+```
+
+## 📊 Webhook Integration
+
+### Webhook Configuration
+```http
+POST /api/webhooks
+Authorization: Bearer <token>
+x-tenant-id: <tenant_id>
+Content-Type: application/json
+```
+
+**Request Body:**
 ```json
 {
-  "success": false,
-  "message": "تعداد درخواست‌ها بیش از حد مجاز است",
-  "code": "RATE_LIMIT_EXCEEDED",
-  "retryAfter": 900
+  "url": "https://your-app.com/webhooks",
+  "events": ["transaction.created", "transaction.completed"],
+  "secret": "webhook_secret"
 }
 ```
 
-## WebSocket Events
-
-### اتصال
-```javascript
-const socket = io('http://localhost:5000', {
-  auth: {
-    token: accessToken
-  }
-});
+### Webhook Payload Example
+```json
+{
+  "event": "transaction.completed",
+  "timestamp": "2024-12-01T10:00:00.000Z",
+  "data": {
+    "transactionId": "TXN-20241201-001",
+    "type": "currency_buy",
+    "status": "completed",
+    "amount": 1000000
+  },
+  "signature": "sha256_signature"
+}
 ```
 
-### Events
+## 🔒 Security Best Practices
 
-#### transaction:created
-```javascript
-socket.on('transaction:created', (data) => {
-  console.log('تراکنش جدید:', data);
-});
-```
+1. **Always use HTTPS** in production
+2. **Store tokens securely** and never expose them
+3. **Implement proper error handling** for all API calls
+4. **Use webhooks** for real-time updates
+5. **Validate all responses** before processing
+6. **Implement retry logic** for failed requests
+7. **Monitor rate limits** and handle 429 responses
+8. **Log all API interactions** for debugging
 
-#### transaction:updated
-```javascript
-socket.on('transaction:updated', (data) => {
-  console.log('تراکنش بروزرسانی شد:', data);
-});
-```
+## 📞 Support
 
-#### payment:received
-```javascript
-socket.on('payment:received', (data) => {
-  console.log('پرداخت جدید:', data);
-});
-```
-
-#### notification:new
-```javascript
-socket.on('notification:new', (data) => {
-  console.log('اعلان جدید:', data);
-});
-```
-
----
-
-**نسخه API**: v1.0.0  
-**آخرین بروزرسانی**: 2024  
-**توسعه‌دهنده**: Exchange Platform Team 
+For API support and questions:
+- **Email**: api-support@exchange.com
+- **Documentation**: https://docs.exchange.com
+- **Status Page**: https://status.exchange.com
+- **Developer Portal**: https://developers.exchange.com 

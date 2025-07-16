@@ -1,5 +1,5 @@
 const logger = require('../utils/logger');
-const ExchangeRateService = require('./ExchangeRateService');
+const ExchangeRateService = require('./exchangeRateService');
 
 class AccountingService {
     /**

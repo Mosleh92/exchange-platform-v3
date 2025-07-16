@@ -1,3 +1,4 @@
+ copilot/fix-62378d25-cbd6-4e65-a205-dbd7675c9ecb
 require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const mongoose = require('mongoose');
 const mongooseEncryption = require('mongoose-encryption');
@@ -50,3 +51,13 @@ customerSchema.index({ created_by: 1 });
 customerSchema.index({ phoneVerified: 1 });
 
 module.exports = mongoose.model('Customer', customerSchema);
+=======
+import { prisma } from '../config/database.js';
+
+export const Customer = {
+  create: (data) => prisma.customer.create({ data }),
+  findById: (id) => prisma.customer.findUnique({ where: { id } }),
+  updateBalance: (id, balance) =>
+    prisma.customer.update({ where: { id }, data: { balance } }),
+};
+ main

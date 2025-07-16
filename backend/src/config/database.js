@@ -6,6 +6,7 @@ const connectDB = async () => {
     const conn = await mongoose.connect(process.env.DATABASE_URL, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+ copilot/fix-62378d25-cbd6-4e65-a205-dbd7675c9ecb
       // Connection pooling options
       maxPoolSize: 10, // Maintain up to 10 socket connections
       serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
@@ -27,6 +28,14 @@ const connectDB = async () => {
         j: true,
         wtimeout: 1000
       }
+=======
+      // Connection pooling for better performance
+      maxPoolSize: 50, // Maintain up to 50 socket connections
+      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
+      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+      bufferCommands: false, // Disable mongoose buffering
+      bufferMaxEntries: 0 // Disable mongoose buffering
+ main
     });
 
     logger.info('MongoDB Connected', {
@@ -90,3 +99,7 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB; 
+=======
+import { PrismaClient } from '@prisma/client';
+export const prisma = new PrismaClient();
+ main

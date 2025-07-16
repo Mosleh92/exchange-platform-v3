@@ -425,20 +425,26 @@ const transactionSchema = new mongoose.Schema({
     }
 });
 
-// ایندکس‌های مهم
-transactionSchema.index({ tenantId: 1 });
-transactionSchema.index({ customerId: 1 });
-transactionSchema.index({ type: 1 });
-transactionSchema.index({ status: 1 });
-transactionSchema.index({ createdAt: -1 });
-transactionSchema.index({ fromCurrency: 1, toCurrency: 1 });
-transactionSchema.index({ branchId: 1 });
+// Enhanced Database Indexes for Performance
+transactionSchema.index({ tenantId: 1, createdAt: -1 });
+transactionSchema.index({ tenantId: 1, status: 1 });
+transactionSchema.index({ tenantId: 1, type: 1 });
+transactionSchema.index({ tenantId: 1, customerId: 1 });
+transactionSchema.index({ tenantId: 1, fromCurrency: 1, toCurrency: 1 });
+transactionSchema.index({ tenantId: 1, paymentMethod: 1 });
+transactionSchema.index({ tenantId: 1, deliveryMethod: 1 });
+transactionSchema.index({ tenantId: 1, 'status_history.changed_at': -1 });
+transactionSchema.index({ transactionId: 1 }, { unique: true });
+transactionSchema.index({ 'payments.paymentId': 1 });
+transactionSchema.index({ 'receipts.verified': 1 });
 
-// Add indexes for better query performance
-transactionSchema.index({ 'customer_type': 1, 'created_at': -1 });
-transactionSchema.index({ 'transaction_flow.status': 1, 'created_at': -1 });
-transactionSchema.index({ 'payment_status': 1, 'created_at': -1 });
-transactionSchema.index({ 'exchange_account.account_id': 1 });
+// Compound indexes for complex queries
+transactionSchema.index({ tenantId: 1, type: 1, status: 1, createdAt: -1 });
+transactionSchema.index({ tenantId: 1, customerId: 1, createdAt: -1 });
+transactionSchema.index({ tenantId: 1, fromCurrency: 1, toCurrency: 1, createdAt: -1 });
+
+// Text search index for customer name
+transactionSchema.index({ customer_name: 'text' });
 
 // Virtual for isCompleted
 transactionSchema.virtual('isCompleted').get(function() {
