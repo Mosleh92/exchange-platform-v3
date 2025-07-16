@@ -37,68 +37,13 @@ A comprehensive multi-tenant exchange platform built with Node.js, React, and Mo
 
 ## 🚀 Quick Start
 
-### Prerequisites
+Run this single command to deploy the entire platform to Supabase:
 
-- Node.js 18+ 
-- MongoDB 6+
-- Redis 6+
-- Git
+```bash
+./scripts/deploy.sh
+```
 
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/exchange-platform-v3.git
-   cd exchange-platform-v3
-   ```
-
-2. **Install dependencies**
-   ```bash
-   # Install backend dependencies
-   cd backend
-   npm install
-   
-   # Install frontend dependencies
-   cd ../frontend
-   npm install
-   ```
-
-3. **Environment Setup**
-   ```bash
-   # Backend environment
-   cd backend
-   cp env.example .env
-   # Edit .env with your configuration
-   
-   # Frontend environment
-   cd ../frontend
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-4. **Database Setup**
-   ```bash
-   # Start MongoDB and Redis
-   # Then run database setup
-   cd backend
-   npm run setup
-   ```
-
-5. **Start Development Servers**
-   ```bash
-   # Terminal 1 - Backend
-   cd backend
-   npm run dev
-   
-   # Terminal 2 - Frontend
-   cd frontend
-   npm run dev
-   ```
-
-6. **Access the Application**
-   - Frontend: http://localhost:5173
-   - Backend API: http://localhost:3000
-   - Admin Panel: http://localhost:5173/admin
+The script will guide you through the process, including logging in to Supabase and providing your project reference.
 
 ## 🛠️ Available Scripts
 
