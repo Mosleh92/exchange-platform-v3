@@ -1,0 +1,8 @@
+# Backend
+cd backend
+npm install speakeasy qrcode helmet express-rate-limit express-slow-down
+npm install isomorphic-dompurify redis express-validator jsonwebtoken crypto bcryptjs
+
+# Frontend  
+cd ../frontend
+npm install qrcode.react crypto-js react-helmet-async

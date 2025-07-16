@@ -1,96 +1,55 @@
 {
   "name": "exchange-platform-v3",
   "version": "1.0.0",
-  "description": "پلتفرم صرافی چند‌مستأجری - Multi-Tenant Exchange Platform",
+  "description": "Advanced Multi-tenant Cryptocurrency Exchange Platform",
+  "main": "server.js",
   "scripts": {
-    "setup": "node scripts/setup.js",
-    "setup:quick": "npm run install:all && npm run setup:env && npm run seed",
-    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
-    "setup:env": "node scripts/setup-env.js",
+    "start": "node server.js",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
-    "build": "npm run build:frontend",
+    "build": "npm run build:frontend && npm run build:backend",
     "build:frontend": "cd frontend && npm install && npm run build",
     "build:backend": "cd backend && npm install",
-    "start": "cd backend && npm start",
-    "start:frontend": "cd frontend && npm run preview",
-    "seed": "cd backend && npm run seed",
-    "test": "npm run test:backend && npm run test:frontend",
+    "test": "npm run test:backend",
     "test:backend": "cd backend && npm test",
-    "test:frontend": "cd frontend && npm test",
-    "lint": "npm run lint:backend && npm run lint:frontend",
-    "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint",
-    "lint:fix": "npm run lint:fix:backend && npm run lint:fix:frontend",
-    "lint:fix:backend": "cd backend && npm run lint:fix",
-    "lint:fix:frontend": "cd frontend && npm run lint:fix",
-    "deploy": "npm run build && cd frontend && npm run deploy",
-    "logs": "cd backend && npm run logs",
-    "clean": "npm run clean:node_modules && npm run clean:build",
-    "clean:node_modules": "rm -rf node_modules backend/node_modules frontend/node_modules",
-    "clean:build": "rm -rf frontend/dist backend/dist",
-    "reset": "npm run clean && npm run setup",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "docker:restart": "docker-compose restart",
-    "backup": "cd backend && npm run backup",
-    "restore": "cd backend && npm run restore",
-    "migrate": "cd backend && npm run migrate",
-    "migrate:rollback": "cd backend && npm run migrate:rollback",
-    "health": "curl -f http://localhost:5000/health || echo 'Backend is not running'",
-    "status": "echo 'Checking system status...' && npm run health && echo 'Frontend: http://localhost:3000' && echo 'Backend: http://localhost:5000'"
-  },
-  "keywords": [
-    "exchange",
-    "currency",
-    "multi-tenant",
-    "saas",
-    "banking",
-    "remittance",
-    "react",
-    "nodejs",
-    "mongodb",
-    "typescript",
-    "tailwindcss"
-  ],
-  "author": "Exchange Platform Team",
-  "license": "MIT",
-  "dependencies": {
-    "concurrently": "^8.2.2",
-    "cross-env": "^7.0.3",
-    "mongoose-encryption": "^2.1.2",
-    "rate-limit-redis": "^4.2.1",
-    "redis": "^5.5.6"
-  },
-  "devDependencies": {
-    "eslint": "^8.48.0",
-    "nodemon": "^3.0.1",
-    "prettier": "^3.0.3",
-    "vitest": "^3.2.4"
-  },
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=8.0.0"
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "deploy": "npm run build && npm start",
+    "health-check": "node scripts/health-check.js",
+    "validate": "node scripts/validate-deployment.js",
+    "postbuild": "cp -r frontend/dist ."
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/exchange-platform-v3.git"
+    "url": "https://github.com/Mosleh92/exchange-platform-v3.git"
   },
-  "bugs": {
-    "url": "https://github.com/your-username/exchange-platform-v3/issues"
-  },
-  "homepage": "https://github.com/your-username/exchange-platform-v3#readme",
-  "contributors": [
-    {
-      "name": "Exchange Platform Team",
-      "email": "team@exchange-platform.com"
-    }
+  "keywords": [
+    "cryptocurrency",
+    "exchange",
+    "trading",
+    "blockchain",
+    "react",
+    "node.js",
+    "mongodb"
   ],
-  "funding": {
-    "type": "individual",
-    "url": "https://github.com/sponsors/your-username"
+  "author": "CodeOverlord",
+  "license": "MIT",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.21.2",
+    "express-rate-limit": "^6.7.0",
+    "helmet": "^6.0.0",
+    "jsonwebtoken": "^9.0.0",
+    "mongoose": "^7.0.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

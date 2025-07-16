@@ -1,530 +1,453 @@
-const { body, param, query, validationResult } = require('express-validator');
+const Joi = require('joi');
 const logger = require('../utils/logger');
-const i18n = require('../utils/i18n');
+const xss = require('xss');
 
-// Common validation rules
-const commonRules = {
-    email: body('email')
-        .isEmail()
-        .normalizeEmail()
-        .withMessage('ایمیل نامعتبر است'),
-    
-    password: body('password')
-        .isLength({ min: 8 })
-        .withMessage('رمز عبور باید حداقل 8 کاراکتر باشد')
-        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/)
-        .withMessage('رمز عبور باید شامل حروف بزرگ، حروف کوچک، اعداد و کاراکترهای خاص باشد'),
-    
-    phone: body('phone')
-        .matches(/^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/)
-        .withMessage('شماره تلفن نامعتبر است'),
-    
-    amount: body('amount')
-        .isFloat({ min: 0 })
-        .withMessage('مبلغ باید عدد مثبت باشد'),
-    
-    currency: body('currency')
-        .isIn(['USD', 'EUR', 'AED', 'IRR', 'GBP'])
-        .withMessage('ارز نامعتبر است'),
-    
-    date: body('date')
-        .isISO8601()
-        .withMessage('تاریخ نامعتبر است'),
-    
-    id: param('id')
-        .isMongoId()
-        .withMessage('شناسه نامعتبر است')
-};
+/**
+ * Comprehensive Input Validation Middleware
+ * Handles input validation, sanitization, and security checks
+ */
+class ValidationMiddleware {
+  constructor() {
+    this.initializeValidationSchemas();
+  }
 
-// Transaction validation rules
-const transactionRules = {
-    create: [
-        commonRules.amount,
-        commonRules.currency,
-        commonRules.date,
-        body('type')
-            .isIn(['buy', 'sell', 'transfer', 'exchange'])
-            .withMessage('نوع تراکنش نامعتبر است'),
-        body('customerId')
-            .isMongoId()
-            .withMessage('شناسه مشتری نامعتبر است'),
-        body('description')
-            .optional()
-            .isString()
-            .trim()
-            .isLength({ max: 500 })
-            .withMessage('توضیحات نباید بیشتر از 500 کاراکتر باشد')
-    ],
-    
-    update: [
-        param('transactionId').isMongoId().withMessage('شناسه تراکنش نامعتبر است'),
-        commonRules.amount.optional(),
-        commonRules.currency.optional(),
-        commonRules.date.optional(),
-        body('type')
-            .optional()
-            .isIn(['buy', 'sell', 'transfer', 'exchange'])
-            .withMessage('نوع تراکنش نامعتبر است'),
-        body('description')
-            .optional()
-            .isString()
-            .trim()
-            .isLength({ max: 500 })
-            .withMessage('توضیحات نباید بیشتر از 500 کاراکتر باشد')
-    ]
-};
+  /**
+   * Initialize validation schemas for different endpoints
+   */
+  initializeValidationSchemas() {
+    // User registration schema
+    this.userRegistrationSchema = Joi.object({
+      email: Joi.string().email().required().max(255),
+      password: Joi.string().min(8).max(128).pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/).required(),
+      firstName: Joi.string().min(2).max(50).pattern(/^[a-zA-Z\s]+$/).required(),
+      lastName: Joi.string().min(2).max(50).pattern(/^[a-zA-Z\s]+$/).required(),
+      phoneNumber: Joi.string().pattern(/^\+?[\d\s\-\(\)]+$/).required(),
+      dateOfBirth: Joi.date().max('now').required(),
+      nationality: Joi.string().length(2).required(),
+      address: Joi.object({
+        street: Joi.string().min(5).max(255).required(),
+        city: Joi.string().min(2).max(100).required(),
+        state: Joi.string().min(2).max(100).required(),
+        country: Joi.string().length(2).required(),
+        postalCode: Joi.string().min(3).max(20).required()
+      }).required()
+    });
 
-// Customer validation rules
-const customerRules = {
-    create: [
-        body('name')
-            .isString()
-            .trim()
-            .isLength({ min: 2, max: 100 })
-            .withMessage('نام باید بین 2 تا 100 کاراکتر باشد'),
-        commonRules.email,
-        commonRules.phone,
-        body('nationalId')
-            .optional()
-            .isString()
-            .matches(/^[0-9]{10}$/)
-            .withMessage('کد ملی نامعتبر است'),
-        body('address')
-            .optional()
-            .isString()
-            .trim()
-            .isLength({ max: 500 })
-            .withMessage('آدرس نباید بیشتر از 500 کاراکتر باشد')
-    ],
-    
-    update: [
-        param('customerId').isMongoId().withMessage('شناسه مشتری نامعتبر است'),
-        body('name')
-            .optional()
-            .isString()
-            .trim()
-            .isLength({ min: 2, max: 100 })
-            .withMessage('نام باید بین 2 تا 100 کاراکتر باشد'),
-        commonRules.email.optional(),
-        commonRules.phone.optional(),
-        body('nationalId')
-            .optional()
-            .isString()
-            .matches(/^[0-9]{10}$/)
-            .withMessage('کد ملی نامعتبر است'),
-        body('address')
-            .optional()
-            .isString()
-            .trim()
-            .isLength({ max: 500 })
-            .withMessage('آدرس نباید بیشتر از 500 کاراکتر باشد')
-    ]
-};
+    // User login schema
+    this.userLoginSchema = Joi.object({
+      email: Joi.string().email().required(),
+      password: Joi.string().required(),
+      twoFactorCode: Joi.string().length(6).optional(),
+      rememberMe: Joi.boolean().default(false)
+    });
 
-// User validation rules
-const userRules = {
-    create: [
-        body('name')
-            .isString()
-            .trim()
-            .isLength({ min: 2, max: 100 })
-            .withMessage('نام باید بین 2 تا 100 کاراکتر باشد'),
-        commonRules.email,
-        commonRules.password,
-        body('role')
-            .isIn(['admin', 'manager', 'operator', 'viewer'])
-            .withMessage('نقش نامعتبر است'),
-        body('permissions')
-            .isArray()
-            .withMessage('دسترسی‌ها باید به صورت آرایه باشند'),
-        body('permissions.*')
-            .isString()
-            .withMessage('هر دسترسی باید رشته باشد')
-    ],
-    
-    update: [
-        param('userId').isMongoId().withMessage('شناسه کاربر نامعتبر است'),
-        body('name')
-            .optional()
-            .isString()
-            .trim()
-            .isLength({ min: 2, max: 100 })
-            .withMessage('نام باید بین 2 تا 100 کاراکتر باشد'),
-        commonRules.email.optional(),
-        commonRules.password.optional(),
-        body('role')
-            .optional()
-            .isIn(['admin', 'manager', 'operator', 'viewer'])
-            .withMessage('نقش نامعتبر است'),
-        body('permissions')
-            .optional()
-            .isArray()
-            .withMessage('دسترسی‌ها باید به صورت آرایه باشند'),
-        body('permissions.*')
-            .optional()
-            .isString()
-            .withMessage('هر دسترسی باید رشته باشد')
-    ]
-};
+    // Transaction creation schema
+    this.transactionSchema = Joi.object({
+      amount: Joi.number().positive().max(1000000).precision(2).required(),
+      currency: Joi.string().length(3).uppercase().required(),
+      type: Joi.string().valid('BUY', 'SELL', 'TRANSFER', 'WITHDRAWAL', 'DEPOSIT').required(),
+      description: Joi.string().max(500).optional(),
+      recipientId: Joi.string().uuid().optional(),
+      paymentMethod: Joi.string().valid('BANK_TRANSFER', 'CREDIT_CARD', 'CRYPTO', 'CHECK').optional()
+    });
 
-// Validation middleware
-const validate = (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-        logger.warn('Validation error', {
+    // Order creation schema
+    this.orderSchema = Joi.object({
+      symbol: Joi.string().pattern(/^[A-Z]{3}\/[A-Z]{3}$/).required(),
+      side: Joi.string().valid('BUY', 'SELL').required(),
+      quantity: Joi.number().positive().max(1000000).precision(8).required(),
+      price: Joi.number().positive().max(1000000).precision(2).optional(),
+      orderType: Joi.string().valid('MARKET', 'LIMIT', 'STOP', 'STOP_LIMIT').required(),
+      timeInForce: Joi.string().valid('GTC', 'IOC', 'FOK').default('GTC'),
+      stopPrice: Joi.number().positive().max(1000000).precision(2).optional()
+    });
+
+    // Payment schema
+    this.paymentSchema = Joi.object({
+      amount: Joi.number().positive().max(1000000).precision(2).required(),
+      currency: Joi.string().length(3).uppercase().required(),
+      paymentMethod: Joi.string().valid('BANK_TRANSFER', 'CREDIT_CARD', 'CRYPTO', 'CHECK').required(),
+      description: Joi.string().max(500).optional(),
+      metadata: Joi.object().optional()
+    });
+
+    // KYC verification schema
+    this.kycSchema = Joi.object({
+      firstName: Joi.string().min(2).max(50).pattern(/^[a-zA-Z\s]+$/).required(),
+      lastName: Joi.string().min(2).max(50).pattern(/^[a-zA-Z\s]+$/).required(),
+      dateOfBirth: Joi.date().max('now').required(),
+      nationality: Joi.string().length(2).required(),
+      idType: Joi.string().valid('PASSPORT', 'DRIVERS_LICENSE', 'NATIONAL_ID').required(),
+      idNumber: Joi.string().min(5).max(50).required(),
+      address: Joi.object({
+        street: Joi.string().min(5).max(255).required(),
+        city: Joi.string().min(2).max(100).required(),
+        state: Joi.string().min(2).max(100).required(),
+        country: Joi.string().length(2).required(),
+        postalCode: Joi.string().min(3).max(20).required()
+      }).required(),
+      phoneNumber: Joi.string().pattern(/^\+?[\d\s\-\(\)]+$/).required(),
+      email: Joi.string().email().required()
+    });
+
+    // File upload schema
+    this.fileUploadSchema = Joi.object({
+      fileType: Joi.string().valid('IMAGE', 'DOCUMENT', 'VIDEO').required(),
+      maxSize: Joi.number().max(10 * 1024 * 1024).default(5 * 1024 * 1024), // 5MB default
+      allowedExtensions: Joi.array().items(Joi.string()).default(['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'])
+    });
+
+    // Search and filter schema
+    this.searchSchema = Joi.object({
+      query: Joi.string().max(255).optional(),
+      page: Joi.number().integer().min(1).max(1000).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+      sortBy: Joi.string().valid('created_at', 'updated_at', 'amount', 'status').default('created_at'),
+      sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
+      filters: Joi.object().optional()
+    });
+  }
+
+  /**
+   * Validate request body with schema
+   */
+  validateBody(schema) {
+    return (req, res, next) => {
+      try {
+        const { error, value } = schema.validate(req.body, {
+          abortEarly: false,
+          stripUnknown: true,
+          allowUnknown: false
+        });
+
+        if (error) {
+          const validationErrors = error.details.map(detail => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+            value: detail.context?.value
+          }));
+
+          logger.warn('Validation failed', {
+            ip: req.ip,
             path: req.path,
-            method: req.method,
-            errors: errors.array()
+            errors: validationErrors
+          });
+
+          return res.status(400).json({
+            error: 'Validation failed',
+            details: validationErrors
+          });
+        }
+
+        // Sanitize validated data
+        req.body = this.sanitizeData(value);
+        next();
+
+      } catch (error) {
+        logger.error('Validation error:', error);
+        return res.status(500).json({
+          error: 'Internal server error',
+          message: 'Failed to validate request'
         });
-        
-        return res.status(400).json({
-            success: false,
-            message: 'خطا در اعتبارسنجی داده‌ها',
-            errors: errors.array(),
-            code: 'VALIDATION_ERROR'
+      }
+    };
+  }
+
+  /**
+   * Validate query parameters
+   */
+  validateQuery(schema) {
+    return (req, res, next) => {
+      try {
+        const { error, value } = schema.validate(req.query, {
+          abortEarly: false,
+          stripUnknown: true,
+          allowUnknown: false
         });
+
+        if (error) {
+          const validationErrors = error.details.map(detail => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+            value: detail.context?.value
+          }));
+
+          logger.warn('Query validation failed', {
+            ip: req.ip,
+            path: req.path,
+            errors: validationErrors
+          });
+
+          return res.status(400).json({
+            error: 'Invalid query parameters',
+            details: validationErrors
+          });
+        }
+
+        // Sanitize validated data
+        req.query = this.sanitizeData(value);
+        next();
+
+      } catch (error) {
+        logger.error('Query validation error:', error);
+        return res.status(500).json({
+          error: 'Internal server error',
+          message: 'Failed to validate query parameters'
+        });
+      }
+    };
+  }
+
+  /**
+   * Validate URL parameters
+   */
+  validateParams(schema) {
+    return (req, res, next) => {
+      try {
+        const { error, value } = schema.validate(req.params, {
+          abortEarly: false,
+          stripUnknown: true,
+          allowUnknown: false
+        });
+
+        if (error) {
+          const validationErrors = error.details.map(detail => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+            value: detail.context?.value
+          }));
+
+          logger.warn('Parameter validation failed', {
+            ip: req.ip,
+            path: req.path,
+            errors: validationErrors
+          });
+
+          return res.status(400).json({
+            error: 'Invalid URL parameters',
+            details: validationErrors
+          });
+        }
+
+        // Sanitize validated data
+        req.params = this.sanitizeData(value);
+        next();
+
+      } catch (error) {
+        logger.error('Parameter validation error:', error);
+        return res.status(500).json({
+          error: 'Internal server error',
+          message: 'Failed to validate URL parameters'
+        });
+      }
+    };
+  }
+
+  /**
+   * Sanitize data to prevent XSS and injection attacks
+   */
+  sanitizeData(data) {
+    if (typeof data === 'string') {
+      return this.sanitizeString(data);
     }
-    next();
-};
 
-// Validation for currency transactions
-exports.validateCurrencyTransaction = [
-  body('customerId')
-    .isMongoId()
-    .withMessage('customerId must be a valid MongoDB ID'),
-  
-  body('type')
-    .isIn(['buy', 'sell', 'exchange', 'remittance'])
-    .withMessage('type must be one of: buy, sell, exchange, remittance'),
-  
-  body('currencyFrom')
-    .isLength({ min: 3, max: 3 })
-    .isUppercase()
-    .withMessage('currencyFrom must be a 3-letter currency code'),
-  
-  body('amountFrom')
-    .isFloat({ min: 0.01 })
-    .withMessage('amountFrom must be a positive number'),
-  
-  body('currencyTo')
-    .isLength({ min: 3, max: 3 })
-    .isUppercase()
-    .withMessage('currencyTo must be a 3-letter currency code'),
-  
-  body('amountTo')
-    .isFloat({ min: 0.01 })
-    .withMessage('amountTo must be a positive number'),
-  
-  body('exchangeRate')
-    .isFloat({ min: 0.000001 })
-    .withMessage('exchangeRate must be a positive number'),
-  
-  body('rateType')
-    .isIn(['buy', 'sell'])
-    .withMessage('rateType must be either buy or sell'),
-  
-  body('counterparty.tenantId')
-    .optional()
-    .isMongoId()
-    .withMessage('counterparty.tenantId must be a valid MongoDB ID'),
-  
-  body('counterparty.name')
-    .optional()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('counterparty.name must be between 2 and 100 characters'),
-  
-  body('counterparty.country')
-    .optional()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('counterparty.country must be between 2 and 50 characters'),
-  
-  body('fees.amount')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('fees.amount must be a non-negative number'),
-  
-  body('fees.currency')
-    .optional()
-    .isLength({ min: 3, max: 3 })
-    .isUppercase()
-    .withMessage('fees.currency must be a 3-letter currency code'),
-  
-  body('discount.amount')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('discount.amount must be a non-negative number'),
-  
-  body('discount.currency')
-    .optional()
-    .isLength({ min: 3, max: 3 })
-    .isUppercase()
-    .withMessage('discount.currency must be a 3-letter currency code'),
-  
-  body('paymentSplit.totalAmount')
-    .isFloat({ min: 0.01 })
-    .withMessage('paymentSplit.totalAmount must be a positive number'),
-  
-  body('paymentSplit.accounts')
-    .isArray({ min: 1 })
-    .withMessage('paymentSplit.accounts must be a non-empty array'),
-  
-  body('paymentSplit.accounts.*.accountNumber')
-    .isLength({ min: 5, max: 50 })
-    .withMessage('accountNumber must be between 5 and 50 characters'),
-  
-  body('paymentSplit.accounts.*.accountName')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('accountName must be between 2 and 100 characters'),
-  
-  body('paymentSplit.accounts.*.bankName')
-    .isLength({ min: 2, max: 100 })
-    .withMessage('bankName must be between 2 and 100 characters'),
-  
-  body('paymentSplit.accounts.*.amount')
-    .isFloat({ min: 0.01 })
-    .withMessage('account amount must be a positive number'),
-  
-  body('delivery.method')
-    .isIn(['bank_transfer', 'cash_pickup', 'account_credit'])
-    .withMessage('delivery.method must be one of: bank_transfer, cash_pickup, account_credit'),
-  
-  body('delivery.recipient.name')
-    .optional()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('recipient.name must be between 2 and 100 characters'),
-  
-  body('delivery.recipient.idNumber')
-    .optional()
-    .isLength({ min: 5, max: 20 })
-    .withMessage('recipient.idNumber must be between 5 and 20 characters'),
-  
-  body('delivery.bankAccount.bankName')
-    .optional()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('bankAccount.bankName must be between 2 and 100 characters'),
-  
-  body('delivery.bankAccount.accountNumber')
-    .optional()
-    .isLength({ min: 5, max: 50 })
-    .withMessage('bankAccount.accountNumber must be between 5 and 50 characters'),
-  
-  body('delivery.bankAccount.accountHolder')
-    .optional()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('bankAccount.accountHolder must be between 2 and 100 characters'),
-  
-  body('delivery.pickupLocation.address')
-    .optional()
-    .isLength({ min: 10, max: 200 })
-    .withMessage('pickupLocation.address must be between 10 and 200 characters'),
-  
-  body('delivery.pickupLocation.city')
-    .optional()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('pickupLocation.city must be between 2 and 50 characters'),
-  
-  body('delivery.pickupLocation.country')
-    .optional()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('pickupLocation.country must be between 2 and 50 characters')
-];
+    if (Array.isArray(data)) {
+      return data.map(item => this.sanitizeData(item));
+    }
 
-// Validation for transaction ID parameter
-exports.validateTransactionId = [
-  param('transactionId')
-    .isMongoId()
-    .withMessage('transactionId must be a valid MongoDB ID')
-];
+    if (typeof data === 'object' && data !== null) {
+      const sanitized = {};
+      for (const [key, value] of Object.entries(data)) {
+        sanitized[key] = this.sanitizeData(value);
+      }
+      return sanitized;
+    }
 
-// Validation for account index parameter
-exports.validateAccountIndex = [
-  param('accountIndex')
-    .isInt({ min: 0 })
-    .withMessage('accountIndex must be a non-negative integer')
-];
+    return data;
+  }
 
-// Validation for status update
-exports.validateStatusUpdate = [
-  body('status')
-    .isIn(['pending_payment', 'partial_paid', 'payment_complete', 'processing', 'completed', 'cancelled', 'failed'])
-    .withMessage('status must be a valid transaction status'),
-  
-  body('reason')
-    .optional()
-    .isLength({ min: 5, max: 500 })
-    .withMessage('reason must be between 5 and 500 characters')
-];
+  /**
+   * Sanitize string to prevent XSS
+   */
+  sanitizeString(str) {
+    if (typeof str !== 'string') {
+      return str;
+    }
 
-// Validation for receipt verification
-exports.validateReceiptVerification = [
-  body('verified')
-    .isBoolean()
-    .withMessage('verified must be a boolean value')
-];
+    // Remove potentially dangerous characters and patterns
+    return str
+      .replace(/[<>]/g, '') // Remove < and >
+      .replace(/javascript:/gi, '') // Remove javascript: protocol
+      .replace(/on\w+=/gi, '') // Remove event handlers
+      .replace(/data:/gi, '') // Remove data: protocol
+      .replace(/vbscript:/gi, '') // Remove vbscript: protocol
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '') // Remove script tags
+      .replace(/<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi, '') // Remove iframe tags
+      .trim();
+  }
 
-// Validation for VIP customer
-exports.validateVIPCustomer = [
-  body('customerId')
-    .isMongoId()
-    .withMessage('customerId must be a valid MongoDB ID'),
-  
-  body('vipLevel')
-    .isIn(['regular', 'loyal', 'vip', 'premium'])
-    .withMessage('vipLevel must be one of: regular, loyal, vip, premium'),
-  
-  body('bankAccount.accountNumber')
-    .optional()
-    .isLength({ min: 5, max: 50 })
-    .withMessage('bankAccount.accountNumber must be between 5 and 50 characters'),
-  
-  body('bankAccount.accountHolder')
-    .optional()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('bankAccount.accountHolder must be between 2 and 100 characters'),
-  
-  body('bankAccount.bankName')
-    .optional()
-    .isLength({ min: 2, max: 100 })
-    .withMessage('bankAccount.bankName must be between 2 and 100 characters'),
-  
-  body('limits.daily')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('limits.daily must be a non-negative number'),
-  
-  body('limits.monthly')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('limits.monthly must be a non-negative number'),
-  
-  body('limits.singleTransaction')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('limits.singleTransaction must be a non-negative number'),
-  
-  body('discounts.commission')
-    .optional()
-    .isFloat({ min: 0, max: 100 })
-    .withMessage('discounts.commission must be between 0 and 100'),
-  
-  body('discounts.exchangeRate')
-    .optional()
-    .isFloat({ min: 0, max: 5 })
-    .withMessage('discounts.exchangeRate must be between 0 and 5')
-];
+  /**
+   * Validate file upload
+   */
+  validateFileUpload(schema) {
+    return (req, res, next) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({
+            error: 'No file uploaded',
+            message: 'File is required'
+          });
+        }
 
-// Validation for exchange rate
-exports.validateExchangeRate = [
-  body('currencyPair.from')
-    .isLength({ min: 3, max: 3 })
-    .isUppercase()
-    .withMessage('currencyPair.from must be a 3-letter currency code'),
-  
-  body('currencyPair.to')
-    .isLength({ min: 3, max: 3 })
-    .isUppercase()
-    .withMessage('currencyPair.to must be a 3-letter currency code'),
-  
-  body('rates.buy')
-    .isFloat({ min: 0.000001 })
-    .withMessage('rates.buy must be a positive number'),
-  
-  body('rates.sell')
-    .isFloat({ min: 0.000001 })
-    .withMessage('rates.sell must be a positive number'),
-  
-  body('vipRates.buy')
-    .optional()
-    .isFloat({ min: 0.000001 })
-    .withMessage('vipRates.buy must be a positive number'),
-  
-  body('vipRates.sell')
-    .optional()
-    .isFloat({ min: 0.000001 })
-    .withMessage('vipRates.sell must be a positive number'),
-  
-  body('vipRates.discount')
-    .optional()
-    .isFloat({ min: 0, max: 100 })
-    .withMessage('vipRates.discount must be between 0 and 100'),
-  
-  body('limits.minAmount')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('limits.minAmount must be a non-negative number'),
-  
-  body('limits.maxAmount')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('limits.maxAmount must be a non-negative number'),
-  
-  body('limits.dailyLimit')
-    .optional()
-    .isFloat({ min: 0 })
-    .withMessage('limits.dailyLimit must be a non-negative number'),
-  
-  body('status')
-    .optional()
-    .isIn(['active', 'inactive', 'suspended'])
-    .withMessage('status must be one of: active, inactive, suspended'),
-  
-  body('source')
-    .optional()
-    .isIn(['manual', 'api', 'bank', 'market'])
-    .withMessage('source must be one of: manual, api, bank, market'),
-  
-  body('validity.from')
-    .optional()
-    .isISO8601()
-    .withMessage('validity.from must be a valid date'),
-  
-  body('validity.to')
-    .optional()
-    .isISO8601()
-    .withMessage('validity.to must be a valid date')
-];
+        const { error, value } = schema.validate({
+          fileType: req.body.fileType,
+          maxSize: req.body.maxSize,
+          allowedExtensions: req.body.allowedExtensions
+        });
 
-// Validation for query parameters
-exports.validateQueryParams = [
-  query('page')
-    .optional()
-    .isInt({ min: 1 })
-    .withMessage('page must be a positive integer'),
-  
-  query('limit')
-    .optional()
-    .isInt({ min: 1, max: 100 })
-    .withMessage('limit must be between 1 and 100'),
-  
-  query('status')
-    .optional()
-    .isIn(['pending_payment', 'partial_paid', 'payment_complete', 'processing', 'completed', 'cancelled', 'failed'])
-    .withMessage('status must be a valid transaction status'),
-  
-  query('type')
-    .optional()
-    .isIn(['buy', 'sell', 'exchange', 'remittance'])
-    .withMessage('type must be a valid transaction type'),
-  
-  query('period')
-    .optional()
-    .isIn(['day', 'week', 'month', 'year'])
-    .withMessage('period must be one of: day, week, month, year')
-];
+        if (error) {
+          return res.status(400).json({
+            error: 'Invalid file upload parameters',
+            details: error.details
+          });
+        }
 
-// Export validation rules and middleware
-module.exports = {
-    commonRules,
-    transactionRules,
-    customerRules,
-    userRules,
-    validate,
-    validateCurrencyTransaction: exports.validateCurrencyTransaction,
-    validateTransactionId: exports.validateTransactionId,
-    validateAccountIndex: exports.validateAccountIndex,
-    validateStatusUpdate: exports.validateStatusUpdate,
-    validateReceiptVerification: exports.validateReceiptVerification,
-    validateVIPCustomer: exports.validateVIPCustomer,
-    validateExchangeRate: exports.validateExchangeRate,
-    validateQueryParams: exports.validateQueryParams
-}; 
+        // Validate file size
+        if (req.file.size > value.maxSize) {
+          return res.status(400).json({
+            error: 'File too large',
+            message: `File size must be less than ${value.maxSize / (1024 * 1024)}MB`
+          });
+        }
+
+        // Validate file extension
+        const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+        if (!value.allowedExtensions.includes(fileExtension)) {
+          return res.status(400).json({
+            error: 'Invalid file type',
+            message: `Only ${value.allowedExtensions.join(', ')} files are allowed`
+          });
+        }
+
+        // Validate file content
+        this.validateFileContent(req.file, value.fileType)
+          .then(() => next())
+          .catch(error => {
+            return res.status(400).json({
+              error: 'Invalid file content',
+              message: error.message
+            });
+          });
+
+      } catch (error) {
+        logger.error('File validation error:', error);
+        return res.status(500).json({
+          error: 'Internal server error',
+          message: 'Failed to validate file'
+        });
+      }
+    };
+  }
+
+  /**
+   * Validate file content
+   */
+  async validateFileContent(file, fileType) {
+    // Check file magic numbers for common file types
+    const magicNumbers = {
+      'IMAGE': {
+        'jpg': [0xFF, 0xD8, 0xFF],
+        'jpeg': [0xFF, 0xD8, 0xFF],
+        'png': [0x89, 0x50, 0x4E, 0x47],
+        'gif': [0x47, 0x49, 0x46]
+      },
+      'DOCUMENT': {
+        'pdf': [0x25, 0x50, 0x44, 0x46],
+        'doc': [0xD0, 0xCF, 0x11, 0xE0],
+        'docx': [0x50, 0x4B, 0x03, 0x04]
+      }
+    };
+
+    const fileExtension = file.originalname.split('.').pop().toLowerCase();
+    const expectedMagicNumbers = magicNumbers[fileType]?.[fileExtension];
+
+    if (expectedMagicNumbers) {
+      const buffer = file.buffer.slice(0, expectedMagicNumbers.length);
+      const fileMagicNumbers = Array.from(buffer);
+
+      const isValid = expectedMagicNumbers.every((byte, index) => 
+        fileMagicNumbers[index] === byte
+      );
+
+      if (!isValid) {
+        throw new Error(`Invalid ${fileType.toLowerCase()} file format`);
+      }
+    }
+  }
+
+  /**
+   * Validate UUID parameters
+   */
+  validateUUID(paramName) {
+    const uuidSchema = Joi.object({
+      [paramName]: Joi.string().uuid().required()
+    });
+
+    return this.validateParams(uuidSchema);
+  }
+
+  /**
+   * Validate numeric ID parameters
+   */
+  validateNumericID(paramName) {
+    const idSchema = Joi.object({
+      [paramName]: Joi.number().integer().positive().required()
+    });
+
+    return this.validateParams(idSchema);
+  }
+
+  /**
+   * Validate pagination parameters
+   */
+  validatePagination() {
+    const paginationSchema = Joi.object({
+      page: Joi.number().integer().min(1).max(1000).default(1),
+      limit: Joi.number().integer().min(1).max(100).default(20),
+      sortBy: Joi.string().valid('created_at', 'updated_at', 'amount', 'status').default('created_at'),
+      sortOrder: Joi.string().valid('asc', 'desc').default('desc')
+    });
+
+    return this.validateQuery(paginationSchema);
+  }
+
+  /**
+   * Validate date range parameters
+   */
+  validateDateRange() {
+    const dateRangeSchema = Joi.object({
+      startDate: Joi.date().iso().max('now').required(),
+      endDate: Joi.date().iso().min(Joi.ref('startDate')).max('now').required()
+    });
+
+    return this.validateQuery(dateRangeSchema);
+  }
+
+  /**
+   * Get validation schemas
+   */
+  getSchemas() {
+    return {
+      userRegistration: this.userRegistrationSchema,
+      userLogin: this.userLoginSchema,
+      transaction: this.transactionSchema,
+      order: this.orderSchema,
+      payment: this.paymentSchema,
+      kyc: this.kycSchema,
+      fileUpload: this.fileUploadSchema,
+      search: this.searchSchema
+    };
+  }
+}
+
+module.exports = new ValidationMiddleware(); 

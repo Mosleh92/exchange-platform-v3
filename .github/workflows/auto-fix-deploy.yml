@@ -36,5 +36,3 @@ jobs:
         git config --global user.email 'bot@example.com'
         git diff --quiet || (git add . && git commit -m "fix: auto format/lint by bot" && git push)
 
-    - name: Deploy to Render
-      run: curl ${{ secrets.RENDER_DEPLOY_HOOK }}
