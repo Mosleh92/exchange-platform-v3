@@ -1,66 +1,48 @@
 const jwt = require('jsonwebtoken');
+const mongoose = require('mongoose');
 const config = require('../config');
-const { UnauthorizedError } = require('../utils/errors');
 const User = require('../models/User');
 const Tenant = require('../models/Tenant');
 
-exports.authorize = (roles = []) => async (req, res, next) => {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized' });
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(payload.id);
-    if (!user || (roles.length && !roles.includes(user.role))) return res.status(403).json({ error: 'Forbidden' });
-    req.user = user;
-    next();
-  } catch (err) {
-    res.status(401).json({ error: 'Unauthorized' });
-  }
-};
-const authMiddleware = async (req, res, next) => {
-  try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    
-    if (!token) {
-      return res.status(401).json({ message: 'No token provided' });
-    }
+/**
+ * Authenticate requests using JWT token.
+ * Attaches a simplified user object to the request on success.
+ */
+const auth = async (req, res, next) => {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
 
- copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
-const authMiddleware = async (req, res, next) => {
+  if (!token) {
+    return res.status(401).json({
+      success: false,
+      message: 'توکن احراز هویت ارائه نشده است'
+    });
+  }
+
+  let decoded;
   try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) {
-      throw new UnauthorizedError('توکن ارائه نشده است');
+    decoded = jwt.verify(token, config.app.jwtSecret);
+  } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ success: false, message: 'توکن منقضی شده است' });
     }
-    
-    const decoded = jwt.verify(token, config.app.jwtSecret);
-    
-    // Check if user still exists
+    return res.status(401).json({ success: false, message: 'توکن نامعتبر است' });
+  }
+
+  try {
     const user = await User.findById(decoded.userId);
     if (!user) {
-      throw new UnauthorizedError('کاربر یافت نشد');
+      return res.status(401).json({ success: false, message: 'کاربر یافت نشد' });
     }
 
-    // Check if user is active (status === 'active')
     if (user.status !== 'active') {
-      throw new UnauthorizedError('حساب کاربری غیرفعال شده است');
+      return res.status(401).json({ success: false, message: 'حساب کاربری غیرفعال شده است' });
     }
 
-    // بررسی وضعیت Tenant
     const tenant = await Tenant.findById(user.tenantId);
     if (!tenant || tenant.status !== 'active') {
-      return res.status(403).json({
-        success: false,
-        message: 'سازمان شما غیرفعال شده است'
-      });
+      return res.status(403).json({ success: false, message: 'سازمان شما غیرفعال شده است' });
     }
 
-    req.user = decoded;
-    
-    // اضافه کردن tenant_id به تمام درخواستها
-    req.tenantId = decoded.tenantId;
-    
-    // تنظیم اطلاعات کاربر در request (فقط یک بار)
     req.user = {
       userId: user._id,
       tenantId: user.tenantId,
@@ -70,95 +52,80 @@ const authMiddleware = async (req, res, next) => {
       status: user.status
     };
     req.userData = user;
-    
+    req.tenantId = user.tenantId;
     next();
-  } catch (error) {
-    next(new UnauthorizedError('توکن نامعتبر است'));
-=======
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.id)
-      .populate('tenantId')
-      .select('-password');
-
-    if (!user) {
-      return res.status(401).json({ message: 'User not found' });
-    }
-
-    if (!user.isActive) {
-      return res.status(401).json({ message: 'Account is deactivated' });
-    }
-
-    if (user.isLocked) {
-      return res.status(401).json({ message: 'Account is locked' });
-    }
-
-    // Check tenant status for non-super admins
-    if (user.role !== 'super_admin' && user.tenantId && !user.tenantId.isActive) {
-      return res.status(401).json({ message: 'Tenant is inactive' });
-    }
-
-    req.user = user;
-    next();
-  } catch (error) {
-    if (error.name === 'JsonWebTokenError') {
-      return res.status(401).json({ message: 'Invalid token' });
-    }
-    if (error.name === 'TokenExpiredError') {
-      return res.status(401).json({ message: 'Token expired' });
-    }
-    res.status(500).json({ message: 'Server error' });
-main
+  } catch (err) {
+    next(err);
   }
 };
 
-const roleMiddleware = (requiredRoles) => {
+/**
+ * Ensure a request is scoped to the authenticated user's tenant.
+ */
+const tenantIsolation = async (req, res, next) => {
+  const tenantId =
+    req.params.tenantId ||
+    req.body.tenantId ||
+    req.query.tenantId ||
+    req.headers['x-tenant-id'];
+
+  if (!tenantId) {
+    return res.status(400).json({ success: false, message: 'شناسه صرافی ارائه نشده است' });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(tenantId)) {
+    return res.status(400).json({ success: false, message: 'شناسه صرافی نامعتبر است' });
+  }
+
+  if (req.user && req.user.tenantId && req.user.tenantId.toString() !== tenantId.toString()) {
+    return res.status(403).json({ success: false, message: 'شما دسترسی به این صرافی را ندارید' });
+  }
+
+  req.params.tenantId = tenantId;
+  next();
+};
+
+/**
+ * Authorize access based on roles or permissions.
+ * Usage: authorize('role1', 'resource:action')
+ */
+const authorize = (...requirements) => {
   return (req, res, next) => {
     if (!req.user) {
-      return res.status(401).json({ message: 'Authentication required' });
+      return res.status(401).json({ success: false, message: 'احراز هویت لازم است' });
     }
 
-    if (!requiredRoles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Insufficient permissions' });
+    const { role, permissions = [] } = req.user;
+
+    const hasRole = requirements.some((r) => r === role);
+    const hasPermission = requirements.some((reqStr) => {
+      if (!reqStr.includes(':')) return false;
+      const [resource, action] = reqStr.split(':');
+      return permissions.some(
+        (p) => p.resource === resource && p.actions && p.actions.includes(action)
+      );
+    });
+
+    if (!hasRole && !hasPermission) {
+      return res.status(403).json({
+        success: false,
+        message: 'شما دسترسی به این عملیات را ندارید'
+      });
     }
 
     next();
   };
 };
 
-const tenantMiddleware = async (req, res, next) => {
-  try {
-    const subdomain = req.headers['x-tenant-subdomain'] || req.query.tenant;
-    
-    if (!subdomain) {
-      return res.status(400).json({ message: 'Tenant subdomain required' });
-    }
+// Expose middleware and aliases for backward compatibility
+auth.auth = auth;
+auth.authenticate = auth;
+auth.protect = auth;
+auth.authenticateToken = auth;
+auth.authorize = authorize;
+auth.authorizeRoles = authorize;
+auth.tenantIsolation = tenantIsolation;
+auth.tenantAccess = tenantIsolation;
 
-    const tenant = await Tenant.findOne({ subdomain, isActive: true });
-    
-    if (!tenant) {
-      return res.status(404).json({ message: 'Tenant not found' });
-    }
+module.exports = auth;
 
-    req.tenant = tenant;
-    next();
-  } catch (error) {
-    res.status(500).json({ message: 'Server error' });
-  }
-};
-
-module.exports = {
- copilot/fix-7bcc1d48-f060-4cc7-83e6-8f7e91fc2fc5
-    auth: authMiddleware,
-    authMiddleware, // alias
-    authenticate: authMiddleware, // alias for compatibility
-    protect: authMiddleware, // alias for compatibility  
-    authorize,
-    tenantAccess,
-    superAdmin: authorize('super_admin') // helper for super admin role
-};
-=======
-  authMiddleware,
-  roleMiddleware,
-  tenantMiddleware
-};
- main
