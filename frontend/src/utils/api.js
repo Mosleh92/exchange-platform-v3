@@ -1,12 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext';
-import { SocketProvider } from './contexts/SocketContext';
-import Layout from './components/Layout/Layout';
-import AuthLayout from './components/Layout/AuthLayout';
-import Login from './pages/Auth/Login';
-import Dashboard from './pages/Dashboard/Dashboard';
+import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { SocketProvider } from '../contexts/SocketContext';
+import Layout from '../components/Layout/Layout';
+import AuthLayout from '../components/Layout/AuthLayout';
+import Login from '../pages/Auth/Login';
+import Dashboard from '../pages/Dashboard/Dashboard';
 
 // A simple loading spinner component to show while checking auth state
 const Loading = () => (
