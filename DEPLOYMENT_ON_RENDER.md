@@ -11,7 +11,8 @@ This document outlines the settings required to deploy the frontend and backend 
 
 *   **Service Type**: PostgreSQL
 *   **Creation**: Create this service first via the Render dashboard.
-*   **Internal Database URL**: Once created, copy the "Internal Database URL". This will be used as the `DATABASE_URL` environment variable for the backend service.
+*   **Internal Database URL**: Once created, copy the "Internal Database URL".
+    This will be used as the `DATABASE_URL` environment variable for the backend service.
 
 ## 2. Backend Service
 
