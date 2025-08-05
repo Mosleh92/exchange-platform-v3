@@ -7,7 +7,6 @@ const paymentController = {
   createPayment: (req, res) => res.json({ success: true }),
   uploadReceipt: (req, res) => res.json({ success: true }),
   getMyPayments: (req, res) => res.json({ success: true }),
-  getAllPayments: (req, res) => res.json({ success: true }),
   getPaymentStats: (req, res) => res.json({ success: true }),
   getPendingPayments: (req, res) => res.json({ success: true }),
   getTransactionPayments: (req, res) => res.json({ success: true }),
@@ -18,26 +17,11 @@ const paymentController = {
 router.use(require('../middleware/auth').auth);
 router.use(require('../middleware/tenant').tenantAccess);
 
-// Get all payments
-// حذف route مشکل‌دار getAllPayments
-
 // Create new payment
 router.post('/', validatePayment, paymentController.createPayment);
 
 // Upload single receipt
 router.post('/:paymentId/receipt', paymentController.uploadReceipt);
-
-// Upload multiple receipts
-// حذف route مشکل‌دار uploadMultipleReceipts
-
-// Verify payment
-// حذف route مشکل‌دار verifyPayment
-
-// Reject payment
-// حذف route مشکل‌دار rejectPayment
-
-// Get payment by ID
-// حذف route مشکل‌دار getPaymentById
 
 // Get payment statistics
 router.get('/stats/summary', paymentController.getPaymentStats);
@@ -51,10 +35,7 @@ router.get('/transaction/:transactionId', paymentController.getTransactionPaymen
 // Get customer payments
 router.get('/customer/:customerId', paymentController.getCustomerPayments);
 
-// فقط مشتری به پرداخت خودش دسترسی دارد
+// Only customers can access their own payments
 router.get('/my-payments', authorize(['customer']), paymentController.getMyPayments);
 
-// فقط tenant_admin به لیست همه پرداخت‌ها دسترسی دارد
-router.get('/all', authorize(['tenant_admin']), paymentController.getAllPayments);
-
-module.exports = router; 
+module.exports = router;
