@@ -1,19 +1,14 @@
 require('dotenv').config();
 
 module.exports = {
- copilot/fix-dd7d2c3e-0e1b-4fcd-b4f9-18a95ca70cef
-  port: process.env.PORT || 3000,
-  mongoUri: process.env.MONGODB_URI || 'mongodb://localhost:27017/exchange',
-  jwtSecret: process.env.JWT_SECRET || 'your-secret-key'
-=======
   app: {
     port: process.env.PORT || 3000,
     env: process.env.NODE_ENV || 'development',
-    jwtSecret: process.env.JWT_SECRET,
+    jwtSecret: process.env.JWT_SECRET || 'your-secret-key',
     jwtExpiresIn: '24h'
   },
   db: {
-    uri: process.env.MONGODB_URI,
+    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/exchange',
     options: {
       useNewUrlParser: true,
       useUnifiedTopology: true,
@@ -31,5 +26,5 @@ module.exports = {
       max: 100
     }
   }
- main
 };
+
